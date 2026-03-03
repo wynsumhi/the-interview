@@ -422,3 +422,7 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,visualstudiocode,intellij,venv,nextjs,python,java,react
+
+# Exclude fe/src/lib from lib ignore rule
+!fe/src/lib/
+!fe/src/lib/**
