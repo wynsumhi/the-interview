@@ -1,7 +1,7 @@
 ### ✨Jira Info
 
-- 상위 Jira Ticket 번호 :
-- 해당 Jira Ticket 번호 :
+- 상위 Jira Ticket 번호:
+- 해당 Jira Ticket 번호:
 
 ### #️⃣ 작업 개요
 
