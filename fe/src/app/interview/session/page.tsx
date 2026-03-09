@@ -1,13 +1,13 @@
 "use client";
 
-import QuestionCard from "@/src/components/interview/QuestionCard";
-import RecordingButton from "@/src/components/interview/RecordingButton";
-import TranscriptBox from "@/src/components/interview/TranscriptBox";
-import Timer from "@/src/components/interview/Timer";
+import QuestionCard from "@/components/interview/QuestionCard";
+import RecordingButton from "@/components/interview/RecordingButton";
+import TranscriptBox from "@/components/interview/TranscriptBox";
+import Timer from "@/components/interview/Timer";
 
-import { useInterviewStore } from "@/src/store/interviewStore";
+import { useInterviewStore } from "@/store/interviewStore";
 
-import useRecording from "@/src/hooks/useRecording";
+import useRecording from "@/hooks/useRecording";
 
 // TEST QUESTION - 실제 인터뷰에서는 API로 받아올 예정
 const questions = [
