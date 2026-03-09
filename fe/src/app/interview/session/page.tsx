@@ -42,9 +42,16 @@ export default function InterviewSession() {
 
       <QuestionCard question={questions[questionIndex]} />
 
-      <RecordingButton />
+      <RecordingButton
+        isRecording={isRecording}
+        onStart={startRecording}
+        onStop={() => {
+          stopRecording();
+          nextQuestion();
+        }}
+      />
 
-      <TranscriptBox />
+      <TranscriptBox text={transcript} />
     </main>
   );
 }
