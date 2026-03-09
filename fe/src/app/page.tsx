@@ -1,3 +1,3 @@
-export default function Home() {
-  return <div>자 이제 시작이야</div>;
+export default function Intro() {
+  return <div>intro page</div>;
 }
