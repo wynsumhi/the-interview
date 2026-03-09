@@ -7,6 +7,8 @@ import Timer from "@/src/components/interview/Timer";
 
 import { useInterviewStore } from "@/src/store/interviewStore";
 
+import useRecording from "@/src/hooks/useRecording";
+
 // TEST QUESTION - 실제 인터뷰에서는 API로 받아올 예정
 const questions = [
   "당신의 어린 시절을 가장 잘 설명하는 기억은 무엇인가요?",
@@ -22,9 +24,32 @@ export default function InterviewSession() {
     startRecording,
     stopRecording,
     nextQuestion,
+    setTranscript,
   } = useInterviewStore();
 
   const question = questions[questionIndex];
+
+  const { startRecording: startMic, stopRecording: stopMic } = useRecording(
+    (blob) => {
+      console.log("audio file", blob);
+
+      setTranscript("녹음 완료 (현재 mock 상태)");
+
+      nextQuestion();
+    },
+  );
+
+  const handleStart = () => {
+    startRecording();
+
+    startMic();
+  };
+
+  const handleStop = () => {
+    stopRecording();
+
+    stopMic();
+  };
 
   return (
     <main
@@ -40,15 +65,12 @@ export default function InterviewSession() {
 
       <Timer />
 
-      <QuestionCard question={questions[questionIndex]} />
+      <QuestionCard question={question} />
 
       <RecordingButton
         isRecording={isRecording}
-        onStart={startRecording}
-        onStop={() => {
-          stopRecording();
-          nextQuestion();
-        }}
+        onStart={handleStart}
+        onStop={handleStop}
       />
 
       <TranscriptBox text={transcript} />
