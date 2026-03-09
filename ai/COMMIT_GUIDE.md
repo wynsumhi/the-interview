@@ -3,13 +3,18 @@
 ## Latest Work
 
 Task
-Create test.py with hello output
+Add Python code convention setup with Ruff and pre-commit for the ai directory
 
 Changed Files
-test.py
+pyproject.toml
+.pre-commit-config.yaml
+requirements.txt
+requirements-dev.txt
+README.md
+COMMIT_GUIDE.md
 
 Recommended Branch
-chore/S14P21A307-84-add-hello-test-script
+chore/S14P21A307-84-ai-python-code-convention
 
 Recommended Commit
-S14P21A307-84 chore: add hello test script
+S14P21A307-84 chore: add Ruff and pre-commit setup for ai

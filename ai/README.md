@@ -42,6 +42,35 @@ pip install -r requirements.txt
 
 uvicorn app.main:app --reload
 
+## Python Code Convention
+
+### Install
+
+python -m venv .venv
+
+.venv\Scripts\activate
+
+pip install -r requirements-dev.txt
+
+### Run Ruff Manually
+
+ruff check app tests
+
+ruff format app tests
+
+### Use pre-commit
+
+pre-commit install
+
+pre-commit run --all-files
+
+Ruff is configured with practical defaults for FastAPI-oriented server code:
+- import sorting and cleanup
+- basic error/style checks
+- lightweight bug-prone pattern checks
+
+The current rules avoid overly strict gates so initial development is not blocked.
+
 ## Test
 
 pytest
