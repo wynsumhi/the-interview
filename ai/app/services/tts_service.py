@@ -1,5 +1,9 @@
 from openai import OpenAI
+from dotenv import load_dotenv
 import os
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
 
 client = OpenAI(
     api_key=os.getenv("GMS_KEY"),
