@@ -6,8 +6,16 @@ interface Props {
 
 export default function QuestionCard({ question }: Props) {
   return (
-    <div>
-      <p>{question}</p>
+    <div
+      style={{
+        width: "700px",
+        fontSize: "28px",
+        fontWeight: "600",
+        textAlign: "center",
+        lineHeight: "1.5",
+      }}
+    >
+      {question}
     </div>
   );
 }
