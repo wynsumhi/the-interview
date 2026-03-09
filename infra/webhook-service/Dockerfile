@@ -1,11 +1,14 @@
 # 1. Build Stage
-FROM gradle:7.6-jdk17 AS build
-COPY --chown=gradle:gradle . /home/gradle/src
-WORKDIR /home/gradle/src
-RUN gradle build --no-daemon
+FROM eclipse-temurin:17-jdk AS build
+WORKDIR /app
+COPY . .
+RUN chmod +x ./gradlew
+RUN ./gradlew bootJar -x test --no-daemon
 
 # 2. Run Stage
-FROM openjdk:17-slim
+FROM eclipse-temurin:17-jre
 EXPOSE 9123
-COPY --from=build /home/gradle/src/build/libs/*.jar app.jar
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+WORKDIR /app
+COPY --from=build /app/build/libs/*.jar app.jar
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
