@@ -24,9 +24,9 @@ services:
       #   - "8080:8080"
       #   - "50000:50000"
 
-  bridgeServer:
+  bridgeserver:
     build: ./webhook-service
-    container_name: bridgeServer
+    container_name: bridgeserver
     restart: on-failure
     networks:
       - infra-network
