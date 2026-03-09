@@ -1,26 +1,81 @@
 @import "tailwindcss";
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #faf9f6;
+  --foreground: #1c1c1c;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Brand palette */
+  --color-cream:     #faf9f6;
+  --color-warm:      #f5f0eb;
+  --color-blush:     #c9a99a;
+  --color-sage:      #8a9e8c;
+  --color-lavender:  #9b91d4;
+  --color-ink:       #1c1c1c;
+  --color-charcoal:  #2d2d2d;
+  --color-muted:     #5d5d5d;
+  --color-border:    #e5e0d8;
+  --color-deep:      #16161e;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom font utilities */
+.font-playfair { font-family: var(--font-playfair); }
+.font-caveat   { font-family: var(--font-caveat); }
+.font-gaegu    { font-family: var(--font-gaegu); }
+
+/* ─── Animations ─── */
+@keyframes wave-bar {
+  0%, 100% { transform: scaleY(0.35); }
+  50%       { transform: scaleY(1); }
+}
+
+@keyframes float-orb {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  33%       { transform: translateY(-22px) rotate(2deg); }
+  66%       { transform: translateY(-10px) rotate(-1deg); }
+}
+
+@keyframes gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes scroll-line {
+  0%   { transform: scaleY(0); transform-origin: top; }
+  50%  { transform: scaleY(1); transform-origin: top; }
+  51%  { transform: scaleY(1); transform-origin: bottom; }
+  100% { transform: scaleY(0); transform-origin: bottom; }
+}
+
+.animate-wave-bar {
+  animation: wave-bar 1.5s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.animate-float-orb {
+  animation: float-orb 9s ease-in-out infinite;
+}
+
+.animate-gradient {
+  background-size: 300% 300%;
+  animation: gradient-shift 9s ease infinite;
+}
+
+.animate-scroll-line {
+  animation: scroll-line 2.2s ease-in-out infinite;
 }
