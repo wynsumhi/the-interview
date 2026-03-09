@@ -1,13 +1,14 @@
-from openai import OpenAI
-from dotenv import load_dotenv
 import os
+
+from dotenv import load_dotenv
+from openai import OpenAI
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
 
 client = OpenAI(
     api_key=os.getenv("GMS_KEY"),
-    base_url= "https://gms.ssafy.io/gmsapi/api.openai.com/v1",
+    base_url="https://gms.ssafy.io/gmsapi/api.openai.com/v1",
 )
 
 # 최초 인터뷰를 위한 질문의 TTS 결과를 저장할 디렉토리 경로 설정
@@ -22,6 +23,7 @@ TTS_VOICE = "alloy"
 #   2. TTS로 변환
 #   3. 변환된 음성 데이터를 AI 서버에 파일로 저장
 #   4. {question_id: 파일 경로} 형태의 딕셔너리 반환
+
 
 def first_interview_tts(questions: list[dict]) -> dict:
     """
@@ -63,6 +65,7 @@ def first_interview_tts(questions: list[dict]) -> dict:
 #   1. 실시간으로 TTS로 변환
 #   2. 변환된 음성 데이터를 반환하지만 파일을 저장하지는 않음
 #   3. LLM을 통해 생성되는 꼬리 질문은 인터뷰 진행 중에 실시간으로 TTS 변환하여 반환
+
 
 def realtime_interview_tts(question_text: str) -> bytes:
     """

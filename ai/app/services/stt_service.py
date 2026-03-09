@@ -1,14 +1,16 @@
-from openai import OpenAI
-from dotenv import load_dotenv
 import os
+
+from dotenv import load_dotenv
+from openai import OpenAI
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
 
 client = OpenAI(
     api_key=os.getenv("GMS_KEY"),
-    base_url= "https://gms.ssafy.io/gmsapi/api.openai.com/v1",
+    base_url="https://gms.ssafy.io/gmsapi/api.openai.com/v1",
 )
+
 
 def speech_to_text(audio_file_path: str) -> str:
     """
@@ -21,7 +23,7 @@ def speech_to_text(audio_file_path: str) -> str:
         response = client.audio.transcriptions.create(
             file=audio_file,
             model="whisper-1",
-            language="ko", # 한국어로 설정
+            language="ko",  # 한국어로 설정
         )
     return response.text
 
@@ -55,10 +57,12 @@ def add_answer(session: dict, question: str, audio_file_path: str) -> str:
     answer_text = speech_to_text(audio_file_path)
 
     # 변환된 텍스트 누적 저장
-    session["session_texts"].append({
-        "question": question,
-        "answer": answer_text,
-    })
+    session["session_texts"].append(
+        {
+            "question": question,
+            "answer": answer_text,
+        }
+    )
 
     return answer_text
 
