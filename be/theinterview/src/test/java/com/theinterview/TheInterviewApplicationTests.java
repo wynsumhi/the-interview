@@ -1,10 +1,10 @@
-package com.a307.a307_be_server;
+package com.theinterview;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class A307BeServerApplicationTests {
+class TheInterviewApplicationTests {
 
 	@Test
 	void contextLoads() {
