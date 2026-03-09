@@ -1,0 +1,44 @@
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - infra-network
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    restart: on-failure
+    volumes:
+      - /home/ubuntu/jenkins-data:/var/jenkins_home
+    environment:
+      - JENKINS_OPTS=--prefix=/infra/jenkins
+    networks:
+      - infra-network
+      # ports:
+      #   - "8080:8080"
+      #   - "50000:50000"
+
+  bridgeServer:
+    build: ./webhook-service
+    container_name: bridgeServer
+    restart: on-failure
+    networks:
+      - infra-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    environment:
+      - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+
+networks:
+  infra-network:
+    driver: bridge
