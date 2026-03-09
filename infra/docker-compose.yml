@@ -28,6 +28,8 @@ services:
     build: ./webhook-service
     container_name: bridgeserver
     restart: on-failure
+    env_file:
+      - ./webhook-service/.env
     networks:
       - infra-network
     deploy:
