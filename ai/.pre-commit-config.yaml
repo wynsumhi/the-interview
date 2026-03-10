@@ -3,7 +3,8 @@ repos:
     rev: v0.11.0
     hooks:
       - id: ruff
-        args: [--fix]
-        files: ^(app|tests)/.*\.py$
+        args: [--fix, --config=ai/pyproject.toml]
+        files: ^ai/(app|tests)/.*\.py$
       - id: ruff-format
-        files: ^(app|tests)/.*\.py$
+        args: [--config=ai/pyproject.toml]
+        files: ^ai/(app|tests)/.*\.py$
