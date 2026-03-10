@@ -1,5 +1,21 @@
+server:
+  servlet:
+    context-path: /api
+
 spring:
   profiles:
     active: local
   application:
     name: the-interview
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+springdoc:
+  api-docs:
+    path: /v1/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
