@@ -1,28 +1,41 @@
 import os
 
-import anthropic
+import requests
 from dotenv import load_dotenv
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
 
-client = anthropic.Anthropic(
-    api_key=os.getenv("GMS_KEY"),
-    base_url="https://gms.ssafy.io/gmsapi/",
-)
+# SDK 사용 방식이 아닌 requests 라이브러리를 사용하여 직접 API 호출
+GMS_API_URL = "https://gms.ssafy.io/gmsapi/api.anthropic.com/v1/messages"
+GMS_KEY = os.getenv("GMS_KEY")
+MODEL_NAME = "claude-sonnet-4-5-20250929"
+
+HEADERS = {
+    "Content-Type": "application/json",
+    "x-api-key": GMS_KEY,
+    "anthropic-version": "2023-06-01",
+}
 
 
-def test_simple_message():
+def create_message(
+    messages: list[dict],
+    system: str = None,
+    max_tokens: int = 1024,
+) -> str:
     """
-    간단한 메시지 생성 테스트 함수
+    GMS Claude API에 메시지를 전송하고 응답 텍스트를 반환하는 함수
     """
-    response = client.messages.create(
-        model="claude-sonnet-4-5-20250929",
-        max_tokens=128,
-        messages=[{"role": "user", "content": "Hello"}],
-    )
+    payload = {
+        "model": MODEL_NAME,
+        "max_tokens": max_tokens,
+        "messages": messages,
+    }
 
-    assert response is not None
-    assert len(response.content) > 0
-    assert response.content[0].type == "text"
-    assert len(response.content[0].text) > 0
+    if system:
+        payload["system"] = system
+
+    response = requests.post(GMS_API_URL, headers=HEADERS, json=payload)
+    response.raise_for_status()
+
+    return response.json()["content"][0]["text"]
