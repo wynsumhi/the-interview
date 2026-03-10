@@ -136,13 +136,12 @@ def mask_stt_text_for_llm(stt_text: str) -> MaskingResult:
 
 def format_masking_report(result: MaskingResult) -> str:
     """로컬 실행이나 디버깅 시 사람이 읽기 쉬운 문자열 리포트로 변환한다."""
+    entities_json = json.dumps([asdict(entity) for entity in result.entities], ensure_ascii=False)
     return (
         f"Original: {result.original_text}\n"
         f"Masked: {result.masked_text}\n"
         f"Masking time: {result.duration_seconds}s\n"
-        f"Entities: {
-            json.dumps([asdict(entity) for entity in result.entities], ensure_ascii=False)
-        }"
+        f"Entities: {entities_json}"
     )
 
 
