@@ -1,3 +1,4 @@
 ./jenkins-data
 ./webhook-service/.gradle
 ./webhook-service/.idea
+.env
