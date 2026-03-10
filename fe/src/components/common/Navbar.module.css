@@ -1,11 +1,14 @@
 .nav {
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px var(--px);
+  height: 68px;
+  padding: 0 var(--px);
 }
 
 .backdrop {
@@ -13,7 +16,7 @@
   inset: 0;
   background: rgba(250, 249, 246, 0.72);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(229, 224, 216, 0.5);
+  border-bottom: 1px solid rgba(91, 79, 59, 0.5);
   z-index: -1;
 }
 
@@ -25,7 +28,9 @@
   letter-spacing: 0.03em;
   transition: color 0.3s;
 }
-.logo:hover { color: var(--blush); }
+.logo:hover {
+  color: var(--blush);
+}
 
 .links {
   display: flex;
@@ -39,18 +44,78 @@
   color: var(--charcoal);
   transition: color 0.2s;
 }
-.login:hover { color: var(--fg); }
+.login:hover {
+  color: var(--fg);
+}
 
 .signup {
   background: var(--fg);
   color: var(--bg);
   font-size: 14px;
   letter-spacing: 0.12em;
-  padding: 10px 24px;
+  padding: 8px 18px;
+  border-radius: 4px;
   transition: background 0.3s;
 }
-.signup:hover { background: var(--blush); }
+.signup:hover {
+  background: var(--blush);
+}
+
+.navLink {
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  color: var(--charcoal);
+  transition: color 0.2s;
+}
+
+.navLink:hover {
+  color: var(--blush);
+}
+
+.startBtn {
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+.startBtn:hover {
+  background: var(--sage);
+}
+
+.profileCircle {
+  width: 32px;
+  height: 32px;
+  background: var(--border);
+  border-radius: 50%;
+  display: block;
+  transition: transform 0.2s;
+}
+
+.profileCircle:hover {
+  transform: scale(1.1);
+}
+
+.logoutBtn {
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: #999;
+  cursor: pointer;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+
+.logoutBtn:hover {
+  color: var(--fg);
+}
 
 @media (max-width: 640px) {
-  .nav { padding: 16px var(--px-mobile); }
+  .nav {
+    height: 56px;
+    padding: 0 var(--px-mobile);
+  }
 }
