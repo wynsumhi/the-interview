@@ -29,6 +29,11 @@ public class MemberService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .build();
 
-        return new MemberInfoDTO(memberRepository.save(member));
+        // 사용자 정보 DB에 저장
+        Member saveMember = memberRepository.save(member);
+        log.info("회원가입 완료 memberId: {}, email: {}, nickname: {}", saveMember.getId(),
+                saveMember.getEmail(), saveMember.getNickname());
+
+        return new MemberInfoDTO(saveMember);
     }
 }
