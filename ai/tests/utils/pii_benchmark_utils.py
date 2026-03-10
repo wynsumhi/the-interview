@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import json
 import re
+from dataclasses import asdict, dataclass
 from time import perf_counter
-
 
 TEST_TEXT = (
     "연락은 010-1234-5678 또는 test.user@example.com 으로 주세요. "
@@ -85,7 +84,7 @@ def mask_sensitive_information(text: str) -> MaskingResult:
         counters[candidate.entity_type] = counters.get(candidate.entity_type, 0) + 1
         replacement = f"[{candidate.entity_type}_{counters[candidate.entity_type]}]"
 
-        masked_parts.append(text[cursor:candidate.start])
+        masked_parts.append(text[cursor : candidate.start])
         masked_parts.append(replacement)
         entities.append(
             MaskedEntity(
@@ -114,7 +113,9 @@ def format_masking_report(result: MaskingResult) -> str:
         f"Original: {result.original_text}\n"
         f"Masked: {result.masked_text}\n"
         f"Masking time: {result.duration_seconds}s\n"
-        f"Entities: {json.dumps([asdict(entity) for entity in result.entities], ensure_ascii=False)}"
+        f"Entities: {
+            json.dumps([asdict(entity) for entity in result.entities], ensure_ascii=False)
+        }"
     )
 
 
@@ -137,7 +138,10 @@ def _collect_candidates(text: str) -> list[CandidateSpan]:
 def _dedupe_candidates(candidates: list[CandidateSpan]) -> list[CandidateSpan]:
     deduped: list[CandidateSpan] = []
     for candidate in sorted(candidates, key=lambda item: (item.start, -(item.end - item.start))):
-        if any(existing.start <= candidate.start and candidate.end <= existing.end for existing in deduped):
+        if any(
+            existing.start <= candidate.start and candidate.end <= existing.end
+            for existing in deduped
+        ):
             continue
         deduped.append(candidate)
     return sorted(deduped, key=lambda item: item.start)

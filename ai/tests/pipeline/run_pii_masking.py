@@ -1,5 +1,7 @@
-from app.services.guardrail_service import format_masking_report, mask_sensitive_information
-
+from app.services.guardrail_service import (
+    format_masking_report,
+    mask_sensitive_information,
+)
 
 TEST_TEXT = (
     "연락처는 010-1234-5678 이고 이메일은 test.user@example.com 입니다. "

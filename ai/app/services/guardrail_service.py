@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import json
 import re
+from dataclasses import asdict, dataclass
 from time import perf_counter
-
 
 # STT가 반환한 원문 텍스트에서 정형화된 개인정보 패턴을 먼저 탐지한다.
 # 현재는 전화번호, 이메일, 주민등록번호, 계좌번호, 카드번호를 규칙 기반으로 처리한다.
@@ -92,7 +91,7 @@ def mask_sensitive_information(text: str) -> MaskingResult:
     cursor = 0
 
     for candidate in candidates:
-        # 이미 앞선 후보가 같은 구간을 덮었다면 현재 후보는 무시한다.
+        # 이미 앞선 후보가 같은 구간을 덮었다면 현재 후보는 무시
         if candidate.start < cursor:
             continue
 
@@ -100,7 +99,7 @@ def mask_sensitive_information(text: str) -> MaskingResult:
         replacement = f"[{candidate.entity_type}_{counters[candidate.entity_type]}]"
 
         # 직전 커서부터 현재 후보 시작점 전까지는 원문 그대로 유지한다.
-        masked_parts.append(text[cursor:candidate.start])
+        masked_parts.append(text[cursor : candidate.start])
         masked_parts.append(replacement)
         entities.append(
             MaskedEntity(
@@ -141,7 +140,9 @@ def format_masking_report(result: MaskingResult) -> str:
         f"Original: {result.original_text}\n"
         f"Masked: {result.masked_text}\n"
         f"Masking time: {result.duration_seconds}s\n"
-        f"Entities: {json.dumps([asdict(entity) for entity in result.entities], ensure_ascii=False)}"
+        f"Entities: {
+            json.dumps([asdict(entity) for entity in result.entities], ensure_ascii=False)
+        }"
     )
 
 
@@ -169,7 +170,10 @@ def _dedupe_candidates(candidates: list[CandidateSpan]) -> list[CandidateSpan]:
     # 같은 위치를 두 번 치환할 수 있으므로, 먼저 긴 범위를 남기고 나머지는 버린다.
     deduped: list[CandidateSpan] = []
     for candidate in sorted(candidates, key=lambda item: (item.start, -(item.end - item.start))):
-        if any(existing.start <= candidate.start and candidate.end <= existing.end for existing in deduped):
+        if any(
+            existing.start <= candidate.start and candidate.end <= existing.end
+            for existing in deduped
+        ):
             continue
         deduped.append(candidate)
     return sorted(deduped, key=lambda item: item.start)
