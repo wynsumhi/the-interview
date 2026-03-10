@@ -4,6 +4,8 @@ import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.dto.MemberRequest.MemberJoinRequest;
 import com.theinterview.domain.member.dto.MemberResponse.MemberInfoDTO;
 import com.theinterview.domain.member.repository.MemberRepository;
+import com.theinterview.global.response.exception.GeneralException;
+import com.theinterview.global.response.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,6 +24,14 @@ public class MemberService {
     public MemberInfoDTO createMember(
             MemberJoinRequest request
     ) {
+        if (!checkEmail(request.getEmail())) {
+            throw new GeneralException(ErrorStatus.MEMBER_ALREADY_EXISTS);
+        }
+
+        if (!checkNickname(request.getNickname())) {
+            throw new GeneralException(ErrorStatus.MEMBER_ALREADY_EXISTS);
+        }
+
         // 비밀번호 암호화 후 엔티티 생성 및 DB 저장
         Member member = Member.builder()
                 .email(request.getEmail())
@@ -35,5 +45,16 @@ public class MemberService {
                 saveMember.getEmail(), saveMember.getNickname());
 
         return new MemberInfoDTO(saveMember);
+    }
+
+    // 이메일 중복 체크 헬퍼 메서드
+    public boolean checkEmail(String email) {
+        // 이메일 중복 체크
+        return !memberRepository.existsByEmail(email);
+    }
+
+    // 닉네임 중복 체크 헬퍼 메서드
+    public boolean checkNickname(String nickname) {
+        return !memberRepository.existsByNickname(nickname);
     }
 }
