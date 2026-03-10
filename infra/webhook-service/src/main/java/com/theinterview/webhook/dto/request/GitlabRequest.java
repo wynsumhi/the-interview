@@ -5,6 +5,8 @@ import java.util.List;
 
 public record GitlabRequest(
         @JsonProperty("object_kind") String objectKind,
+        @JsonProperty("before") String before,
+        @JsonProperty("after") String after,
         @JsonProperty("user_username") String userUsername,
         @JsonProperty("user_name") String userName,
         @JsonProperty("user") User user,

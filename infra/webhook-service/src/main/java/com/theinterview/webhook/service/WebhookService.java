@@ -6,12 +6,14 @@ import com.theinterview.webhook.dto.request.GitlabRequest;
 import com.theinterview.webhook.dto.response.MattermostResponse;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
  * 이벤트를 가공하여 MM에 마크다운 형식으로 전달하는 서비스 레이어입니다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WebhookService {
@@ -30,6 +32,13 @@ public class WebhookService {
      */
     public void processGitlab(GitlabRequest request) {
         String markdown = gitlabConverter.convert(request);
+        if(markdown == null) {
+            String actionValue = null;
+            if(request.attributes() != null) actionValue = request.attributes().action();
+            log.warn("[Bridge Server - GitLab Service] {} / {}", request.objectKind(), actionValue);
+            return;
+        }
+
         String color = switch (request.objectKind()) {
             case "push" -> "#2196F3";
             case "merge_request" -> {

@@ -43,18 +43,35 @@ public class GitlabConverter {
     }
 
     /**
-     * 수신한 이벤트 종류에 맞는 마크다운 컨버터 함수를 호출합니다. Merge 같은 경우는 MR의 액션 상태중 하나로 MR의 액션 종류가 Merge인지 별도로 확인합니다.
+     * 수신한 이벤트 종류에 맞는 마크다운 컨버터 함수를 호출합니다.
+     *
+     * Merge 같은 경우는 MR의 액션 상태중 하나로 MR의 액션 종류가 Merge인지 별도로 확인합니다.
+     * 또한 값의 변동(edit, update)이 발생할 때 마다 Webhook를 호출하는 문제를 해결하기 위하여 action이 open 인지 확인합니다.
+     * 그 외의 모든 요청은 null로 처리합니다.
+     *
+     * Push 또한 develop, master 등에 push하는 경우와, A Branch -> B Branch로 push 하는 경우에만 event를 발생합니다.
      */
     public String convert(GitlabRequest request) {
         return switch (request.objectKind()) {
             case "merge_request" -> {
                 if ("merge".equals(request.attributes().action())) {
                     yield createMergeMarkdown(request);
+                } else if("open".equals(request.attributes().action())) {
+                    yield createMrMarkdown(request);
                 }
-                yield createMrMarkdown(request);
+                yield null;
             }
-            case "push" -> createPushMarkdown(request);
-            default -> "알 수 없는 GitLab 이벤트 발생: " + request.objectKind();
+            case "push" -> {
+                String zeroHash = "0000000000000000000000000000000000000000";
+                if(zeroHash.equals(request.before()) || zeroHash.equals(request.after())) {
+                    yield null;
+                }
+                if(!"refs/heads/develop".equals(request.ref()) && !"refs/heads/master".equals(request.ref())) {
+                    yield null;
+                }
+                yield createPushMarkdown(request);
+            }
+            default -> null;
         };
     }
 
