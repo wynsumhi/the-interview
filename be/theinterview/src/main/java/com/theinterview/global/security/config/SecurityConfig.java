@@ -34,7 +34,15 @@ public class SecurityConfig {
                         // 로그인 하지 않은 사용자의 요청을 허용 할 엔드포인트는 여기에 작성하세요.
                         .requestMatchers(
                                 "/v1/auth/signup",
-                                "/v1/auth/exists/**"
+                                "/v1/auth/exists/**",
+                                "/api/v1/auth/signup",
+                                "/api/v1/auth/exists/**",
+                                "/v1/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/api/v1/api-docs/**",
+                                "/api/swagger-ui/**",
+                                "/api/swagger-ui.html"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );
