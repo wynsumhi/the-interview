@@ -1,0 +1,56 @@
+.nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px var(--px);
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(250, 249, 246, 0.72);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(229, 224, 216, 0.5);
+  z-index: -1;
+}
+
+.logo {
+  font-family: var(--font-playfair);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--fg);
+  letter-spacing: 0.03em;
+  transition: color 0.3s;
+}
+.logo:hover { color: var(--blush); }
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.login {
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  color: var(--charcoal);
+  transition: color 0.2s;
+}
+.login:hover { color: var(--fg); }
+
+.signup {
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  padding: 10px 24px;
+  transition: background 0.3s;
+}
+.signup:hover { background: var(--blush); }
+
+@media (max-width: 640px) {
+  .nav { padding: 16px var(--px-mobile); }
+}

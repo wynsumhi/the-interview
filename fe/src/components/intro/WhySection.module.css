@@ -1,0 +1,131 @@
+.section {
+  background: var(--warm);
+  padding: 128px var(--px);
+}
+
+/* ─── 섹션 헤더 ─── */
+.header {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 80px;
+}
+
+.sectionNum {
+  font-family: var(--font-playfair);
+  font-size: 140px;
+  font-weight: 900;
+  color: #e5e0d8;
+  line-height: 1;
+  user-select: none;
+}
+
+.headerMeta {
+  margin-bottom: 12px;
+}
+
+.headerLabel {
+  font-family: var(--font-caveat);
+  font-size: 20px;
+  color: var(--sage);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.headerLine {
+  width: 192px;
+  height: 1px;
+  background: var(--blush);
+}
+
+/* ─── 2단 그리드 ─── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 112px;
+  align-items: start;
+}
+
+/* 왼쪽 */
+.h2 {
+  font-size: 46px;
+  font-weight: 900;
+  color: var(--fg);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: 32px;
+}
+
+.body {
+  font-size: 17px;
+  line-height: 1.95;
+  color: var(--charcoal);
+  margin-bottom: 24px;
+}
+
+.handwriting {
+  font-family: var(--font-gaegu);
+  font-size: 22px;
+  color: var(--lavender);
+  display: inline-block;
+  rotate: -1.5deg;
+  margin-top: 40px;
+}
+
+/* 오른쪽 */
+.quoteWrap {
+  position: relative;
+}
+
+.quoteBorder {
+  position: absolute;
+  left: -16px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(to bottom, var(--blush), var(--lavender));
+}
+
+.quoteInner {
+  padding-left: 32px;
+}
+
+.quote {
+  font-family: var(--font-playfair);
+  font-style: italic;
+  font-size: 28px;
+  color: var(--fg);
+  line-height: 1.55;
+  margin-bottom: 40px;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.tag {
+  border: 1px solid var(--blush);
+  color: var(--blush);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  padding: 6px 16px;
+}
+
+.quoteBody {
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 1024px) {
+  .section { padding: 96px var(--px-mobile); }
+  .grid { grid-template-columns: 1fr; gap: 56px; }
+  .sectionNum { font-size: 100px; }
+  .h2 { font-size: 36px; }
+  .quote { font-size: 22px; }
+}

@@ -1,0 +1,313 @@
+.section {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* ─── 배경 orb ─── */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.orb1 {
+  top: -192px;
+  right: -128px;
+  width: 750px;
+  height: 750px;
+  background: radial-gradient(circle at 35% 40%, #e8d5f5 0%, #f5c6d0 38%, #ffd4a3 65%, transparent 85%);
+  filter: blur(64px);
+  opacity: 0.55;
+  animation: float-orb 9s ease-in-out infinite;
+}
+
+.orb2 {
+  bottom: -128px;
+  left: -192px;
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, #c5e8e0 0%, #b8d4f5 55%, transparent 80%);
+  filter: blur(80px);
+  opacity: 0.28;
+  animation: float-orb 12s ease-in-out infinite 4s;
+}
+
+/* ─── Layout ─── */
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 96px var(--px) 64px;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  width: 100%;
+  align-items: center;
+}
+
+/* ─── 텍스트 영역 ─── */
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.eyebrowLine {
+  display: block;
+  width: 40px;
+  height: 1px;
+  background: var(--sage);
+  flex-shrink: 0;
+}
+
+.eyebrowText {
+  font-family: var(--font-caveat);
+  font-size: 20px;
+  color: var(--sage);
+  letter-spacing: 0.04em;
+}
+
+.h1 {
+  font-size: 96px;
+  font-weight: 900;
+  line-height: 0.87;
+  color: var(--fg);
+  letter-spacing: -0.02em;
+}
+
+.h1Row {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.h1Accent {
+  font-family: var(--font-playfair);
+  font-style: italic;
+  font-size: 40px;
+  color: var(--blush);
+  line-height: 1;
+}
+
+.handwriting {
+  font-family: var(--font-gaegu);
+  font-size: 26px;
+  color: var(--lavender);
+  display: inline-block;
+  rotate: -1deg;
+  margin-bottom: 40px;
+}
+
+.body {
+  font-size: 17px;
+  line-height: 1.95;
+  color: var(--charcoal);
+  max-width: 480px;
+  margin-bottom: 48px;
+}
+
+.cta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.ctaPrimary {
+  background: var(--fg);
+  color: var(--bg);
+  padding: 16px 36px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: background 0.3s;
+}
+.ctaPrimary:hover { background: var(--blush); }
+
+.ctaSecondary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--charcoal);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  transition: color 0.2s;
+}
+.ctaSecondary:hover { color: var(--fg); }
+
+.ctaArrow {
+  display: inline-block;
+  transition: transform 0.2s;
+}
+.ctaSecondary:hover .ctaArrow { transform: translateY(2px); }
+
+/* ─── 인터뷰 카드 ─── */
+.cardWrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.cardOuter {
+  position: relative;
+}
+
+.cardLayer1 {
+  position: absolute;
+  top: -16px; right: -16px;
+  width: 100%; height: 100%;
+  background: #8a9e8c;
+  opacity: 0.18;
+}
+
+.cardLayer2 {
+  position: absolute;
+  top: 20px; left: 20px;
+  width: 100%; height: 100%;
+  background: #c9a99a;
+  opacity: 0.20;
+}
+
+.card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  padding: 40px;
+  width: 390px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.10);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 40px;
+}
+
+.cardHeaderLabel {
+  font-family: var(--font-playfair);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--blush);
+  letter-spacing: 0.04em;
+}
+
+.cardHeaderNum {
+  font-size: 11px;
+  color: var(--sage);
+  letter-spacing: 0.22em;
+  font-weight: 500;
+}
+
+.cardQuestion {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.75;
+  color: var(--fg);
+  margin-bottom: 40px;
+}
+
+.waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 72px;
+  margin-bottom: 24px;
+  padding: 0 4px;
+}
+
+.waveBar {
+  flex: 1;
+  border-radius: 9999px;
+  animation: wave-bar 1.5s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.recording {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--blush);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.recordingText {
+  font-family: var(--font-gaegu);
+  color: var(--sage);
+  font-size: 18px;
+}
+
+.cardTime {
+  font-family: var(--font-playfair);
+  font-style: italic;
+  color: var(--blush);
+  font-size: 14px;
+}
+
+/* ─── 스크롤 힌트 ─── */
+.scrollHint {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  opacity: 0.35;
+}
+
+.scrollText {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--fg);
+  text-transform: uppercase;
+}
+
+.scrollLine {
+  width: 1px;
+  height: 40px;
+  background: var(--fg);
+  animation: scroll-line 2.2s ease-in-out infinite;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 1024px) {
+  .grid { grid-template-columns: 1fr; }
+  .cardWrap { display: none; }
+  .container { padding: 96px var(--px-mobile) 64px; }
+  .h1 { font-size: 72px; }
+}
+
+@media (max-width: 640px) {
+  .h1 { font-size: 56px; }
+  .h1Accent { display: none; }
+  .cta { flex-direction: column; align-items: flex-start; }
+}

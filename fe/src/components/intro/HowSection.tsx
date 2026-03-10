@@ -1,3 +1,5 @@
+import styles from "./HowSection.module.css";
+
 const STEPS = [
   {
     num: "01",
@@ -27,60 +29,35 @@ const STEPS = [
 
 export default function HowSection() {
   return (
-    <section id="how" className="bg-[#faf9f6] py-32 px-8 lg:px-16">
-      <div className="max-w-[1400px] mx-auto">
+    <section id="how" className={styles.section}>
+      <div style={{ maxWidth: "var(--max-w)", margin: "0 auto" }}>
 
-        {/* 섹션 번호 헤더 */}
-        <div className="flex items-end gap-4 mb-20">
-          <span className="font-playfair text-[100px] lg:text-[140px] font-black text-[#e5e0d8] leading-none select-none">
-            02
-          </span>
-          <div className="mb-4">
-            <p className="font-caveat text-xl text-[#8a9e8c] mb-2">
-              어떻게 진행되나요?
-            </p>
-            <div className="w-48 h-px bg-[#9b91d4]" />
+        <div className={styles.header}>
+          <span className={styles.sectionNum}>02</span>
+          <div className={styles.headerMeta}>
+            <span className={styles.headerLabel}>어떻게 진행되나요?</span>
+            <div className={styles.headerLine} />
           </div>
         </div>
 
-        {/* 스텝 그리드 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+        <div className={styles.grid}>
           {STEPS.map((step) => (
-            <div key={step.num} className="group">
-              {/* 컬러 라인 */}
+            <div key={step.num} className={styles.step}>
               <div
-                className="h-px mb-8 transition-all duration-500 group-hover:w-full"
-                style={{
-                  background: step.color,
-                  width: "40px",
-                }}
+                className={styles.stepLine}
+                style={{ background: step.color }}
               />
-
-              {/* 번호 */}
-              <p className="font-playfair italic text-[52px] font-black text-[#e5e0d8] mb-4 leading-none">
-                {step.num}
-              </p>
-
-              {/* 제목 */}
-              <h3 className="text-[19px] font-black text-[#1c1c1c] mb-3">
-                {step.title}
-              </h3>
-
-              {/* 설명 */}
-              <p className="text-[#5d5d5d] text-[14px] leading-[1.95] whitespace-pre-line">
-                {step.desc}
-              </p>
+              <p className={styles.stepNum}>{step.num}</p>
+              <h3 className={styles.stepTitle}>{step.title}</h3>
+              <p className={styles.stepDesc}>{step.desc}</p>
             </div>
           ))}
         </div>
 
-        {/* 하단 구분선 메시지 */}
-        <div className="mt-20 flex items-center gap-6">
-          <div className="flex-1 h-px bg-[#e5e0d8]" />
-          <p className="font-gaegu text-[20px] text-[#9b91d4] shrink-0">
-            질문은 매 인터뷰마다 새롭게 생성됩니다
-          </p>
-          <div className="flex-1 h-px bg-[#e5e0d8]" />
+        <div className={styles.divider}>
+          <div className={styles.dividerLine} />
+          <p className={styles.dividerText}>질문은 매 인터뷰마다 새롭게 생성됩니다</p>
+          <div className={styles.dividerLine} />
         </div>
       </div>
     </section>

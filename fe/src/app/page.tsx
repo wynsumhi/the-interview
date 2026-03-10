@@ -4,6 +4,7 @@ import WhySection from "@/components/intro/WhySection";
 import HowSection from "@/components/intro/HowSection";
 import EffectsSection from "@/components/intro/EffectsSection";
 import StartSection from "@/components/intro/StartSection";
+import styles from "./page.module.css";
 
 export default function IntroPage() {
   return (
@@ -16,15 +17,10 @@ export default function IntroPage() {
         <EffectsSection />
         <StartSection />
       </main>
-
-      <footer className="bg-[#16161e] py-12 px-8 lg:px-16 border-t border-white/5">
-        <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="font-playfair italic text-[#faf9f6]/50 text-[18px]">
-            방구석 인터뷰
-          </span>
-          <p className="text-[#faf9f6]/25 text-[13px] tracking-wide">
-            © 2025 방구석 인터뷰. All rights reserved.
-          </p>
+      <footer className={styles.footer}>
+        <div className={styles.footerInner}>
+          <span className={styles.footerLogo}>방구석 인터뷰</span>
+          <p className={styles.footerCopy}>© 2025 방구석 인터뷰. All rights reserved.</p>
         </div>
       </footer>
     </>
