@@ -1,0 +1,227 @@
+.container {
+  height: 100vh;
+  overflow: hidden;
+  padding: 0 var(--px);
+  background-color: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.contentWrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 80px;
+  max-width: var(--max-w);
+  width: 100%;
+  margin: 0 auto;
+  padding: 120px 0 40px;
+  align-items: stretch;
+}
+
+/* 왼쪽 섹션 */
+.leftSection {
+  flex: 0 0 240px;
+  align-self: flex-start;
+  position: sticky;
+  top: 120px;
+  height: fit-content;
+}
+
+.mainTitle {
+  font-family: var(--font-playfair);
+  font-size: 64px;
+  font-weight: 900;
+  line-height: 1;
+  margin-bottom: 48px;
+  letter-spacing: -0.02em;
+}
+
+.targetName {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.desc {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin-bottom: 28px;
+}
+
+.startLink {
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  color: var(--fg);
+  transition: color 0.2s;
+}
+
+.startLink:hover {
+  color: var(--blush);
+}
+
+/* 오른쪽 섹션 */
+.rightSection {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 뷰포트 높이를 채우는 폴더 스택 */
+.folderStack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* 폴더 아이템: absolute로 겹쳐 쌓기 */
+.folderItem {
+  position: absolute;
+  width: 100%;
+  left: 0;
+  height: 100%;
+  transition:
+    transform 0.25s ease,
+    filter 0.25s ease;
+}
+
+/* 호버 시 살짝 들어올리기 */
+a:hover > .folderItem,
+div:hover > .folderItem {
+  transform: translateY(-8px);
+  filter: brightness(1.03);
+}
+
+/* ── 폴더 탭 ── */
+.folderTab {
+  width: fit-content;
+  padding: 10px 32px;
+  border-radius: 12px 24px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  margin-left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.code {
+  opacity: 0.6;
+}
+
+.tabTitle {
+  letter-spacing: 0.05em;
+}
+
+/* ── 폴더 바디: 전체 높이에서 탭 n개를 뺀 나머지 ── */
+.folderBody {
+  height: calc(100% - var(--n) * var(--tab-h));
+  border-radius: 4px;
+  box-shadow: 0 -15px 30px rgba(0, 0, 0, 0.08);
+}
+
+.bodyInner {
+  height: 100%;
+  padding: 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* ── 색상 테마 ── */
+.sage .folderTab,
+.sage .folderBody {
+  background: var(--sage);
+  color: var(--fg);
+}
+
+.lavender .folderTab,
+.lavender .folderBody {
+  background: var(--lavender);
+  color: var(--fg);
+}
+
+.blush .folderTab,
+.blush .folderBody {
+  background: var(--blush);
+  color: var(--fg);
+}
+
+.charcoal .folderTab,
+.charcoal .folderBody {
+  background: var(--charcoal);
+  color: var(--bg);
+}
+
+.warm .folderTab,
+.warm .folderBody {
+  background: var(--warm);
+  color: var(--fg);
+}
+
+/* ── 빈 슬롯 ── */
+.emptyFolder .folderTab,
+.emptyFolder .folderBody {
+  background: #f0f0f0;
+  color: #bbb;
+  border: 1px dashed #ddd;
+}
+
+/* ── 텍스트 디테일 ── */
+.cardTitle {
+  font-size: clamp(20px, 2.4vw, 32px);
+  font-weight: 900;
+  text-align: center;
+  max-width: 60%;
+  word-break: keep-all;
+}
+
+.verticalDate,
+.verticalCount {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.5;
+}
+
+/* ── 반응형 ── */
+@media (max-width: 1024px) {
+  .container {
+    height: auto;
+    overflow: visible;
+  }
+
+  .contentWrapper {
+    flex-direction: column;
+    flex: none;
+    height: auto;
+    gap: 48px;
+    padding-bottom: 60px;
+  }
+
+  .leftSection {
+    position: relative;
+    top: 0;
+    flex: none;
+    width: 100%;
+  }
+
+  .rightSection {
+    height: calc(var(--n, 5) * var(--tab-h, 42px) + 280px);
+  }
+
+  .folderStack {
+    height: 100%;
+  }
+
+  .folderItem {
+    height: 100%;
+  }
+
+  .bodyInner {
+    padding: 24px;
+  }
+}
