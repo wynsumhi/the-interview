@@ -1,0 +1,110 @@
+.section {
+  background: var(--bg);
+  padding: 128px var(--px);
+}
+
+/* ─── 헤더 ─── */
+.header {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 80px;
+}
+
+.sectionNum {
+  font-family: var(--font-playfair);
+  font-size: 140px;
+  font-weight: 900;
+  color: #e5e0d8;
+  line-height: 1;
+  user-select: none;
+}
+
+.headerMeta { margin-bottom: 12px; }
+
+.headerLabel {
+  font-family: var(--font-caveat);
+  font-size: 20px;
+  color: var(--sage);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.headerLine {
+  width: 192px;
+  height: 1px;
+  background: var(--lavender);
+}
+
+/* ─── 스텝 그리드 ─── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 40px;
+}
+
+.step {}
+
+.stepLine {
+  height: 1px;
+  margin-bottom: 32px;
+  transition: width 0.4s ease;
+  width: 40px;
+}
+.step:hover .stepLine { width: 80px; }
+
+.stepNum {
+  font-family: var(--font-playfair);
+  font-style: italic;
+  font-size: 52px;
+  font-weight: 900;
+  color: #e5e0d8;
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.stepTitle {
+  font-size: 19px;
+  font-weight: 900;
+  color: var(--fg);
+  margin-bottom: 12px;
+}
+
+.stepDesc {
+  font-size: 14px;
+  line-height: 1.95;
+  color: var(--muted);
+  white-space: pre-line;
+}
+
+/* ─── 하단 구분선 ─── */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 80px;
+}
+
+.dividerLine {
+  flex: 1;
+  height: 1px;
+  background: #e5e0d8;
+}
+
+.dividerText {
+  font-family: var(--font-gaegu);
+  font-size: 20px;
+  color: var(--lavender);
+  flex-shrink: 0;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 1024px) {
+  .section { padding: 96px var(--px-mobile); }
+  .grid { grid-template-columns: repeat(2, 1fr); }
+  .sectionNum { font-size: 100px; }
+}
+
+@media (max-width: 640px) {
+  .grid { grid-template-columns: 1fr; }
+}

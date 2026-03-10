@@ -1,0 +1,32 @@
+.footer {
+  background: var(--deep);
+  padding: 48px var(--px);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.footerInner {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.footerLogo {
+  font-family: var(--font-playfair);
+  font-style: italic;
+  font-size: 18px;
+  color: rgba(250, 249, 246, 0.5);
+}
+
+.footerCopy {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: rgba(250, 249, 246, 0.25);
+}
+
+@media (max-width: 640px) {
+  .footer { padding: 40px var(--px-mobile); }
+  .footerInner { flex-direction: column; text-align: center; }
+}
