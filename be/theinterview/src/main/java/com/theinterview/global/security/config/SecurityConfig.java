@@ -1,5 +1,8 @@
 package com.theinterview.global.security.config;
 
+import com.theinterview.global.security.config.jwt.JwtFilter;
+import com.theinterview.global.security.config.jwt.JwtProvider;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -9,10 +12,14 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity // 스프링 시큐리티 필터 체인을 위해 활성화
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtProvider jwtProvider;
 
     // 비밀번호 암호화 메서드 등록
     @Bean
@@ -45,7 +52,10 @@ public class SecurityConfig {
                                 "/api/swagger-ui.html"
                         ).permitAll()
                         .anyRequest().authenticated()
-                );
+                )
+                // JwtFilter를 시큐리티 체인에 등록함
+                .addFilterBefore(new JwtFilter(jwtProvider),
+                        UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }
