@@ -37,12 +37,12 @@ public abstract class MemberRequest {
     }
 
     @Getter
-    @Builder
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
-    public static class memberInputResponse {
+    public static class LoginRequestDTO {
 
-        @NotBlank(message = "해당 값은 필수입니다.")
-        private String input;
+        private String email;
+        private String password;
     }
+
 }

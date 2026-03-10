@@ -29,8 +29,9 @@ public abstract class MemberResponse {
     @Getter
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
     @AllArgsConstructor
-    public static class MemberInputDTO {
+    public static class TokenResponseDTO {
 
-        private boolean isDuplicated;
+        private String refreshToken;
+        private String accessToken;
     }
 }

@@ -1,7 +1,9 @@
 package com.theinterview.domain.member.controller;
 
+import com.theinterview.domain.member.dto.MemberRequest.LoginRequestDTO;
 import com.theinterview.domain.member.dto.MemberRequest.MemberJoinRequest;
 import com.theinterview.domain.member.dto.MemberResponse.MemberInfoDTO;
+import com.theinterview.domain.member.dto.MemberResponse.TokenResponseDTO;
 import com.theinterview.domain.member.service.MemberService;
 import com.theinterview.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -55,4 +57,12 @@ public class MemberController {
         return ApiResponse.onSuccess(response);
     }
 
+    @PostMapping("/login")
+    public ApiResponse<TokenResponseDTO> login(
+            @Valid @RequestBody LoginRequestDTO request
+    ) {
+        // 서비스 레이어 호출
+        TokenResponseDTO response = memberService.login(request);
+        return ApiResponse.onSuccess(response);
+    }
 }

@@ -31,7 +31,7 @@ public class JwtProvider {
 
     public JwtProvider(
             @Value("${jwt.secret}") String secretKey,
-            @Value("&{jwt.refresh-token-validity-in-seconds}") long refreshTokenValidityTime,
+            @Value("${jwt.refresh-token-validity-in-seconds}") long refreshTokenValidityTime,
             @Value("${jwt.access-token-validity-in-seconds}") long accessTokenValidityTime
     ) {
         // 키 암호화
@@ -99,7 +99,7 @@ public class JwtProvider {
         } catch (IllegalArgumentException e) {
             log.info("잘못된 JWT 토큰");
         }
-        
+
         return false;
     }
 }
