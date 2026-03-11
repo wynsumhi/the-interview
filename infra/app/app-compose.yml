@@ -1,0 +1,45 @@
+services:
+  backend:
+    build:
+      context: ../../be/theinterview
+      dockerfile: Dockerfile
+    container_name: backend
+    restart: on-failure
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - DB_HOST=postgres-db
+      - REDIS_HOST=redis-db
+      - JAVA_OPTS=-Xms1024m -Xmx2048m
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  frontend:
+    build:
+      context: ../../fe
+      dockerfile: Dockerfile
+    container_name: frontend
+    restart: on-failure
+    depends_on:
+      - backend
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+networks:
+  default:
+    external: true
+    name: theinterview-net
