@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>웹소켓 음성 Echo 테스트</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+</head>
+<body>
+    <h2>🎙️ 음성 전송 & 반사(Echo) 테스트</h2>
+    <input type="text" id="token" placeholder="Access Token 입력" style="width: 400px;"><br><br>
+    <button id="connectBtn" onclick="connect()">1. 웹소켓 연결</button>
+    <button id="startBtn" onclick="startRecording()" disabled>2. 녹음 시작</button>
+    <button id="stopBtn" onclick="stopRecording()" disabled>3. 녹음 중지 & 전송</button>
+
+    <hr>
+    <h3>🎧 서버에서 돌아온 음성 재생</h3>
+    <audio id="audioPlayback" controls></audio>
+
+    <script>
+        let stompClient = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        const roomId = "test-room-1";
+
+        // [1] 연결 로직
+        function connect() {
+            const token = document.getElementById('token').value;
+            // 💡 Context Path가 /api 라면 주소에 포함하세요!
+            const socket = new SockJS('http://localhost:8080/api/ws-stt'); 
+            stompClient = Stomp.over(socket);
+
+            stompClient.connect({'Authorization': 'Bearer ' + token}, function (frame) {
+                console.log('✅ 연결 성공!');
+                document.getElementById('startBtn').disabled = false;
+                
+                // ⭐️ 서버가 다시 쏴주는 음성을 받을 통로를 구독합니다.
+                stompClient.subscribe('/topic/interview/room/' + roomId, function (response) {
+                    const data = JSON.parse(response.body);
+                    console.log("📢 서버로부터 음성 수신 완료!");
+                    playAudio(data.audioData);
+                });
+            }, function(error) {
+                console.error('❌ 연결 실패:', error);
+            });
+        }
+
+        // [2] 녹음 시작
+        async function startRecording() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = sendAudio;
+            
+            mediaRecorder.start();
+            console.log("🔴 녹음 중...");
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+        }
+
+        // [3] 녹음 중지
+        function stopRecording() {
+            mediaRecorder.stop();
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+        }
+
+        // [4] 서버로 음성 전송 (Base64 변환)
+        function sendAudio() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const reader = new FileReader();
+            
+            reader.readAsDataURL(audioBlob); // Base64로 읽기
+            reader.onloadend = function() {
+                const base64Audio = reader.result.split(',')[1]; // data:audio/webm;base64, 접두사 제거
+                
+                const payload = {
+                    roomId: roomId,
+                    audioData: base64Audio,
+                    isFinal: true
+                };
+
+                stompClient.send("/app/interview/audio", {}, JSON.stringify(payload));
+                console.log("🚀 음성 데이터 전송 완료!");
+            };
+        }
+
+        // [5] 서버에서 온 음성 재생
+        function playAudio(base64Data) {
+            const audio = document.getElementById('audioPlayback');
+            // 수신된 데이터를 다시 소리로 변환
+            audio.src = "data:audio/webm;base64," + base64Data;
+            audio.play();
+        }
+    </script>
+</body>
+</html>

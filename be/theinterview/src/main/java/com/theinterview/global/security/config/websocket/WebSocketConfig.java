@@ -7,6 +7,7 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
 @Configuration
 @EnableWebSocketMessageBroker // 내장된 STOMP 브로커 가동
@@ -40,5 +41,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureClientInboundChannel(ChannelRegistration registration) {
         // 해당 통로를 지나는 모든 메시지는 stompHandler를 거쳐가도록 설정
         registration.interceptors(stompHandler);
+    }
+
+    // websocket 버퍼 제한 및 용량이 클 때를 대비해 전송 시간 설정
+    @Override
+    public void configureWebSocketTransport(WebSocketTransportRegistration registry) {
+        registry
+                .setMessageSizeLimit(50 * 1024 * 1024)
+                .setSendBufferSizeLimit(50 * 1024 * 1024)
+                .setSendTimeLimit(10 * 1000);
     }
 }
