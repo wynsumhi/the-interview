@@ -20,11 +20,15 @@ services:
     image: jenkins/jenkins:lts
     container_name: jenkins
     restart: on-failure
+    user: root
     deploy:
       resources:
         limits:
           memory: 3G
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+      - /usr/libexec/docker/cli-plugins:/usr/libexec/docker/cli-plugins
       - jenkins_home:/var/jenkins_home
     environment:
       - JENKINS_OPTS=--prefix=/infra/jenkins --httpPort=8989
