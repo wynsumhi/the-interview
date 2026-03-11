@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Caveat, Gaegu } from "next/font/google";
 import "./globals.css";
+import Navbar from "@/components/common/Navbar";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -38,6 +39,7 @@ export default function RootLayout({
       <body
         className={`${playfair.variable} ${caveat.variable} ${gaegu.variable} antialiased`}
       >
+        <Navbar />
         {children}
       </body>
     </html>
