@@ -13,6 +13,7 @@ export default function InterviewSessionPage() {
   const [status, setStatus] = useState<InterviewStatus>("AI_SPEAKING");
   const [displayTitle, setDisplayTitle] = useState("");
   const [waveHeights, setWaveHeights] = useState<number[]>(DEFAULT_HEIGHTS);
+  const [micError, setMicError] = useState<string | null>(null);
 
   const fullTitle =
     "오늘 당신의 마음을 가장 크게 흔들었던 문장은 무엇이었나요?";
@@ -58,8 +59,13 @@ export default function InterviewSessionPage() {
 
   const startListening = async () => {
     try {
+      if (!navigator.mediaDevices) {
+        setMicError("마이크는 HTTPS 환경에서만 사용할 수 있습니다.");
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
+      setMicError(null);
 
       const AudioContextClass =
         window.AudioContext || (window as any).webkitAudioContext;
@@ -78,6 +84,7 @@ export default function InterviewSessionPage() {
       analyzeVolume();
     } catch (err) {
       console.error("마이크 접근 실패:", err);
+      setMicError("마이크 접근에 실패했습니다. HTTPS 환경인지 확인해 주세요.");
     }
   };
 
@@ -159,15 +166,19 @@ export default function InterviewSessionPage() {
             className={styles.listeningUI}
             style={{ opacity: status === "USER_LISTENING" ? 1 : 0 }}
           >
-            <div className={styles.waveContainer}>
-              {waveHeights.map((h, i) => (
-                <div
-                  key={i}
-                  className={styles.waveBar}
-                  style={{ height: `${h}px` }}
-                />
-              ))}
-            </div>
+            {micError ? (
+              <p className={styles.errorText}>{micError}</p>
+            ) : (
+              <div className={styles.waveContainer}>
+                {waveHeights.map((h, i) => (
+                  <div
+                    key={i}
+                    className={styles.waveBar}
+                    style={{ height: `${h}px` }}
+                  />
+                ))}
+              </div>
+            )}
             <p className={styles.statusText}>당신의 목소리에 집중하고 있어요</p>
           </div>
 
