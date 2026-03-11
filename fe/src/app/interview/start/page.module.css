@@ -1,0 +1,116 @@
+/* src/app/interview/start/page.module.css */
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 180px var(--px) 100px;
+  text-align: center;
+}
+
+.title {
+  font-family: var(--font-playfair);
+  font-size: 52px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  margin-bottom: 12px;
+}
+
+.subtitle {
+  font-size: 15px;
+  color: var(--muted);
+  margin-bottom: 80px;
+  font-weight: 500;
+}
+
+.timeSelectionWrapper {
+  margin-bottom: 64px;
+}
+
+.label {
+  display: block;
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--fg);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+}
+
+.timeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.timeChip {
+  background: white;
+  border: 1px solid var(--border);
+  padding: 24px 0;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.timeValue {
+  font-family: var(--font-playfair);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.timeUnit {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.timeChip.active {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: white;
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.timeChip.active .timeUnit {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.guideBox {
+  padding: 40px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 80px;
+  text-align: left;
+}
+
+.guideItem {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.guideItem:last-child {
+  margin-bottom: 0;
+}
+
+.guideItem p {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.startBtn {
+  width: 100%;
+  padding: 24px;
+  background: var(--fg);
+  color: white;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.3em;
+  border: none;
+  cursor: pointer;
+}
