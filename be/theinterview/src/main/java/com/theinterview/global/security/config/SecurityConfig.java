@@ -1,5 +1,9 @@
 package com.theinterview.global.security.config;
 
+import com.theinterview.global.config.redis.RedisService;
+import com.theinterview.global.security.config.jwt.JwtFilter;
+import com.theinterview.global.security.config.jwt.JwtProvider;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -9,10 +13,15 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity // 스프링 시큐리티 필터 체인을 위해 활성화
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtProvider jwtProvider;
+    private final RedisService redisService;
 
     // 비밀번호 암호화 메서드 등록
     @Bean
@@ -42,10 +51,15 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/api/v1/api-docs/**",
                                 "/api/swagger-ui/**",
-                                "/api/swagger-ui.html"
+                                "/api/swagger-ui.html",
+                                "/api/v1/auth/login",
+                                "/v1/auth/login"
                         ).permitAll()
                         .anyRequest().authenticated()
-                );
+                )
+                // JwtFilter를 시큐리티 체인에 등록함
+                .addFilterBefore(new JwtFilter(jwtProvider, redisService),
+                        UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

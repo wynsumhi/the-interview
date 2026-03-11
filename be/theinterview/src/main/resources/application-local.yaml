@@ -23,3 +23,9 @@ logging:
     com.theinterview: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.orm.jdbc.bind: TRACE
+
+jwt:
+  secret: ${JWTSECRET}
+  # 토큰 만료 시간 (초 단위) 개발 편의 상 모두 14일로 설정
+  access-token-validity-in-seconds: 1209600
+  refresh-token-validity-in-seconds: 1209600

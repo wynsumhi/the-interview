@@ -2,11 +2,15 @@ package com.theinterview.domain.member.repository;
 
 
 import com.theinterview.domain.member.Member;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MemberRepository extends JpaRepository<Member, Integer> {
 
-    public boolean existsByEmail(String email);
+    boolean existsByEmail(String email);
 
-    public boolean existsByNickname(String nickname);
+    boolean existsByNickname(String nickname);
+
+    Optional<Member> findByEmail(String email);
+
 }

@@ -11,7 +11,8 @@ public enum ErrorStatus {
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "400", "잘못된 요청입니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "401", "로그인 인증이 필요합니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "403", "금지된 요청입니다."),
-    MEMBER_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, "400", "사용자가 이미 존재합니다.");
+    MEMBER_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, "400", "사용자가 이미 존재합니다."),
+    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "해당 사용자를 찾을 수 없습니다.");
     private final HttpStatus httpStatus;
     private final String code;
     private final String message;
