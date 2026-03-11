@@ -6,8 +6,9 @@ spring:
     driver-class-name: org.postgresql.Driver
   data:
     redis:
-      host: localhost
+      host: local-redis
       port: 6379
+      password: ssafy1234!
   jpa:
     hibernate:
       ddl-auto: update
