@@ -29,7 +29,7 @@ pipeline {
 			}
 			steps {
 				// 백엔드만 빌드하고 배포 (기존 컨테이너는 유지됨)
-				sh "docker-compose -f infra/app/app-compose.yml up -d --build backend"
+				sh "docker compose -f infra/app/app-compose.yml up -d --build backend"
 			}
 		}
 
@@ -42,7 +42,7 @@ pipeline {
 			}
 			steps {
 				// 프론트엔드 배포
-				sh "docker-compose -f infra/app/app-compose.yml up -d --build frontend"
+				sh "docker compose -f infra/app/app-compose.yml up -d --build frontend"
 			}
 		}
 
@@ -54,7 +54,7 @@ pipeline {
 				}
 			}
 			steps {
-				sh "docker-compose -f infra/management/management-compose.yml up -d --build bridgeserver"
+				sh "docker compose -f infra/management/management-compose.yml up -d --build bridgeserver"
 			}
 		}
 	}
