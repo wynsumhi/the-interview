@@ -72,10 +72,9 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(List.of(
-                "https://j14a307.p.ssafy.io:8989", // 배포 환경
+                "https://j14a307.p.ssafy.io",      // 배포 환경
                 "http://localhost:8080",           // 로컬 테스트용
                 "http://localhost:3000",           // 리액트 기본 포트
-                "http://localhost:5173",            // 뷰/비트(Vite) 기본 포트 (필요 시)
                 "http://70.12.247.129:3000"
         ));
         // 모든 HTTP 메서드 허용
