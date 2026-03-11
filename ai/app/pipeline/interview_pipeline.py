@@ -10,7 +10,7 @@ from app.services.tts_service import text_to_speech
 
 @dataclass(frozen=True)
 class InterviewPipelineResult:
-    # 파이프라인 단계별 결과를 함께 반환해 후속 단계 확장을 쉽게 만든다.
+    # 매거진 인터뷰 흐름의 단계별 결과를 함께 반환해 후속 단계 확장을 쉽게 만든다.
     stt_text: str
     llm_text: str
     tts_audio: bytes
