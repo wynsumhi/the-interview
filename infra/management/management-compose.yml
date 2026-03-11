@@ -1,0 +1,62 @@
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/nginx.conf:ro
+      - /home/ubuntu/infra/nginx/www:/var/www/certbot:ro
+      - /home/ubuntu/infra/nginx/certs:/etc/letsencrypt:ro
+    networks:
+      - default
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+    volumes:
+      - jenkins_home:/var/jenkins_home
+    environment:
+      - JENKINS_OPTS=--prefix=/infra/jenkins --httpPort=8989
+    networks:
+      - default
+    # ports:
+    #   - "8989:8989"
+    #   - "50000:50000"
+
+  bridgeserver:
+    build: ../webhook-service
+    container_name: bridgeserver
+    restart: on-failure
+    env_file:
+      - .env
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+    environment:
+      - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+    #ports:
+    # - 9123:9123
+
+networks:
+  default:
+    external: true
+    name: theinterview-net
+
+volumes:
+  jenkins_home: { }
