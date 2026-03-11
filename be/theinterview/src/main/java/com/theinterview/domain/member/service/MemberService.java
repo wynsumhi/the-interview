@@ -3,14 +3,18 @@ package com.theinterview.domain.member.service;
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.dto.MemberRequest.LoginRequestDTO;
 import com.theinterview.domain.member.dto.MemberRequest.MemberJoinRequest;
+import com.theinterview.domain.member.dto.MemberResponse.LoginTestDTO;
 import com.theinterview.domain.member.dto.MemberResponse.MemberInfoDTO;
 import com.theinterview.domain.member.dto.MemberResponse.TokenResponseDTO;
 import com.theinterview.domain.member.repository.MemberRepository;
+import com.theinterview.global.config.redis.RedisService;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
 import com.theinterview.global.security.config.jwt.JwtProvider;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
@@ -27,7 +31,13 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final JwtProvider jwtProvider;
+    private final RedisService redisService;
 
+    // yml -> refresh token 만료 시간
+    @Value("${jwt.refresh-token-validity-in-seconds}")
+    private long refreshTokenValidityInSeconds;
+
+    // 회원가입 메서드
     @Transactional
     public MemberInfoDTO createMember(
             MemberJoinRequest request
@@ -82,8 +92,51 @@ public class MemberService {
         String accessToken = jwtProvider.createAccessToken(authenticationToken);
         String refreshToken = jwtProvider.createRefreshToken(authenticationToken);
 
-        // 여기서 redis 저장 로직 예정
+        // redis에 refresh 토큰 저장
+        redisService.setValues(
+                authenticate.getName(),
+                refreshToken,
+                Duration.ofSeconds(refreshTokenValidityInSeconds)
+        );
 
-        return new TokenResponseDTO(refreshToken, accessToken);
+        return new TokenResponseDTO(refreshToken, accessToken,
+                jwtProvider.getRefreshTokenValidityTime(),
+                jwtProvider.getAccessTokenValidityTime()
+        );
+    }
+
+    // 로그아웃 메서드
+    @Transactional
+    public void logout(String email, String accessToken) {
+
+        // Redis에 해당 이메일로 저장된 데이터가 있는지 확인하고 데이터 삭제
+        if (email != null && redisService.hasKey(email)) {
+            redisService.deleteValues(email);
+            log.info("로그아웃 처리 완료 - 사용자: {}", email);
+        }
+
+        // accessToken 블랙리스트 처리
+        if (accessToken != null) {
+            long remainingTime = jwtProvider.getRemainingTime(accessToken);
+
+            if (remainingTime > 0) {
+                // 남은 시간만큼만 레디스에 저장함 (Key: BLACKLIST: 토큰, Value: "logout")
+                redisService.setValues(
+                        "BLACKLIST:" + accessToken,
+                        "logout",
+                        Duration.ofMillis(remainingTime)
+
+                );
+                log.info("Access Token 블랙리스트 추가 완료");
+            }
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public LoginTestDTO loginTest(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        return new LoginTestDTO(member);
     }
 }

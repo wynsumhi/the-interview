@@ -1,5 +1,6 @@
 package com.theinterview.global.security.config;
 
+import com.theinterview.global.config.redis.RedisService;
 import com.theinterview.global.security.config.jwt.JwtFilter;
 import com.theinterview.global.security.config.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtProvider jwtProvider;
+    private final RedisService redisService;
 
     // 비밀번호 암호화 메서드 등록
     @Bean
@@ -56,7 +58,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 // JwtFilter를 시큐리티 체인에 등록함
-                .addFilterBefore(new JwtFilter(jwtProvider),
+                .addFilterBefore(new JwtFilter(jwtProvider, redisService),
                         UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

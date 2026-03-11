@@ -12,6 +12,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import javax.crypto.SecretKey;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
+@Getter
 public class JwtProvider {
 
     private final SecretKey key;
@@ -101,5 +103,31 @@ public class JwtProvider {
         }
 
         return false;
+    }
+
+    public long getRemainingTime(String accessToken) {
+        try {
+            // 서명 확인 및 페이로드 파싱
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(accessToken)
+                    .getPayload();
+
+            // 2. 만료 시간과 현재 시간
+            Date expiration = claims.getExpiration();
+            long now = new Date().getTime();
+
+            // 3. 남은 시간(밀리초)을 계산해서 반환
+            return expiration.getTime() - now;
+
+        } catch (ExpiredJwtException e) {
+            // 이미 만료된 토큰이라면 굳이 블랙리스트에 넣을 필요가 없으므로 0을 반환
+            log.info("이미 만료된 토큰입니다. 블랙리스트 처리를 생략합니다.");
+            return 0;
+        } catch (Exception e) {
+            // 다른 형식이 깨진 토큰이어도 0을 반환하여 무시 처리
+            return 0;
+        }
     }
 }
