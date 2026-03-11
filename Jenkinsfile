@@ -6,24 +6,16 @@ pipeline {
 		booleanParam(name: 'DEPLOY_BRIDGE', defaultValue: true, description: '중계서버 배포 여부')
 	}
 	stages {
-		stage('Checkout') {
-			steps {
-				git branch: 'develop', url: 'https://lab.ssafy.com/s14-ai-speech-sub1/S14P21A307.git'
-			}
-		}
-
 		// 환경변수
 		stage('Prepare Env') {
 			steps {
 				// Jenkins Credentials에서 .env 파일들을 각 위치에 뿌려줌
 				withCredentials([
-					file(credentialsId: 'APP_ENV_FILE', variable: 'APP_ENV'),
-					file(credentialsId: 'DB_ENV_FILE', variable: 'DB_ENV'),
-					file(credentialsId: 'MANAGEMENT_ENV_FILE', variable: 'MANAGEMENT_ENV')
+					file(credentialsId: 'ENV_FILE', variable: 'ENV'),
 				]) {
-					sh "cp $APP_ENV infra/app/.env"
-					sh "cp $DB_ENV infra/database/.env"
-					sh "cp $MANAGEMENT_ENV infra/management/.env"
+					sh "cp $ENV infra/app/.env"
+					sh "cp $ENV infra/database/.env"
+					sh "cp $ENV infra/management/.env"
 				}
 			}
 		}
