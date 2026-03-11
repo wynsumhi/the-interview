@@ -1,79 +1,197 @@
+// src/app/interview/session/page.tsx
 "use client";
 
-import QuestionCard from "@/components/interview/QuestionCard";
-import RecordingButton from "@/components/interview/RecordingButton";
-import TranscriptBox from "@/components/interview/TranscriptBox";
-import Timer from "@/components/interview/Timer";
+import { useState, useEffect, useRef } from "react";
+import styles from "./page.module.css";
 
-import { useInterviewStore } from "@/store/interviewStore";
+type InterviewStatus = "AI_SPEAKING" | "USER_LISTENING" | "ANALYZING";
 
-import useRecording from "@/hooks/useRecording";
+const BAR_COUNT = 12;
+const DEFAULT_HEIGHTS = Array<number>(BAR_COUNT).fill(4);
 
-// TEST QUESTION - 실제 인터뷰에서는 API로 받아올 예정
-const questions = [
-  "당신의 어린 시절을 가장 잘 설명하는 기억은 무엇인가요?",
-  "최근 당신이 가장 많이 생각하는 고민은 무엇인가요?",
-  "당신에게 행복이란 어떤 의미인가요?",
-];
+export default function InterviewSessionPage() {
+  const [status, setStatus] = useState<InterviewStatus>("AI_SPEAKING");
+  const [displayTitle, setDisplayTitle] = useState("");
+  const [waveHeights, setWaveHeights] = useState<number[]>(DEFAULT_HEIGHTS);
+  const [micError, setMicError] = useState<string | null>(null);
 
-export default function InterviewSession() {
-  const {
-    questionIndex,
-    transcript,
-    isRecording,
-    startRecording,
-    stopRecording,
-    nextQuestion,
-    setTranscript,
-  } = useInterviewStore();
+  const fullTitle =
+    "오늘 당신의 마음을 가장 크게 흔들었던 문장은 무엇이었나요?";
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const statusRef = useRef<InterviewStatus>(status);
 
-  const question = questions[questionIndex];
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
-  const { startRecording: startMic, stopRecording: stopMic } = useRecording(
-    (blob) => {
-      console.log("audio file", blob);
+  // 1. 타이핑 및 초기 상태 제어
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (status === "AI_SPEAKING") {
+      let index = 0;
+      interval = setInterval(() => {
+        setDisplayTitle(fullTitle.substring(0, index));
+        index++;
+        if (index > fullTitle.length) {
+          clearInterval(interval);
+          setTimeout(() => setStatus("USER_LISTENING"), 1500);
+        }
+      }, 70);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [status]);
 
-      setTranscript("녹음 완료 (현재 mock 상태)");
+  // 2. VAD 로직: 목소리 감지 시작
+  useEffect(() => {
+    if (status === "USER_LISTENING") {
+      startListening();
+    } else {
+      stopListening();
+    }
+    return () => stopListening();
+  }, [status]);
 
-      nextQuestion();
-    },
-  );
+  const startListening = async () => {
+    try {
+      if (!navigator.mediaDevices) {
+        setMicError("마이크는 HTTPS 환경에서만 사용할 수 있습니다.");
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      setMicError(null);
 
-  const handleStart = () => {
-    startRecording();
+      const AudioContextClass =
+        window.AudioContext || (window as any).webkitAudioContext;
+      const audioContext = new AudioContextClass();
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
 
-    startMic();
+      // fftSize 256으로 높여 주파수 해상도 향상 (frequencyBinCount = 128)
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8; // 막대 움직임 부드럽게
+      source.connect(analyser);
+
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      analyzeVolume();
+    } catch (err) {
+      console.error("마이크 접근 실패:", err);
+      setMicError("마이크 접근에 실패했습니다. HTTPS 환경인지 확인해 주세요.");
+    }
   };
 
-  const handleStop = () => {
-    stopRecording();
+  const analyzeVolume = () => {
+    if (!analyserRef.current) return;
 
-    stopMic();
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+
+    const checkUpdate = () => {
+      if (statusRef.current !== "USER_LISTENING") return;
+      if (!analyserRef.current) return;
+
+      analyserRef.current.getByteFrequencyData(dataArray);
+
+      // 주파수 데이터를 BAR_COUNT개 막대에 균등 매핑 (4px ~ 80px)
+      const step = Math.floor(dataArray.length / BAR_COUNT);
+      const heights = Array.from({ length: BAR_COUNT }, (_, i) => {
+        const slice = dataArray.slice(i * step, (i + 1) * step);
+        const avg = slice.reduce((a, b) => a + b, 0) / slice.length;
+        return Math.max(4, Math.round((avg / 255) * 80));
+      });
+      setWaveHeights(heights);
+
+      // 평균 볼륨으로 침묵 감지
+      const avg = dataArray.reduce((p, c) => p + c, 0) / dataArray.length;
+      if (avg < 10) {
+        if (!silenceTimerRef.current) {
+          silenceTimerRef.current = setTimeout(() => {
+            console.log("침묵 감지됨: 분석 단계로 전환");
+            setStatus("ANALYZING");
+          }, 3000);
+        }
+      } else {
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+      }
+
+      animationFrameRef.current = requestAnimationFrame(checkUpdate);
+    };
+
+    checkUpdate();
+  };
+
+  const stopListening = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = null;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    audioContextRef.current?.close();
+    setWaveHeights(DEFAULT_HEIGHTS);
   };
 
   return (
     <main
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        paddingTop: "2rem",
-        gap: "1rem",
-      }}
+      className={`${styles.container} ${status === "USER_LISTENING" ? styles.focusMode : ""}`}
     >
-      <h1>Start Interview</h1>
+      <div className={styles.orbWrapper}>
+        <div className={`${styles.orb} ${styles.orb1}`} />
+        <div className={`${styles.orb} ${styles.orb2}`} />
+      </div>
 
-      <Timer />
+      <section className={styles.content}>
+        <div className={styles.questionBox}>
+          <h2 className={styles.questionText}>
+            {displayTitle}
+            {status === "AI_SPEAKING" && (
+              <span className={styles.cursor}>|</span>
+            )}
+          </h2>
+        </div>
 
-      <QuestionCard question={question} />
+        <div className={styles.visualizerArea}>
+          <div
+            className={styles.listeningUI}
+            style={{ opacity: status === "USER_LISTENING" ? 1 : 0 }}
+          >
+            {micError ? (
+              <p className={styles.errorText}>{micError}</p>
+            ) : (
+              <div className={styles.waveContainer}>
+                {waveHeights.map((h, i) => (
+                  <div
+                    key={i}
+                    className={styles.waveBar}
+                    style={{ height: `${h}px` }}
+                  />
+                ))}
+              </div>
+            )}
+            <p className={styles.statusText}>당신의 목소리에 집중하고 있어요</p>
+          </div>
 
-      <RecordingButton
-        isRecording={isRecording}
-        onStart={handleStart}
-        onStop={handleStop}
-      />
-
-      <TranscriptBox text={transcript} />
+          {status === "ANALYZING" && (
+            <div className={styles.analyzingUI}>
+              <div className={styles.loadingBar} />
+              <p className={styles.statusText}>
+                문장을 아카이빙하고 있습니다...
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
     </main>
   );
 }
