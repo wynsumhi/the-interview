@@ -41,12 +41,6 @@ export default function Navbar() {
               className={styles.profileCircle}
               title="마이페이지"
             />
-            <button
-              onClick={() => setIsLoggedIn(false)}
-              className={styles.logoutBtn}
-            >
-              로그아웃
-            </button>
           </>
         ) : (
           <>
