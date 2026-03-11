@@ -19,6 +19,7 @@ services:
     image: redis:alpine
     container_name: local-redis
     restart: unless-stopped
+    command: redis-server --port 6379 --requirepass ssafy1234! --appendonly yes
     ports:
       - "6379:6379"
     environment:
