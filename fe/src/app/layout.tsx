@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Caveat, Gaegu } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/common/Navbar";
+import NavbarWrapper from "@/components/common/NavbarWrapper";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -25,7 +25,7 @@ const gaegu = Gaegu({
 });
 
 export const metadata: Metadata = {
-  title: "방구석 인터뷰",
+  title: "The Interview",
   description: "AI가 진행하는 나만의 인터뷰 아카이브, 방구석 인터뷰",
 };
 
@@ -39,7 +39,7 @@ export default function RootLayout({
       <body
         className={`${playfair.variable} ${caveat.variable} ${gaegu.variable} antialiased`}
       >
-        <Navbar />
+        <NavbarWrapper />
         {children}
       </body>
     </html>
