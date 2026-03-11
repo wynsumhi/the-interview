@@ -119,12 +119,12 @@
 
 .waveBar {
   width: 3px;
-  height: 8px;
+  height: 4px;
   background: #fff;
   border-radius: 2px;
   opacity: 0.3;
-  /* 목소리에 반응하는 듯한 불규칙한 높이 애니메이션 */
-  animation: waveHeight 1.2s ease-in-out infinite;
+  /* 인라인 스타일로 주파수 데이터에 따라 높이가 변화 */
+  transition: height 0.08s ease;
 }
 
 .focusMode .waveBar {
@@ -133,19 +133,49 @@
   box-shadow: 0 0 15px var(--blush);
 }
 
-/* 파형들 각각 다른 딜레이 */
-.waveBar:nth-child(even) {
-  animation-duration: 0.8s;
-}
-.waveBar:nth-child(3n) {
-  animation-duration: 1.5s;
-}
 
 .statusText {
   font-size: 11px;
   letter-spacing: 0.2em;
   text-align: center;
   color: rgba(255, 255, 255, 0.4);
+}
+
+.analyzingUI {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  animation: fadeIn 0.5s ease;
+}
+
+.loadingBar {
+  width: 120px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.loadingBar::after {
+  content: "";
+  position: absolute;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--blush), transparent);
+  animation: loadingProgress 1.5s infinite;
+}
+
+@keyframes loadingProgress {
+  100% {
+    left: 100%;
+  }
+}
+
+/* 파형들 각각 다른 높이로 출발해 더 자연스럽게 */
+.waveBar:nth-child(even) {
+  opacity: 0.5;
 }
 
 /* 애니메이션 정의 */
