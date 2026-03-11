@@ -1,0 +1,36 @@
+pipeline {
+	agent any
+	stages {
+		// 환경변수
+		stage('Prepare Env') {
+			steps {
+				// Jenkins Credentials에서 .env 파일을 app에 복사시킴
+				withCredentials([
+					file(credentialsId: 'ENV_FILE', variable: 'ENV'),
+				]) {
+					sh "cp $ENV infra/app/.env"
+				}
+			}
+		}
+
+		// 백엔드 컨테이너 CI/CD
+		stage('Deploy Backend') {
+			steps {
+				// 백엔드만 빌드하고 배포 (기존 컨테이너는 유지됨)
+				sh "docker compose -p theinterview -f infra/app/app-compose.yml up -d --build backend"
+			}
+		}
+	}
+	post {
+		always {
+			echo '🚧 Cleaning up dangling images...'
+			sh "docker image prune -f"
+		}
+		success {
+			echo '✅ Deployment finished successfully!'
+		}
+		failure {
+			echo '⚠️ Deployment failed. Check the logs.'
+		}
+	}
+}
