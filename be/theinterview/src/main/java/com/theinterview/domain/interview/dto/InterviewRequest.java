@@ -15,4 +15,11 @@ public abstract class InterviewRequest {
 
         private boolean isFinal;
     }
+
+    @Getter
+    @NoArgsConstructor
+    public static class InterviewStartRequest {
+
+        private boolean isRelativePrevInterview;
+    }
 }
