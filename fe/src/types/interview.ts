@@ -7,7 +7,14 @@ export type EmotionType = "joy" | "serenity" | "anger" | "sadness" | "insight";
 export type ShareRange = "PUBLIC" | "PRIVATE" | "FRIENDS";
 
 // 인터뷰 진행 상태
-export type InterviewStatus = "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+export type InterviewStatus =
+  | "CONNECTING"
+  | "AI_THINKING"
+  | "AI_SPEAKING"
+  | "USER_RECORDING"
+  | "UPLOADING"
+  | "WAITING_AI"
+  | "FINISHED";
 
 // 사용자 관련
 export interface Member {
