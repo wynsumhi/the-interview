@@ -2,96 +2,143 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>웹소켓 음성 Echo 테스트</title>
+    <title>자아 탐색 파이프라인 (통합 버전)</title>
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .box { border: 1px solid #ccc; padding: 15px; margin-top: 15px; border-radius: 8px; background-color: #f9f9f9; }
+    </style>
 </head>
 <body>
-    <h2>🎙️ 음성 전송 & 반사(Echo) 테스트</h2>
-    <input type="text" id="token" placeholder="Access Token 입력" style="width: 400px;"><br><br>
-    <button id="connectBtn" onclick="connect()">1. 웹소켓 연결</button>
-    <button id="startBtn" onclick="startRecording()" disabled>2. 녹음 시작</button>
-    <button id="stopBtn" onclick="stopRecording()" disabled>3. 녹음 중지 & 전송</button>
+    <h2>🌱 일상 기록: 방 생성부터 통신까지</h2>
+    
+    <div class="box">
+        <input type="text" id="token" placeholder="JWT Access Token 입력" style="width: 300px;"><br><br>
+        <button id="startSessionBtn" onclick="initRecordSession()">1. 새로운 기록 시작하기 (방 생성 + 연결)</button>
+        <span id="status" style="margin-left: 10px; color: red;">연결 대기 중...</span>
+        <div id="roomInfo" style="margin-top: 10px; font-weight: bold; color: blue;"></div>
+    </div>
+    
+    <div class="box">
+        <button id="startBtn" onclick="startRecording()" disabled>🔴 내 생각 말하기 (녹음)</button>
+        <button id="stopBtn" onclick="stopRecording()" disabled>⏹️ 기록 중지</button>
+        <button id="nextBtn" onclick="sendAudioToServer()" disabled>➡️ 다음 (기록 제출)</button>
+    </div>
 
-    <hr>
-    <h3>🎧 서버에서 돌아온 음성 재생</h3>
-    <audio id="audioPlayback" controls></audio>
+    <div class="box" id="resultArea" style="display: none;">
+        <h3>✨ 나를 알아가는 시간</h3>
+        <p>🗣️ <strong>나의 기록:</strong> <span id="sttResult"></span></p>
+        <p>❓ <strong>AI의 다음 질문:</strong> <span id="followUp"></span></p>
+        <audio id="audioPlayback" controls style="margin-top: 10px;"></audio>
+    </div>
 
     <script>
         let stompClient = null;
         let mediaRecorder = null;
         let audioChunks = [];
-        const roomId = "test-room-1";
+        let currentRoomId = null; // ⭐️ 발급받은 방 번호를 저장할 전역 변수
 
-        // [1] 연결 로직
-        function connect() {
+        // [핵심 1] HTTP POST로 방 번호 발급 -> 웹소켓 연결
+        async function initRecordSession() {
             const token = document.getElementById('token').value;
-            // 💡 Context Path가 /api 라면 주소에 포함하세요!
-            const socket = new SockJS('http://localhost:8080/api/ws-stt'); 
+            if(!token) { alert("토큰을 입력해주세요!"); return; }
+
+            try {
+                document.getElementById('status').innerText = "방 생성 중...";
+                
+                // 1. 방금 만드신 컨트롤러(POST API) 호출
+                // 주의: URL 경로가 /v1/interview 인지 /api/v1/interview 인지 서버 설정에 맞게 수정하세요!
+                const response = await fetch('http://localhost:8080/api/v1/interview', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({}) // InterviewStartRequest 에 맞는 빈 바디 또는 필요 데이터
+                });
+
+                if (!response.ok) throw new Error("HTTP 요청 실패: " + response.status);
+
+                const responseData = await response.json();
+                
+                // 2. 서버가 ApiResponse<Integer> 형태로 준 방 번호 추출 (필드명은 실제 ApiResponse 규격에 맞게 'data'나 'result'로 수정)
+                currentRoomId = responseData.result || responseData.data; 
+                document.getElementById('roomInfo').innerText = `✅ 발급받은 방 번호: ${currentRoomId}번`;
+                
+                // 3. 방 번호를 얻었으니 이제 웹소켓 연결 시작!
+                connectWebSocket(token, currentRoomId);
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('status').innerText = "방 생성 실패 (콘솔 확인)";
+            }
+        }
+
+        // [핵심 2] 웹소켓 연결 및 구독
+        function connectWebSocket(token, roomId) {
+            document.getElementById('status').innerText = "웹소켓 연결 중...";
+            const socket = new SockJS('http://localhost:8080/api/ws-stt'); // SecurityConfig에 열어둔 엔드포인트
             stompClient = Stomp.over(socket);
 
             stompClient.connect({'Authorization': 'Bearer ' + token}, function (frame) {
-                console.log('✅ 연결 성공!');
+                document.getElementById('status').innerText = "✅ 통신 준비 완료!";
+                document.getElementById('status').style.color = "green";
                 document.getElementById('startBtn').disabled = false;
                 
-                // ⭐️ 서버가 다시 쏴주는 음성을 받을 통로를 구독합니다.
+                // ⭐️ 여기서 아까 HTTP로 받아온 진짜 roomId를 이용해 구독합니다.
                 stompClient.subscribe('/topic/interview/room/' + roomId, function (response) {
                     const data = JSON.parse(response.body);
-                    console.log("📢 서버로부터 음성 수신 완료!");
-                    playAudio(data.audioData);
+                    renderAiResponse(data);
                 });
-            }, function(error) {
-                console.error('❌ 연결 실패:', error);
             });
         }
 
-        // [2] 녹음 시작
+        // --- 이하 녹음 및 전송 로직은 이전과 동일 ---
         async function startRecording() {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
-
             mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-            mediaRecorder.onstop = sendAudio;
-            
             mediaRecorder.start();
-            console.log("🔴 녹음 중...");
             document.getElementById('startBtn').disabled = true;
             document.getElementById('stopBtn').disabled = false;
+            document.getElementById('nextBtn').disabled = true;
         }
 
-        // [3] 녹음 중지
         function stopRecording() {
             mediaRecorder.stop();
             document.getElementById('startBtn').disabled = false;
             document.getElementById('stopBtn').disabled = true;
+            document.getElementById('nextBtn').disabled = false; 
         }
 
-        // [4] 서버로 음성 전송 (Base64 변환)
-        function sendAudio() {
+        function sendAudioToServer() {
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             const reader = new FileReader();
             
-            reader.readAsDataURL(audioBlob); // Base64로 읽기
+            reader.readAsDataURL(audioBlob); 
             reader.onloadend = function() {
-                const base64Audio = reader.result.split(',')[1]; // data:audio/webm;base64, 접두사 제거
+                const base64Audio = reader.result.split(',')[1]; 
                 
+                // ⭐️ 페이로드에도 현재 발급받은 진짜 방 번호를 담아서 쏩니다
                 const payload = {
-                    roomId: roomId,
+                    roomId: currentRoomId.toString(), 
                     audioData: base64Audio,
                     isFinal: true
                 };
 
                 stompClient.send("/app/interview/audio", {}, JSON.stringify(payload));
-                console.log("🚀 음성 데이터 전송 완료!");
+                document.getElementById('nextBtn').disabled = true;
             };
         }
 
-        // [5] 서버에서 온 음성 재생
-        function playAudio(base64Data) {
+        function renderAiResponse(data) {
+            document.getElementById('resultArea').style.display = 'block';
+            document.getElementById('sttResult').innerText = data.sttResult;
+            document.getElementById('followUp').innerText = data.followUpQuestion;
             const audio = document.getElementById('audioPlayback');
-            // 수신된 데이터를 다시 소리로 변환
-            audio.src = "data:audio/webm;base64," + base64Data;
+            audio.src = "data:audio/webm;base64," + data.ttsAudioBase64;
             audio.play();
         }
     </script>
