@@ -28,14 +28,13 @@ def build_interview_messages(stt_text: str) -> list[dict[str, str]]:
 
 def run_interview_pipeline(
     audio_file_path: str,
-    system_prompt: str = INTERVIEW_SYSTEM_PROMPT,
     max_tokens: int = 1024,
 ) -> InterviewPipelineResult:
     # 현재 단계에서는 guardrail 없이 STT -> LLM -> TTS만 직선으로 연결한다.
     stt_text = speech_to_text(audio_file_path)
     llm_text = create_message(
         messages=build_interview_messages(stt_text),
-        system=system_prompt,
+        system=INTERVIEW_SYSTEM_PROMPT,
         max_tokens=max_tokens,
     )
     tts_audio = text_to_speech(llm_text)
