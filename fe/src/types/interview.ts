@@ -7,7 +7,14 @@ export type EmotionType = "joy" | "serenity" | "anger" | "sadness" | "insight";
 export type ShareRange = "PUBLIC" | "PRIVATE" | "FRIENDS";
 
 // 인터뷰 진행 상태
-export type InterviewStatus = "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+export type InterviewStatus =
+  | "CONNECTING" // WebSocket 연결 중
+  | "AI_THINKING" // AI 질문 생성 중
+  | "AI_SPEAKING" // AI 질문 음성 재생
+  | "USER_RECORDING" // 사용자 답변 녹음
+  | "UPLOADING" // 사용자 음성 업로드
+  | "WAITING_AI" // AI가 다음 질문 생성
+  | "FINISHED"; // 인터뷰 종료
 
 // 사용자 관련
 export interface Member {

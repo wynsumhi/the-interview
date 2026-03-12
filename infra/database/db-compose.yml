@@ -1,8 +1,10 @@
 services:
-  database:
+  postgres-db:
     image: pgvector/pgvector:pg16
     container_name: postgres-db
     restart: always
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -11,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - default
+      - theinterview-net
     healthcheck:
       test:
         [
@@ -32,13 +34,15 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: ${REDIS_HOST}
+    container_name: redis
     restart: always
+    env_file:
+      - .env
     command: redis-server --port 6379 --requirepass ${REDIS_PASSWORD} --appendonly yes
     volumes:
       - redis_data:/data
     networks:
-      - default
+      - theinterview-net
     healthcheck:
       test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
       interval: 5s
@@ -54,9 +58,8 @@ services:
       - "6379:6379"
 
 networks:
-  default:
+  theinterview-net:
     external: true
-    name: theinterview-net
 
 volumes:
   postgres_data: { }

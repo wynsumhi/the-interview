@@ -14,22 +14,26 @@ services:
       - /home/ubuntu/infra/nginx/www:/var/www/certbot:ro
       - /home/ubuntu/infra/nginx/certs:/etc/letsencrypt:ro
     networks:
-      - default
+      - theinterview-net
 
   jenkins:
     image: jenkins/jenkins:lts
     container_name: jenkins
     restart: on-failure
+    user: root
     deploy:
       resources:
         limits:
           memory: 3G
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+      - /usr/libexec/docker/cli-plugins:/usr/libexec/docker/cli-plugins
       - jenkins_home:/var/jenkins_home
     environment:
       - JENKINS_OPTS=--prefix=/infra/jenkins --httpPort=8989
     networks:
-      - default
+      - theinterview-net
     # ports:
     #   - "8989:8989"
     #   - "50000:50000"
@@ -41,7 +45,7 @@ services:
     env_file:
       - .env
     networks:
-      - default
+      - theinterview-net
     deploy:
       resources:
         limits:
@@ -54,9 +58,8 @@ services:
     # - 9123:9123
 
 networks:
-  default:
+  theinterview-net:
     external: true
-    name: theinterview-net
 
 volumes:
   jenkins_home: { }

@@ -1,0 +1,51 @@
+pipeline {
+	agent any
+
+	triggers {
+		gitlab(
+			triggerOnMergeRequest: true,
+			branchFilterType: 'NameBased',
+			includeBranchesSpec: 'develop',
+			secretToken: 'cec65daa349ce15aa1f1cdc542dd0b4',
+			includePathsSpec: 'fe/.*'
+		)
+	}
+
+	stages {
+		// 환경변수
+		stage('Prepare Env') {
+			steps {
+				// Jenkins Credentials에서 .env 파일을 app에 복사시킴
+				withCredentials([
+					file(credentialsId: 'ENV_FILE', variable: 'ENV'),
+				]) {
+					sh "cp $ENV infra/app/.env"
+				}
+			}
+		}
+
+		// 프론트엔드 컨테이너 CI/CD
+		stage('Deploy Frontend') {
+			steps {
+				// 프론트엔드 배포
+				sh """
+        		export COMPOSE_PROJECT_NAME=theinterview
+        		docker ps -a --format "{{.Names}}" | grep "frontend" | xargs -r docker rm -f
+				docker compose -f infra/app/app-compose.yml up -d --build --no-deps frontend
+				"""
+			}
+		}
+	}
+	post {
+		always {
+			echo '🚧 Cleaning up dangling images...'
+			sh "docker image prune -f"
+		}
+		success {
+			echo '✅ Deployment finished successfully!'
+		}
+		failure {
+			echo '⚠️ Deployment failed. Check the logs.'
+		}
+	}
+}
