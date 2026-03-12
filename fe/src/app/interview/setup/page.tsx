@@ -13,7 +13,7 @@ export default function InterviewStartPage() {
 
   const handleStart = () => {
     // 선택된 시간(duration)만 쿼리로 전달
-    router.push(`/interview/session?duration=${duration}`);
+    router.push(`/interview/conversation?duration=${duration}`);
   };
 
   return (
