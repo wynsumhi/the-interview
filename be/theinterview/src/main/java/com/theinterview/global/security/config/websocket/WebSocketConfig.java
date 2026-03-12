@@ -19,7 +19,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     // 클라이언트가 연결을 시도할 최초의 엔드포인트를 설정
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws-stt") // ws://localhost:8080/sw-stt 로 연결 시도
+        registry.addEndpoint("/ws-connect") // ws://localhost:8080/ws-connect 로 연결 시도
                 .setAllowedOriginPatterns("*") // cors 설정, 일단 모두 허용(todo: security cors 설정 반영 예정)
                 .withSockJS();
     }

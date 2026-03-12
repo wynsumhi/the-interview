@@ -39,17 +39,17 @@ public class InterviewQuestion {
     @Column(name = "sequence", nullable = false)
     private Integer sequence;
 
-    @Column(name = "question_test")
-    private String questionTest;
+    @Column(name = "question_text")
+    private String questionText;
 
     @Column(name = "created_at")
     @CreatedDate
     private LocalDateTime createdAt;
 
     @Builder
-    public InterviewQuestion(Interview interview, Integer sequence, String questionTest) {
+    public InterviewQuestion(Interview interview, Integer sequence, String questionText) {
         this.interview = interview;
         this.sequence = sequence;
-        this.questionTest = questionTest;
+        this.questionText = questionText;
     }
 }

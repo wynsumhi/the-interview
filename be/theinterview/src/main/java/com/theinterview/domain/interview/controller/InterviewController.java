@@ -1,6 +1,7 @@
 package com.theinterview.domain.interview.controller;
 
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewStartRequest;
+import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.service.InterviewService;
 import com.theinterview.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +21,9 @@ public class InterviewController {
 
     private final InterviewService interviewService;
 
-    // 방 생성을 위한 API
+    // 웹소켓 연결 및 구독할 인터뷰 방의 번호(interviewID) 및 첫 질문의 번호(questionId)를 발급
     @PostMapping
-    public ApiResponse<Integer> readForConnectWebSocket(
+    public ApiResponse<WebSocketConnectResponse> readForConnectWebSocket(
             @RequestBody InterviewStartRequest request,
             @AuthenticationPrincipal User user
     ) {

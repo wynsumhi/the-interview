@@ -21,12 +21,16 @@ public class InterviewWebSocketController {
 
     // 프론트에서 다음 버튼을 누르고 /app/interview/audio 로 음성을 쏘면 여기서 받음
     @MessageMapping("/interview/audio")
-    public void receiveAudio(@Payload AudioMessageRequest request) throws IOException {
-        log.info("수신 데이터 확인 roomId: {}", request.getRoomId());
+    public void receiveAudio(
+            @Payload AudioMessageRequest request
+    ) throws IOException {
+        log.info("수신 데이터 확인 roomId: {}", request.getInterviewId());
 
         // 서비스 레이어 호출
         FollowUpQuestionDTO response = interviewService.oneQnAInterviewFlow(request);
 
-        messagingTemplate.convertAndSend("/topic/interview/room/" + request.getRoomId(), response);
+        // 메시지 브로커에게 메시지 전달
+        messagingTemplate.convertAndSend("/topic/interview/room/" + request.getInterviewId(),
+                response);
     }
 }

@@ -60,6 +60,7 @@ public class SecurityConfig {
                                 "/v1/auth/login",
                                 "/ws-stt/**",
                                 "/ws-stt",
+                                "/ws-connect/**",
                                 "/error"
                         ).permitAll()
                         .anyRequest().authenticated()
@@ -79,7 +80,8 @@ public class SecurityConfig {
                 "http://localhost:8080",           // 로컬 테스트용
                 "http://localhost:3000",           // 리액트 기본 포트
                 "http://70.12.247.129:3000",
-                "http://127.0.0.1:5500"
+                "http://127.0.0.1:5500",
+                "http://localhost:5500"
         ));
         // 모든 HTTP 메서드 허용
         configuration.addAllowedMethod("*");
