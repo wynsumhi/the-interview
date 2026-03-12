@@ -2,34 +2,40 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>자아 탐색 파이프라인 (통합 버전)</title>
+    <title>AI 인터뷰 테스트 파이프라인</title>
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; }
         .box { border: 1px solid #ccc; padding: 15px; margin-top: 15px; border-radius: 8px; background-color: #f9f9f9; }
+        .badge { background-color: #007bff; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; }
     </style>
 </head>
 <body>
-    <h2>🌱 일상 기록: 방 생성부터 통신까지</h2>
+    <h2>🌱 AI 대화 테스트 클라이언트</h2>
     
     <div class="box">
-        <input type="text" id="token" placeholder="JWT Access Token 입력" style="width: 300px;"><br><br>
-        <button id="startSessionBtn" onclick="initRecordSession()">1. 새로운 기록 시작하기 (방 생성 + 연결)</button>
-        <span id="status" style="margin-left: 10px; color: red;">연결 대기 중...</span>
+        <input type="text" id="token" placeholder="JWT Access Token (필요 시)" style="width: 300px;"><br><br>
+        <button id="startSessionBtn" onclick="initRecordSession()">1. 인터뷰 시작 (HTTP POST + WS Connect)</button>
+        <span id="status" style="margin-left: 10px; color: red;">대기 중...</span>
         <div id="roomInfo" style="margin-top: 10px; font-weight: bold; color: blue;"></div>
     </div>
     
+    <div class="box" id="questionArea" style="display: none; background-color: #eef2f5;">
+        <h3>🤔 현재 질문 <span id="qIdBadge" class="badge"></span></h3>
+        <p id="currentQuestionText" style="font-size: 18px; font-weight: bold;"></p>
+    </div>
+
     <div class="box">
-        <button id="startBtn" onclick="startRecording()" disabled>🔴 내 생각 말하기 (녹음)</button>
-        <button id="stopBtn" onclick="stopRecording()" disabled>⏹️ 기록 중지</button>
-        <button id="nextBtn" onclick="sendAudioToServer()" disabled>➡️ 다음 (기록 제출)</button>
+        <button id="startBtn" onclick="startRecording()" disabled>🔴 답변 녹음 시작</button>
+        <button id="stopBtn" onclick="stopRecording()" disabled>⏹️ 녹음 중지</button>
+        <button id="nextBtn" onclick="sendAudioToServer()" disabled>➡️ 답변 제출 및 꼬리질문 받기</button>
     </div>
 
     <div class="box" id="resultArea" style="display: none;">
-        <h3>✨ 나를 알아가는 시간</h3>
-        <p>🗣️ <strong>나의 기록:</strong> <span id="sttResult"></span></p>
-        <p>❓ <strong>AI의 다음 질문:</strong> <span id="followUp"></span></p>
+        <h3>✨ 방금 서버에서 온 결과</h3>
+        <p>🗣️ <strong>내 답변 (STT):</strong> <span id="sttResult"></span></p>
+        <p>🔊 <strong>AI 음성 (TTS):</strong></p>
         <audio id="audioPlayback" controls style="margin-top: 10px;"></audio>
     </div>
 
@@ -37,64 +43,76 @@
         let stompClient = null;
         let mediaRecorder = null;
         let audioChunks = [];
-        let currentRoomId = null; // ⭐️ 발급받은 방 번호를 저장할 전역 변수
+        
+        // ⭐️ 글로벌 상태 관리 (식별자 추적)
+        let currentInterviewId = null;
+        let currentQuestionId = null; 
 
-        // [핵심 1] HTTP POST로 방 번호 발급 -> 웹소켓 연결
+        // [Phase 1] HTTP POST 방 생성 및 웹소켓 연결
         async function initRecordSession() {
             const token = document.getElementById('token').value;
-            if(!token) { alert("토큰을 입력해주세요!"); return; }
-
+            
             try {
-                document.getElementById('status').innerText = "방 생성 중...";
+                document.getElementById('status').innerText = "인터뷰 생성 중...";
                 
-                // 1. 방금 만드신 컨트롤러(POST API) 호출
-                // 주의: URL 경로가 /v1/interview 인지 /api/v1/interview 인지 서버 설정에 맞게 수정하세요!
-                const response = await fetch('http://localhost:8080/api/v1/interview', {
+                const response = await fetch('http://localhost:8080/api/v1/interview', { // 포트 및 주소 확인
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': 'Bearer ' + token
                     },
-                    body: JSON.stringify({}) // InterviewStartRequest 에 맞는 빈 바디 또는 필요 데이터
+                    body: JSON.stringify({ isPrevAffected: false }) 
                 });
 
-                if (!response.ok) throw new Error("HTTP 요청 실패: " + response.status);
+                if (!response.ok) throw new Error("HTTP 요청 실패");
 
-                const responseData = await response.json();
+                // 1. JSON 데이터 원본 받기
+                const rawData = await response.json();
+                console.log("📦 서버 원본 응답:", rawData); // F12 콘솔에서 구조 확인용
+
+                // 2. ⭐️ 공통 응답 래퍼(Wrapper) 껍질 벗기기
+                // rawData.result가 있으면 쓰고, 없으면 rawData.data를 쓰고, 둘 다 없으면 그냥 원본(rawData) 사용
+                const payload = rawData.result || rawData.data || rawData;
+
+                // 3. 상태 저장 및 UI 업데이트
+                currentInterviewId = payload.interviewId;
+                currentQuestionId = payload.questionId;
                 
-                // 2. 서버가 ApiResponse<Integer> 형태로 준 방 번호 추출 (필드명은 실제 ApiResponse 규격에 맞게 'data'나 'result'로 수정)
-                currentRoomId = responseData.result || responseData.data; 
-                document.getElementById('roomInfo').innerText = `✅ 발급받은 방 번호: ${currentRoomId}번`;
+                // 화면 업데이트
+                document.getElementById('roomInfo').innerText = `✅ 인터뷰 번호: ${currentInterviewId}번 준비 완료!`;
                 
-                // 3. 방 번호를 얻었으니 이제 웹소켓 연결 시작!
-                connectWebSocket(token, currentRoomId);
+                // 첫 질문 렌더링 (DTO 변수명이 interviewTitle 이므로 매핑)
+                updateQuestionUI(currentQuestionId, payload.interviewTitle);
+
+                // 웹소켓 연결
+                connectWebSocket(token, currentInterviewId);
 
             } catch (error) {
                 console.error(error);
-                document.getElementById('status').innerText = "방 생성 실패 (콘솔 확인)";
+                document.getElementById('status').innerText = "생성 실패 (콘솔 확인)";
             }
         }
 
-        // [핵심 2] 웹소켓 연결 및 구독
-        function connectWebSocket(token, roomId) {
+        // [Phase 2] 웹소켓 연결 및 구독
+        function connectWebSocket(token, interviewId) {
             document.getElementById('status').innerText = "웹소켓 연결 중...";
-            const socket = new SockJS('http://localhost:8080/api/ws-stt'); // SecurityConfig에 열어둔 엔드포인트
+            const socket = new SockJS('http://localhost:8080/api/ws-connect'); 
             stompClient = Stomp.over(socket);
 
             stompClient.connect({'Authorization': 'Bearer ' + token}, function (frame) {
-                document.getElementById('status').innerText = "✅ 통신 준비 완료!";
+                document.getElementById('status').innerText = "✅ 통신 파이프라인 연결됨!";
                 document.getElementById('status').style.color = "green";
                 document.getElementById('startBtn').disabled = false;
                 
-                // ⭐️ 여기서 아까 HTTP로 받아온 진짜 roomId를 이용해 구독합니다.
-                stompClient.subscribe('/topic/interview/room/' + roomId, function (response) {
-                    const data = JSON.parse(response.body);
-                    renderAiResponse(data);
+                // 구독 시작
+                stompClient.subscribe('/topic/interview/room/' + interviewId, function (response) {
+                    const responseDto = JSON.parse(response.body);
+                    handleAiResponse(responseDto);
                 });
             });
         }
 
-        // --- 이하 녹음 및 전송 로직은 이전과 동일 ---
+        // --- 녹음 로직 ---
         async function startRecording() {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
@@ -113,6 +131,7 @@
             document.getElementById('nextBtn').disabled = false; 
         }
 
+        // [Phase 3] 서버로 오디오 및 상태(ID) 전송
         function sendAudioToServer() {
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             const reader = new FileReader();
@@ -121,25 +140,50 @@
             reader.onloadend = function() {
                 const base64Audio = reader.result.split(',')[1]; 
                 
-                // ⭐️ 페이로드에도 현재 발급받은 진짜 방 번호를 담아서 쏩니다
+                // ⭐️ AudioMessageRequest 규격에 맞춘 페이로드 조립
                 const payload = {
-                    roomId: currentRoomId.toString(), 
+                    interviewId: currentInterviewId, 
+                    questionId: currentQuestionId,     // 현재 대답하고 있는 질문의 ID
                     audioData: base64Audio,
                     isFinal: true
                 };
 
                 stompClient.send("/app/interview/audio", {}, JSON.stringify(payload));
+                
                 document.getElementById('nextBtn').disabled = true;
+                document.getElementById('status').innerText = "AI 꼬리질문 생성 중 (대기)...";
+                document.getElementById('status').style.color = "orange";
             };
         }
 
-        function renderAiResponse(data) {
+        // [Phase 4] AI 응답 수신 및 상태 업데이트
+        function handleAiResponse(data) {
+            document.getElementById('status').innerText = "✅ 통신 파이프라인 연결됨!";
+            document.getElementById('status').style.color = "green";
+            
+            // 1. 하단 결과 영역 렌더링
             document.getElementById('resultArea').style.display = 'block';
             document.getElementById('sttResult').innerText = data.sttResult;
-            document.getElementById('followUp').innerText = data.followUpQuestion;
+            
+            // TTS 오디오 렌더링
             const audio = document.getElementById('audioPlayback');
-            audio.src = "data:audio/webm;base64," + data.ttsAudioBase64;
-            audio.play();
+            if (data.ttsAudioBase64) {
+                audio.src = "data:audio/webm;base64," + data.ttsAudioBase64;
+                // audio.play(); // 필요시 자동 재생 주석 해제
+            }
+
+            // 2. ⭐️ 글로벌 상태 업데이트 및 상단 질문 UI 변경 (다음 턴 준비)
+            currentQuestionId = data.questionId; 
+            updateQuestionUI(currentQuestionId, data.followUpQuestion);
+            
+            document.getElementById('startBtn').disabled = false; // 다시 답변할 수 있게 버튼 활성화
+        }
+
+        // UI 헬퍼 함수
+        function updateQuestionUI(qId, text) {
+            document.getElementById('questionArea').style.display = 'block';
+            document.getElementById('qIdBadge').innerText = `Q.ID: ${qId}`;
+            document.getElementById('currentQuestionText').innerText = text;
         }
     </script>
 </body>
