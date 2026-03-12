@@ -1,19 +1,25 @@
-// src/app/interview/start/page.tsx
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 
-export default function InterviewStartPage() {
+export default function InterviewSetupPage() {
   const router = useRouter();
-  const [duration, setDuration] = useState<number>(10); // 기본값 10분
+  const [duration, setDuration] = useState<number>(10);
 
   const timeOptions = [5, 10, 15, 20, 25, 30];
 
-  const handleStart = () => {
-    // 선택된 시간(duration)만 쿼리로 전달
-    router.push(`/interview/conversation?duration=${duration}`);
+  const handleStart = async () => {
+    try {
+      // 인터뷰 시작 전에 마이크 권한 미리 요청
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // 선택된 시간만 쿼리에 전달
+      router.push(`/interview/conversation?duration=${duration}`);
+    } catch {
+      alert("마이크 권한이 필요합니다.");
+    }
   };
 
   return (
@@ -26,15 +32,17 @@ export default function InterviewStartPage() {
       </header>
 
       <section className={styles.formSection}>
-        {/* 시간 설정 선택 영역 */}
         <div className={styles.timeSelectionWrapper}>
           <label className={styles.label}>Select Duration</label>
+
           <div className={styles.timeGrid}>
             {timeOptions.map((time) => (
               <button
                 key={time}
                 type="button"
-                className={`${styles.timeChip} ${duration === time ? styles.active : ""}`}
+                className={`${styles.timeChip} ${
+                  duration === time ? styles.active : ""
+                }`}
                 onClick={() => setDuration(time)}
               >
                 <span className={styles.timeValue}>{time}</span>
@@ -49,6 +57,7 @@ export default function InterviewStartPage() {
             <span className={styles.icon}>🎤</span>
             <p>마이크 권한을 허용하면 자동으로 대화가 시작됩니다.</p>
           </div>
+
           <div className={styles.guideItem}>
             <span className={styles.icon}>🌙</span>
             <p>대화 중에는 오직 당신의 목소리에만 집중합니다.</p>
