@@ -3,7 +3,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from app.pipeline.interview_pipeline import InterviewPipelineResult, run_interview_pipeline
+from app.pipeline.interview_pipeline import (
+    INTERVIEW_SYSTEM_PROMPT,
+    InterviewPipelineResult,
+    run_interview_pipeline,
+)
 
 
 class TestInterviewPipeline(unittest.TestCase):
@@ -15,11 +19,11 @@ class TestInterviewPipeline(unittest.TestCase):
             with (
                 patch(
                     "app.pipeline.interview_pipeline.speech_to_text",
-                    return_value="요즘 가장 애정을 쏟고 있는 작업 이야기를 들려드릴게요.",
+                    return_value="candidate answer",
                 ) as stt_mock,
                 patch(
                     "app.pipeline.interview_pipeline.create_message",
-                    return_value="그 작업을 하면서 가장 오래 마음에 남은 장면은 무엇이었나요?",
+                    return_value="follow-up interview question",
                 ) as llm_mock,
                 patch(
                     "app.pipeline.interview_pipeline.text_to_speech",
@@ -28,15 +32,14 @@ class TestInterviewPipeline(unittest.TestCase):
             ):
                 result = run_interview_pipeline(
                     str(audio_file),
-                    system_prompt="매거진 인터뷰용 꼬리 질문을 한 개만 생성하세요.",
                     max_tokens=256,
                 )
 
             self.assertEqual(
                 result,
                 InterviewPipelineResult(
-                    stt_text="요즘 가장 애정을 쏟고 있는 작업 이야기를 들려드릴게요.",
-                    llm_text="그 작업을 하면서 가장 오래 마음에 남은 장면은 무엇이었나요?",
+                    stt_text="candidate answer",
+                    llm_text="follow-up interview question",
                     tts_audio=b"tts-bytes",
                 ),
             )
@@ -45,15 +48,13 @@ class TestInterviewPipeline(unittest.TestCase):
                 messages=[
                     {
                         "role": "user",
-                        "content": "요즘 가장 애정을 쏟고 있는 작업 이야기를 들려드릴게요.",
+                        "content": "candidate answer",
                     }
                 ],
-                system="매거진 인터뷰용 꼬리 질문을 한 개만 생성하세요.",
+                system=INTERVIEW_SYSTEM_PROMPT,
                 max_tokens=256,
             )
-            tts_mock.assert_called_once_with(
-                "그 작업을 하면서 가장 오래 마음에 남은 장면은 무엇이었나요?"
-            )
+            tts_mock.assert_called_once_with("follow-up interview question")
 
 
 if __name__ == "__main__":

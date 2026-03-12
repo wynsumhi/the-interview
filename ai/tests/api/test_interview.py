@@ -12,6 +12,7 @@ def test_interview_pipeline_returns_follow_up_and_tts_audio() -> None:
     with patch(
         "app.api.v1.endpoints.interview.run_interview_pipeline_from_upload",
         return_value={
+            "stt_text": "candidate answer",
             "question_text": "next question",
             "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
             "tts_audio_mime_type": "audio/mpeg",
@@ -25,6 +26,7 @@ def test_interview_pipeline_returns_follow_up_and_tts_audio() -> None:
 
     assert response.status_code == 200
     assert response.json() == {
+        "stt_text": "candidate answer",
         "question_text": "next question",
         "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
         "tts_audio_mime_type": "audio/mpeg",
