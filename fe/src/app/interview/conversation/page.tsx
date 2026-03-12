@@ -32,6 +32,12 @@ export default function InterviewSessionPage() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // MediaRecorder 인스턴스
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+
+  // 녹음 데이터 저장
+  const audioChunksRef = useRef<Blob[]>([]);
+
   // 침묵 감지 타이머
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
