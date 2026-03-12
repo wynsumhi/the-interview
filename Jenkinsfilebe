@@ -19,6 +19,7 @@ pipeline {
 				// 백엔드만 빌드하고 배포 (기존 컨테이너는 유지됨)
 				sh """
 				export COMPOSE_PROJECT_NAME=theinterview
+				docker ps -a --format "{{.Names}}" | grep "backend" | xargs -r docker rm -f
 				docker compose -f infra/app/app-compose.yml up -d --build --no-deps backend
 				"""
 			}
