@@ -207,6 +207,20 @@ export default function InterviewSessionPage() {
       silenceTimerRef.current = null;
     }
 
+    // MediaRecorder 종료
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+
+        console.log("녹음 완료 blob", audioBlob);
+
+        // 이후 단계에서 서버 업로드 예정 - 백앤드와 상의(소캣으로 보낼지)
+      };
+    }
+
     streamRef.current?.getTracks().forEach((track) => track.stop());
 
     audioContextRef.current?.close();
