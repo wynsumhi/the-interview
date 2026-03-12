@@ -102,6 +102,21 @@ export default function InterviewSessionPage() {
 
       setMicError(null);
 
+      // MediaRecorder 생성
+      const mediaRecorder = new MediaRecorder(stream);
+
+      mediaRecorderRef.current = mediaRecorder;
+
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.start();
+
       const AudioContextClass =
         window.AudioContext || (window as any).webkitAudioContext;
 
