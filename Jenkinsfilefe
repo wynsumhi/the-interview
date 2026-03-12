@@ -1,5 +1,16 @@
 pipeline {
 	agent any
+
+	triggers {
+		gitlab(
+			triggerOnMergeRequest: true,
+			branchFilterType: 'NameBased',
+			includeBranchesSpec: 'develop',
+			secretToken: 'cec65daa349ce15aa1f1cdc542dd0b4',
+			includePathsSpec: 'fe/.*'
+		)
+	}
+
 	stages {
 		// 환경변수
 		stage('Prepare Env') {
