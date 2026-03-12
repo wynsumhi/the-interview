@@ -1,0 +1,107 @@
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 160px 24px 80px;
+  text-align: center;
+}
+
+.title {
+  font-family: var(--font-playfair);
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  margin-bottom: 80px;
+}
+
+.section {
+  margin-bottom: 60px;
+}
+
+.label {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  margin-bottom: 20px;
+  font-weight: 800;
+}
+
+.timeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.timeChip {
+  border: 1px solid var(--border);
+  padding: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  background: white;
+}
+
+.timeChip.active {
+  background: var(--fg);
+  color: white;
+}
+
+.modeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.modeCard {
+  border: 1px solid var(--border);
+  padding: 24px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.modeCard.active {
+  background: var(--fg);
+  color: white;
+}
+
+.categoryInput {
+  margin-top: 16px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--border);
+}
+
+.startBtn {
+  width: 100%;
+  padding: 22px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  background: var(--fg);
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.loader {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
