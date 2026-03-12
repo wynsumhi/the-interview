@@ -8,13 +8,13 @@ export type ShareRange = "PUBLIC" | "PRIVATE" | "FRIENDS";
 
 // 인터뷰 진행 상태
 export type InterviewStatus =
-  | "CONNECTING"
-  | "AI_THINKING"
-  | "AI_SPEAKING"
-  | "USER_RECORDING"
-  | "UPLOADING"
-  | "WAITING_AI"
-  | "FINISHED";
+  | "CONNECTING" // WebSocket 연결 중
+  | "AI_THINKING" // AI 질문 생성 중
+  | "AI_SPEAKING" // AI 질문 음성 재생
+  | "USER_RECORDING" // 사용자 답변 녹음
+  | "UPLOADING" // 사용자 음성 업로드
+  | "WAITING_AI" // AI가 다음 질문 생성
+  | "FINISHED"; // 인터뷰 종료
 
 // 사용자 관련
 export interface Member {
