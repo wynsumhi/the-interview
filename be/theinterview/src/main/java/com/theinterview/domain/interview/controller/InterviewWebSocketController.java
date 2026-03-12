@@ -24,7 +24,7 @@ public class InterviewWebSocketController {
     public void receiveAudio(
             @Payload AudioMessageRequest request
     ) throws IOException {
-        log.info("수신 데이터 확인 roomId: {}", request.getInterviewId());
+        log.info("수신 데이터 확인 interviewId: {}", request.getInterviewId());
 
         // 서비스 레이어 호출
         FollowUpQuestionDTO response = interviewService.oneQnAInterviewFlow(request);
