@@ -17,7 +17,10 @@ pipeline {
 		stage('Deploy Backend') {
 			steps {
 				// 백엔드만 빌드하고 배포 (기존 컨테이너는 유지됨)
-				sh "docker compose -p theinterview -f infra/app/app-compose.yml up -d --build backend"
+				sh """
+				export COMPOSE_PROJECT_NAME=theinterview
+				docker compose -f infra/app/app-compose.yml up -d --build --no-deps backend
+				"""
 			}
 		}
 	}

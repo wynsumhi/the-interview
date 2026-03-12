@@ -17,7 +17,10 @@ pipeline {
 		stage('Deploy Frontend') {
 			steps {
 				// 프론트엔드 배포
-				sh "docker compose -p theinterview -f infra/app/app-compose.yml up -d --build frontend"
+				sh """
+        		export COMPOSE_PROJECT_NAME=theinterview
+				docker compose -f infra/app/app-compose.yml up -d --build --no-deps frontend
+				"""
 			}
 		}
 	}

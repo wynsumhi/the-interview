@@ -9,11 +9,11 @@ services:
       - .env
     environment:
       - SPRING_PROFILES_ACTIVE=dev
-      - DB_HOST=postgres-db
-      - REDIS_HOST=redis-db
+      - DB_HOST=database
+      - REDIS_HOST=redis
       - JAVA_OPTS=-Xms1024m -Xmx2048m
     networks:
-      - default
+      - theinterview-net
     deploy:
       resources:
         limits:
@@ -28,13 +28,12 @@ services:
     depends_on:
       - backend
     networks:
-      - default
+      - theinterview-net
     deploy:
       resources:
         limits:
           memory: 1G
 
 networks:
-  default:
+  theinterview-net:
     external: true
-    name: theinterview-net
