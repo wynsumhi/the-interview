@@ -1,4 +1,4 @@
-package com.theinterview.domain.interview;
+package com.theinterview.domain.interview.entity;
 
 import com.theinterview.domain.interview.enums.InterviewStatus;
 import com.theinterview.domain.member.Member;

@@ -1,10 +1,10 @@
 package com.theinterview.domain.interview.service;
 
-import com.theinterview.domain.interview.Interview;
 import com.theinterview.domain.interview.Repository.InterviewRepository;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
+import com.theinterview.domain.interview.entity.Interview;
 import com.theinterview.domain.interview.enums.InterviewStatus;
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.repository.MemberRepository;

@@ -1,8 +1,8 @@
 package com.theinterview.domain.interview.Repository;
 
-import com.theinterview.domain.interview.Interview;
+import com.theinterview.domain.interview.entity.Interview;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface InterviewRepository extends JpaRepository<Interview, Integer> {
-    
+
 }
