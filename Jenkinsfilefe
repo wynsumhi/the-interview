@@ -1,19 +1,38 @@
 pipeline {
 	agent any
 
-	triggers {
-		gitlab(
-			triggerOnMergeRequest: true,
-			branchFilterType: 'NameBased',
-			includeBranchesSpec: 'develop',
-			secretToken: 'cec65daa349ce15aa1f1cdc542dd0b4',
-			includePathsSpec: 'fe/.*'
-		)
-	}
-
 	stages {
+		// BE 파일 변동여부 체크
+		stage('Check Frontend Changes') {
+			steps {
+				script {
+					def changedFiles = sh(script: 'git diff --name-only HEAD~1', returnStdout: true).trim()
+					echo "--- 변경된 파일 목록 ---"
+					echo changedFiles
+					echo "-----------------------"
+
+					// FE 파일에 변동여부 체크
+					def isFeChanged = changedFiles.split('\n').any {
+						it.startsWith('fe/')
+					}
+
+					// 변동이 없으면 종료
+					if (!isFeChanged) {
+						currentBuild.result = 'SUCCESS'
+						echo "Frontend 변경사항 없음. 빌드를 종료합니다."
+						return // 이후 stage 실행 안 함
+					}
+					echo "Frontend 변경 감지됨. 빌드 절차를 계속합니다."
+				}
+			}
+		}
 		// 환경변수
 		stage('Prepare Env') {
+			when {
+				expression {
+					currentBuild.result != 'SUCCESS' || !currentBuild.description?.contains('Skipped')
+				}
+			}
 			steps {
 				// Jenkins Credentials에서 .env 파일을 app에 복사시킴
 				withCredentials([
@@ -26,7 +45,13 @@ pipeline {
 
 		// 프론트엔드 컨테이너 CI/CD
 		stage('Deploy Frontend') {
+			when {
+				expression {
+					currentBuild.result != 'SUCCESS' || !currentBuild.description?.contains('Skipped')
+				}
+			}
 			steps {
+				echo "🔅 Front-End 빌드 시작"
 				// 프론트엔드 배포
 				sh """
         		export COMPOSE_PROJECT_NAME=theinterview
