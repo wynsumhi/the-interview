@@ -2,9 +2,9 @@ package com.theinterview.domain.member.service;
 
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.dto.MemberRequest.LoginRequestDTO;
+import com.theinterview.domain.member.dto.MemberRequest.MemberInfoUpdateRequest;
 import com.theinterview.domain.member.dto.MemberRequest.MemberJoinRequest;
 import com.theinterview.domain.member.dto.MemberResponse.MemberInfoDTO;
-import com.theinterview.domain.member.dto.MemberResponse.MemberInfoResponse;
 import com.theinterview.domain.member.dto.MemberResponse.TokenResponseDTO;
 import com.theinterview.domain.member.repository.MemberRepository;
 import com.theinterview.global.config.redis.RedisService;
@@ -134,10 +134,22 @@ public class MemberService {
 
     // 회원 정보 조회 메서드
     @Transactional(readOnly = true)
-    public MemberInfoResponse getMemberInfo(String email) {
+    public MemberInfoDTO getMemberInfo(String email) {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
-        return new MemberInfoResponse(member);
+        return new MemberInfoDTO(member);
+    }
+
+    // 회원 정보 수정 메서드
+    @Transactional
+    public MemberInfoDTO updateMemberInfo(String email, MemberInfoUpdateRequest request) {
+
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        member.changeMemberInfo(request);
+        return new MemberInfoDTO(member);
+
     }
 }

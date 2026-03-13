@@ -1,9 +1,9 @@
 package com.theinterview.domain.member.controller;
 
 import com.theinterview.domain.member.dto.MemberRequest.LoginRequestDTO;
+import com.theinterview.domain.member.dto.MemberRequest.MemberInfoUpdateRequest;
 import com.theinterview.domain.member.dto.MemberRequest.MemberJoinRequest;
 import com.theinterview.domain.member.dto.MemberResponse.MemberInfoDTO;
-import com.theinterview.domain.member.dto.MemberResponse.MemberInfoResponse;
 import com.theinterview.domain.member.dto.MemberResponse.TokenResponseDTO;
 import com.theinterview.domain.member.service.MemberService;
 import com.theinterview.global.response.ApiResponse;
@@ -18,6 +18,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -108,15 +109,26 @@ public class MemberController {
     }
 
     @GetMapping("/me")
-    public ApiResponse<MemberInfoResponse> getMemberInfo(
+    public ApiResponse<MemberInfoDTO> getMemberInfo(
             @AuthenticationPrincipal User user
     ) {
         // 서비스 레이어 호출
-        MemberInfoResponse loginTestDTO = memberService.getMemberInfo(user.getUsername());
-        return ApiResponse.onSuccess(loginTestDTO);
+        MemberInfoDTO memberInfo = memberService.getMemberInfo(user.getUsername());
+        return ApiResponse.onSuccess(memberInfo);
     }
 
-    // 쿠키 생성 헬퍼 메서드
+    @PatchMapping("/me")
+    public ApiResponse<MemberInfoDTO> changeMemberInfo(
+            @AuthenticationPrincipal User user,
+            @RequestBody MemberInfoUpdateRequest request
+    ) {
+        // 서비스 레이어 호출
+        MemberInfoDTO memberInfoDTO = memberService.updateMemberInfo(user.getUsername(), request);
+
+        return ApiResponse.onSuccess(memberInfoDTO);
+    }
+
+    // JWT 토큰을 위한 쿠키 생성 헬퍼 메서드
     private ResponseCookie createCookie(String name, String value, long maxAge) {
         return ResponseCookie.from(name, value)
                 .path("/")

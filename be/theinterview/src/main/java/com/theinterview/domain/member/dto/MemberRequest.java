@@ -45,4 +45,12 @@ public abstract class MemberRequest {
         private String password;
     }
 
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class MemberInfoUpdateRequest {
+        
+        private String nickname;
+    }
+
 }

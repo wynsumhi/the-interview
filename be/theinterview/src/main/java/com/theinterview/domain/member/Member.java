@@ -1,5 +1,8 @@
 package com.theinterview.domain.member;
 
+import com.theinterview.domain.member.dto.MemberRequest.MemberInfoUpdateRequest;
+import com.theinterview.global.response.exception.GeneralException;
+import com.theinterview.global.response.status.ErrorStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -59,5 +62,17 @@ public class Member {
     // 첫 인터뷰가 완료되었다면 호출 할 메서드
     public void completeFirstInterview() {
         this.isFirstFinished = true;
+    }
+
+    // 사용자 정보 수정 메서드
+    public void changeMemberInfo(MemberInfoUpdateRequest request) {
+
+        String changeNickname = request.getNickname();
+
+        if (changeNickname != null && changeNickname.length() >= 3
+                && changeNickname.length() <= 8) {
+            this.nickname = changeNickname;
+        }
+        throw new GeneralException(ErrorStatus.NICKNAME_NOT_VALID);
     }
 }
