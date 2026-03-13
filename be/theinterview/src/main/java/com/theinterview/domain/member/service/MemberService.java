@@ -3,8 +3,8 @@ package com.theinterview.domain.member.service;
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.dto.MemberRequest.LoginRequestDTO;
 import com.theinterview.domain.member.dto.MemberRequest.MemberJoinRequest;
-import com.theinterview.domain.member.dto.MemberResponse.LoginTestDTO;
 import com.theinterview.domain.member.dto.MemberResponse.MemberInfoDTO;
+import com.theinterview.domain.member.dto.MemberResponse.MemberInfoResponse;
 import com.theinterview.domain.member.dto.MemberResponse.TokenResponseDTO;
 import com.theinterview.domain.member.repository.MemberRepository;
 import com.theinterview.global.config.redis.RedisService;
@@ -132,11 +132,12 @@ public class MemberService {
         }
     }
 
+    // 회원 정보 조회 메서드
     @Transactional(readOnly = true)
-    public LoginTestDTO loginTest(String email) {
+    public MemberInfoResponse getMemberInfo(String email) {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
-        return new LoginTestDTO(member);
+        return new MemberInfoResponse(member);
     }
 }

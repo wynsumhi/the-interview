@@ -49,13 +49,13 @@ public abstract class MemberResponse {
     @Getter
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
     @AllArgsConstructor
-    public static class LoginTestDTO {
+    public static class MemberInfoResponse {
 
         private Integer memberId;
         private String email;
         private String nickname;
 
-        public LoginTestDTO(Member member) {
+        public MemberInfoResponse(Member member) {
             this.memberId = member.getId();
             this.email = member.getEmail();
             this.nickname = member.getNickname();

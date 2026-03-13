@@ -2,8 +2,8 @@ package com.theinterview.domain.member.controller;
 
 import com.theinterview.domain.member.dto.MemberRequest.LoginRequestDTO;
 import com.theinterview.domain.member.dto.MemberRequest.MemberJoinRequest;
-import com.theinterview.domain.member.dto.MemberResponse.LoginTestDTO;
 import com.theinterview.domain.member.dto.MemberResponse.MemberInfoDTO;
+import com.theinterview.domain.member.dto.MemberResponse.MemberInfoResponse;
 import com.theinterview.domain.member.dto.MemberResponse.TokenResponseDTO;
 import com.theinterview.domain.member.service.MemberService;
 import com.theinterview.global.response.ApiResponse;
@@ -107,12 +107,12 @@ public class MemberController {
         return ApiResponse.onSuccess(null);
     }
 
-    @GetMapping("/logintest")
-    public ApiResponse<LoginTestDTO> loginTest(
+    @GetMapping("/me")
+    public ApiResponse<MemberInfoResponse> getMemberInfo(
             @AuthenticationPrincipal User user
     ) {
         // 서비스 레이어 호출
-        LoginTestDTO loginTestDTO = memberService.loginTest(user.getUsername());
+        MemberInfoResponse loginTestDTO = memberService.getMemberInfo(user.getUsername());
         return ApiResponse.onSuccess(loginTestDTO);
     }
 
