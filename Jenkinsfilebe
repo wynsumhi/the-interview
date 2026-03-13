@@ -1,5 +1,10 @@
+def shouldSkip = false
 pipeline {
 	agent any
+
+	options {
+		gitLabConnection('GitLab_Codelian_AccessToken')
+	}
 
 	stages {
 		// BE 파일 변동여부 체크
@@ -18,11 +23,11 @@ pipeline {
 
 					// 변동이 없으면 종료
 					if (!isBeChanged) {
-						currentBuild.result = 'SUCCESS'
-						echo "Backend 변경사항 없음. 빌드를 종료합니다."
-						return // 이후 stage 실행 안 함
+						echo "↩️ Backend 변경사항 없음. 빌드를 종료합니다."
+						shouldSkip = true
+					} else {
+						echo "⏩ Backend 변경 감지됨. 빌드 절차를 계속합니다."
 					}
-					echo "Backend 변경 감지됨. 빌드 절차를 계속합니다."
 				}
 			}
 		}
@@ -31,7 +36,7 @@ pipeline {
 		stage('Prepare Env') {
 			when {
 				expression {
-					currentBuild.result != 'SUCCESS' || !currentBuild.description?.contains('Skipped')
+					return !shouldSkip
 				}
 			}
 			steps {
@@ -39,35 +44,99 @@ pipeline {
 				withCredentials([
 					file(credentialsId: 'ENV_FILE', variable: 'ENV'),
 				]) {
-					sh "cp $ENV infra/app/.env"
+					sh 'cp $ENV infra/app/.env'
+				}
+			}
+		}
+
+		stage('BE Unit Test') {
+			when {
+				expression {
+					return !shouldSkip
+				}
+			}
+			steps {
+				updateGitlabCommitStatus name: 'BE-Test', state: 'running'
+				echo "------- 🧪 BE Unit Test 시작 -------"
+				sh 'docker compose -f infra/app/app-compose.yml run --rm backend ./gradlew test'
+			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'BE-Test', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'BE-Test', state: 'failed'
 				}
 			}
 		}
 
 		// 백엔드 컨테이너 CI/CD
-		stage('Deploy Backend') {
+		stage('BE Continuous Integration (CI)') {
 			when {
-				expression {
-					currentBuild.result != 'SUCCESS' || !currentBuild.description?.contains('Skipped')
+				allOf {
+					expression {
+						!shouldSkip
+					}
+					branch 'develop'
 				}
 			}
 			steps {
-				echo "🔅 Back-End 빌드 시작"
-				// 백엔드만 빌드하고 배포 (기존 컨테이너는 유지됨)
+				updateGitlabCommitStatus name: 'BE-build', state: 'running'
+				echo "------- 🔅 Back-End 이미지 빌드 시작 -------"
 				sh """
 				export COMPOSE_PROJECT_NAME=theinterview
-				docker ps -a --format "{{.Names}}" | grep "backend" | xargs -r docker rm -f
-				docker compose -f infra/app/app-compose.yml up -d --build --no-deps backend
+				docker compose -f infra/app/app-compose.yml build backend
 				"""
+			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'BE-build', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'BE-build', state: 'failed'
+				}
+			}
+		}
+		stage('BE Continuous Deployment (CD)') {
+			when {
+				allOf {
+					expression {
+						!shouldSkip
+					}
+					branch 'develop'
+				}
+			}
+			steps {
+				updateGitlabCommitStatus name: 'BE-deploy', state: 'running'
+				echo "------- 🔅 Back-End 컨테이너 배포 시작 -------"
+				echo "------- ⤵️ Start Back-End container down... -------"
+				sh """
+				docker ps -a --format "{{.Names}}" | grep "backend" | xargs -r docker rm -f
+				"""
+				echo "------- ⤴️ Start Back-End container up... -------"
+				sh """
+				docker compose -f infra/app/app-compose.yml up -d --no-deps backend
+				"""
+			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'BE-deploy', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'BE-deploy', state: 'failed'
+				}
 			}
 		}
 	}
+
 	post {
 		always {
 			echo '🚧 Cleaning up dangling images...'
 			sh "docker image prune -f"
 		}
 		success {
+			updateGitlabCommitStatus name: 'BE-build', state: 'success'
+			updateGitlabCommitStatus name: 'BE-deploy', state: 'success'
 			echo '✅ Deployment finished successfully!'
 		}
 		failure {

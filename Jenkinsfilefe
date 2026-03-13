@@ -1,5 +1,10 @@
+def shouldSkip = false
 pipeline {
 	agent any
+
+	options {
+		gitLabConnection('GitLab_Codelian_AccessToken')
+	}
 
 	stages {
 		// BE 파일 변동여부 체크
@@ -18,19 +23,20 @@ pipeline {
 
 					// 변동이 없으면 종료
 					if (!isFeChanged) {
-						currentBuild.result = 'SUCCESS'
-						echo "Frontend 변경사항 없음. 빌드를 종료합니다."
-						return // 이후 stage 실행 안 함
+						echo "↩️ Frontend 변경사항 없음. 빌드를 종료합니다."
+						shouldSkip = true
+					} else {
+						echo "⏩ Frontend 변경 감지됨. 빌드 절차를 계속합니다."
 					}
-					echo "Frontend 변경 감지됨. 빌드 절차를 계속합니다."
 				}
 			}
 		}
+
 		// 환경변수
 		stage('Prepare Env') {
 			when {
 				expression {
-					currentBuild.result != 'SUCCESS' || !currentBuild.description?.contains('Skipped')
+					return !shouldSkip
 				}
 			}
 			steps {
@@ -38,26 +44,87 @@ pipeline {
 				withCredentials([
 					file(credentialsId: 'ENV_FILE', variable: 'ENV'),
 				]) {
-					sh "cp $ENV infra/app/.env"
+					sh 'cp $ENV infra/app/.env'
+				}
+			}
+		}
+
+		stage('FE Unit Test') {
+			when {
+				expression {
+					return !shouldSkip
+				}
+			}
+			steps {
+				updateGitlabCommitStatus name: 'FE-Test', state: 'running'
+				echo "------- 🧪 FE Unit Test 시작 -------"
+				sh 'docker compose -f infra/app/app-compose.yml run --rm frontend pnpm test'
+			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'FE-Test', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'FE-Test', state: 'failed'
 				}
 			}
 		}
 
 		// 프론트엔드 컨테이너 CI/CD
-		stage('Deploy Frontend') {
+		stage('FE Continuous Integration (CI)') {
 			when {
-				expression {
-					currentBuild.result != 'SUCCESS' || !currentBuild.description?.contains('Skipped')
+				allOf {
+					expression {
+						!shouldSkip
+					}
+					branch 'develop'
 				}
 			}
 			steps {
-				echo "🔅 Front-End 빌드 시작"
-				// 프론트엔드 배포
+				updateGitlabCommitStatus name: 'FE-build', state: 'running'
+				echo "------- 🔅 Front-End 이미지 빌드 시작 -------"
 				sh """
         		export COMPOSE_PROJECT_NAME=theinterview
-        		docker ps -a --format "{{.Names}}" | grep "frontend" | xargs -r docker rm -f
-				docker compose -f infra/app/app-compose.yml up -d --build --no-deps frontend
+				docker compose -f infra/app/app-compose.yml build frontend
 				"""
+			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'FE-build', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'FE-build', state: 'failed'
+				}
+			}
+		}
+		stage('FE Continuous Deployment (CD)') {
+			when {
+				allOf {
+					expression {
+						!shouldSkip
+					}
+					branch 'develop'
+				}
+			}
+			steps {
+				updateGitlabCommitStatus name: 'FE-deploy', state: 'running'
+				echo "------- 🔅 Front-End 컨테이너 배포 시작 -------"
+				echo "------- ⤵️ Start Front-End container down... -------"
+				sh """
+				docker ps -a --format "{{.Names}}" | grep "frontend" | xargs -r docker rm -f
+				"""
+				echo "------- ⤴️ Start Front-End container up... -------"
+				sh """
+				docker compose -f infra/app/app-compose.yml up -d --no-deps frontend
+				"""
+			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'FE-deploy', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'FE-deploy', state: 'failed'
+				}
 			}
 		}
 	}
@@ -67,6 +134,8 @@ pipeline {
 			sh "docker image prune -f"
 		}
 		success {
+			updateGitlabCommitStatus name: 'FE-build', state: 'success'
+			updateGitlabCommitStatus name: 'FE-deploy', state: 'success'
 			echo '✅ Deployment finished successfully!'
 		}
 		failure {
