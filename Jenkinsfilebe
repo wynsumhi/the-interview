@@ -2,6 +2,10 @@ def shouldSkip = false
 pipeline {
 	agent any
 
+	options {
+		gitLabConnection('GitLab_Codelian_AccessToken')
+	}
+
 	stages {
 		// BE 파일 변동여부 체크
 		stage('Check Backend Changes') {
@@ -45,28 +49,65 @@ pipeline {
 			}
 		}
 
-		// 백엔드 컨테이너 CI/CD
-		stage('BE Continuous Integration (CI)') {
+		stage('BE Unit Test') {
 			when {
 				expression {
 					return !shouldSkip
 				}
 			}
 			steps {
+				updateGitlabCommitStatus name: 'BE-Test', state: 'running'
+				echo "------- 🧪 BE Unit Test 시작 -------"
+				sh 'docker compose -f infra/app/app-compose.yml run --rm backend ./gradlew test'
+			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'BE-Test', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'BE-Test', state: 'failed'
+				}
+			}
+		}
+
+		// 백엔드 컨테이너 CI/CD
+		stage('BE Continuous Integration (CI)') {
+			when {
+				allOf {
+					expression {
+						!shouldSkip
+					}
+					branch 'develop'
+				}
+			}
+			steps {
+				updateGitlabCommitStatus name: 'BE-build', state: 'running'
 				echo "------- 🔅 Back-End 이미지 빌드 시작 -------"
 				sh """
 				export COMPOSE_PROJECT_NAME=theinterview
 				docker compose -f infra/app/app-compose.yml build backend
 				"""
 			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'BE-build', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'BE-build', state: 'failed'
+				}
+			}
 		}
 		stage('BE Continuous Deployment (CD)') {
 			when {
-				expression{
-					return !shouldSkip
+				allOf {
+					expression {
+						!shouldSkip
+					}
+					branch 'develop'
 				}
 			}
 			steps {
+				updateGitlabCommitStatus name: 'BE-deploy', state: 'running'
 				echo "------- 🔅 Back-End 컨테이너 배포 시작 -------"
 				echo "------- ⤵️ Start Back-End container down... -------"
 				sh """
@@ -77,6 +118,14 @@ pipeline {
 				docker compose -f infra/app/app-compose.yml up -d --no-deps backend
 				"""
 			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'BE-deploy', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'BE-deploy', state: 'failed'
+				}
+			}
 		}
 	}
 
@@ -86,6 +135,8 @@ pipeline {
 			sh "docker image prune -f"
 		}
 		success {
+			updateGitlabCommitStatus name: 'BE-build', state: 'success'
+			updateGitlabCommitStatus name: 'BE-deploy', state: 'success'
 			echo '✅ Deployment finished successfully!'
 		}
 		failure {
