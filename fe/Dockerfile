@@ -23,7 +23,7 @@ WORKDIR /app
 # pnpm 실행을 위해 다시 설치
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# 빌드 결과물과 의존성 전체 복사
+# 빌드 결과물과 의존성 전체 복사-
 COPY --from=builder /app ./
 
 EXPOSE 3000
