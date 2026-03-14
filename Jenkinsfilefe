@@ -169,7 +169,7 @@ pipeline {
 		failure {
 			script {
 				['FE-Test', 'FE-build', 'FE-deploy'].each { statusName ->
-					updateGitlabCommitStatus name: statusName, state: 'fa'
+					updateGitlabCommitStatus name: statusName, state: 'failed'
 				}
 			}
 			echo '⚠️ Deployment failed. Check the logs.'
