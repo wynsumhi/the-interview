@@ -76,7 +76,6 @@ pipeline {
 			steps {
 				updateGitlabCommitStatus name: 'FE-Test', state: 'running'
 				echo "------- 🧪 FE Unit Test 시작 -------"
-				echo "------- 🧪 FE Unit Test 시작 (Docker) -------"
 				script {
 					sh "docker rm -f fe-test-container || true"
 					try {
