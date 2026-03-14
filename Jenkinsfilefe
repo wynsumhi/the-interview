@@ -7,14 +7,24 @@ pipeline {
 	}
 
 	stages {
-		// BE 파일 변동여부 체크
+		// FE 파일 변동여부 체크
 		stage('Check Frontend Changes') {
 			steps {
 				script {
-					def changedFiles = sh(script: 'git diff --name-only HEAD~1', returnStdout: true).trim()
+					['FE-Test', 'FE-build', 'FE-deploy'].each { statusName ->
+						updateGitlabCommitStatus name: statusName, state: 'pending'
+					}
+					def targetBranch = env.gitlabTargetBranch ?: "develop"
+
+					withCredentials([usernamePassword(credentialsId: 'gitlab-auth', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+						sh "git fetch https://${GIT_USERNAME}:${GIT_PASSWORD}@lab.ssafy.com/s14-ai-speech-sub1/S14P21A307.git ${targetBranch}"
+					}
+					def changedFiles = sh(
+						script: "git diff --name-only FETCH_HEAD...HEAD",
+						returnStdout: true
+					).trim()
 					echo "--- 변경된 파일 목록 ---"
 					echo changedFiles
-					echo "-----------------------"
 
 					// FE 파일에 변동여부 체크
 					def isFeChanged = changedFiles.split('\n').any {
@@ -25,6 +35,9 @@ pipeline {
 					if (!isFeChanged) {
 						echo "↩️ Frontend 변경사항 없음. 빌드를 종료합니다."
 						shouldSkip = true
+						['FE-Test', 'FE-build', 'FE-deploy'].each { statusName ->
+							updateGitlabCommitStatus name: statusName, state: 'success'
+						}
 					} else {
 						echo "⏩ Frontend 변경 감지됨. 빌드 절차를 계속합니다."
 					}
@@ -51,14 +64,28 @@ pipeline {
 
 		stage('FE Unit Test') {
 			when {
-				expression {
-					return !shouldSkip
+				allOf {
+					expression {
+						return !shouldSkip
+					}
+					not {
+						branch 'develop'
+					}
 				}
 			}
 			steps {
 				updateGitlabCommitStatus name: 'FE-Test', state: 'running'
 				echo "------- 🧪 FE Unit Test 시작 -------"
-				sh 'docker compose -f infra/app/app-compose.yml run --rm frontend pnpm test'
+				echo "------- 🧪 FE Unit Test 시작 (Docker) -------"
+				script {
+					sh "docker rm -f fe-test-container || true"
+					try {
+						sh "docker build --memory=1g --memory-swap=2g --target builder -t fe-test-image ./fe"
+						sh 'docker run --name fe-test-container -m 1g --memory-swap 2g fe-test-image pnpm test --watchAll=false'
+					} finally {
+						sh "docker rm -f fe-test-container || true"
+					}
+				}
 			}
 			post {
 				success {
@@ -128,10 +155,11 @@ pipeline {
 			}
 		}
 	}
+
 	post {
 		always {
 			echo '🚧 Cleaning up dangling images...'
-			sh "docker image prune -f"
+			sh "docker image prune -f || true"
 		}
 		success {
 			updateGitlabCommitStatus name: 'FE-build', state: 'success'
@@ -139,6 +167,11 @@ pipeline {
 			echo '✅ Deployment finished successfully!'
 		}
 		failure {
+			script {
+				['FE-Test', 'FE-build', 'FE-deploy'].each { statusName ->
+					updateGitlabCommitStatus name: statusName, state: 'fa'
+				}
+			}
 			echo '⚠️ Deployment failed. Check the logs.'
 		}
 	}
