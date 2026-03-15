@@ -15,6 +15,7 @@ pipeline {
 					echo "gitlabSourceBranch: ${env.gitlabSourceBranch}"
 					echo "gitlabActionType: ${env.gitlabActionType}"
 					echo "gitlabMergeRequestState: ${env.gitlabMergeRequestState}"
+					echo "gitlabMergeRequestIid : ${env.gitlabMergeRequestIid}"
 
 					['BE-Test', 'BE-build', 'BE-deploy'].each { statusName ->
 						updateGitlabCommitStatus name: statusName, state: 'pending'
@@ -26,7 +27,7 @@ pipeline {
 					}
 
 					def changedFiles = ""
-					if(env.gitlabMergeRequestIid && env.gitlabMergeRequestState == 'opened') {
+					if(env.gitlabMergeRequestState == 'opened') {
 						changedFiles = sh(
 							script: "git diff --name-only FETCH_HEAD...HEAD",
 							returnStdout: true
