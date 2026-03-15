@@ -11,6 +11,11 @@ pipeline {
 		stage('Check Frontend Changes') {
 			steps {
 				script {
+					echo "--- 디버깅용 출력 ---"
+					echo "gitlabSourceBranch: ${env.gitlabSourceBranch}"
+					echo "gitlabActionType: ${env.gitlabActionType}"
+					echo "gitlabMergeRequestState: ${env.gitlabMergeRequestState}"
+
 					['FE-Test', 'FE-build', 'FE-deploy'].each { statusName ->
 						updateGitlabCommitStatus name: statusName, state: 'pending'
 					}
