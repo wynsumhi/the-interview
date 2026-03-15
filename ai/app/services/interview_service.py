@@ -8,6 +8,12 @@ from pathlib import Path
 from fastapi import UploadFile
 
 from app.pipeline.interview_pipeline import run_interview_pipeline
+from app.prompts.interview_prompts import (
+    FIRST_INTERVIEW_QUESTION_MAP,
+    FIRST_INTERVIEW_SYSTEM_PROMPT,
+)
+from app.services.llm_service import create_message
+from app.services.tts_service import text_to_speech
 
 # 현재 인터뷰 업로드 API는 백엔드 연동 규격상 `webm` 오디오만 허용한다.
 ALLOWED_AUDIO_EXTENSIONS = {".webm"}
@@ -86,3 +92,54 @@ def run_interview_pipeline_from_upload(
         audio_file.file.close()
         if temp_file_path is not None and temp_file_path.exists():
             temp_file_path.unlink()
+
+
+def generate_first_interview_question(
+    nickname: str,
+    sequence: int = 1,
+    previous_question: str | None = None,
+    previous_answer: str | None = None,
+    max_tokens: int = 1024,
+) -> dict[str, str]:
+    """최초 인터뷰에서 지정된 순서의 질문을 LLM으로 생성하고 TTS 음성으로 변환한다.
+
+    인터뷰 기록이 없는 신규 사용자(is_first_finished=false)를 위한 5개 질문 생성 흐름에서
+    사용한다. sequence=1일 때는 이전 Q&A 없이 첫 질문을 생성하고, sequence 2~5일 때는
+    직전 질문과 사용자 답변(STT 변환 텍스트)을 맥락으로 활용해 다음 질문을 생성한다.
+
+    Args:
+        nickname: 사용자 닉네임. LLM이 자연스러운 호칭으로 활용한다.
+        sequence: 생성할 질문 순서 (1~5).
+        previous_question: 직전에 AI가 생성한 질문 텍스트. sequence가 1이면 None.
+        previous_answer: 직전 질문에 대한 사용자의 STT 변환 답변. sequence가 1이면 None.
+        max_tokens: LLM 응답 생성 시 사용할 최대 토큰 수.
+
+    Returns:
+        dict[str, str]: `question_text`, `tts_audio_base64`, `tts_audio_mime_type` 키를 포함한다.
+    """
+
+    # 질문 순서와 이전 대화 맥락을 조합해 LLM에 전달할 유저 메시지를 구성한다.
+    if sequence == 1:
+        context = "첫 질문이므로 이전 대화 없음."
+    else:
+        context = f"직전 질문:\n{previous_question}\n\n사용자 답변:\n{previous_answer}"
+
+    user_message = (
+        f"사용자 닉네임: {nickname}\n"
+        f"현재 진행할 질문: {FIRST_INTERVIEW_QUESTION_MAP[sequence]}\n\n"
+        f"대화 맥락:\n{context}"
+    )
+
+    question_text = create_message(
+        messages=[{"role": "user", "content": user_message}],
+        system=FIRST_INTERVIEW_SYSTEM_PROMPT,
+        max_tokens=max_tokens,
+    ).strip()
+
+    tts_audio = text_to_speech(question_text)
+
+    return {
+        "question_text": question_text,
+        "tts_audio_base64": base64.b64encode(tts_audio).decode("ascii"),
+        "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
+    }
