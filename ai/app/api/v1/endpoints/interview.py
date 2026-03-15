@@ -1,9 +1,42 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
 from app.api.v1.schemas import InterviewPipelineResponse
-from app.services.interview_service import run_interview_pipeline_from_upload
+from app.api.v1.schemas.interview import FirstInterviewRequest, FirstInterviewResponse
+from app.services.interview_service import (
+    generate_first_interview_question,
+    run_interview_pipeline_from_upload,
+)
 
 router = APIRouter()
+
+
+@router.post(
+    "/first",
+    response_model=FirstInterviewResponse,
+    summary="최초 인터뷰 질문 생성",
+)
+def generate_first_interview_question_endpoint(
+    request: FirstInterviewRequest,
+) -> FirstInterviewResponse:
+    """인터뷰 기록이 없는 신규 사용자(is_first_finished=false)를 위한 질문을 생성한다.
+
+    백엔드가 사용자의 is_first_finished 여부를 확인한 뒤, 최초 인터뷰에 해당할 때만
+    이 엔드포인트를 호출한다. sequence=1이면 이전 맥락 없이 첫 질문을 생성하고,
+    sequence 2~5이면 직전 Q&A를 참고해 다음 질문을 생성한다.
+
+    Args:
+        request: 닉네임, 질문 순서, 직전 질문/답변을 담은 요청 본문.
+
+    Returns:
+        FirstInterviewResponse: LLM이 생성한 질문 텍스트와 base64 인코딩된 TTS 음성.
+    """
+    result = generate_first_interview_question(
+        nickname=request.nickname,
+        sequence=request.sequence,
+        previous_question=request.previous_question,
+        previous_answer=request.previous_answer,
+    )
+    return FirstInterviewResponse.model_validate(result)
 
 
 @router.post(
