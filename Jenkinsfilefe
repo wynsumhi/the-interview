@@ -11,6 +11,12 @@ pipeline {
 		stage('Check Frontend Changes') {
 			steps {
 				script {
+					echo "--- 디버깅용 출력 ---"
+					echo "gitlabSourceBranch: ${env.gitlabSourceBranch}"
+					echo "gitlabActionType: ${env.gitlabActionType}"
+					echo "gitlabMergeRequestState: ${env.gitlabMergeRequestState}"
+					echo "gitlabMergeRequestIid : ${env.gitlabMergeRequestIid}"
+
 					['FE-Test', 'FE-build', 'FE-deploy'].each { statusName ->
 						updateGitlabCommitStatus name: statusName, state: 'pending'
 					}
@@ -19,10 +25,30 @@ pipeline {
 					withCredentials([usernamePassword(credentialsId: 'gitlab-auth', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
 						sh "git fetch https://${GIT_USERNAME}:${GIT_PASSWORD}@lab.ssafy.com/s14-ai-speech-sub1/S14P21A307.git ${targetBranch}"
 					}
-					def changedFiles = sh(
-						script: "git diff --name-only FETCH_HEAD...HEAD",
-						returnStdout: true
-					).trim()
+
+					def changedFiles = ""
+					if(env.gitlabMergeRequestState == 'opened') {
+						changedFiles = sh(
+							script: "git diff --name-only FETCH_HEAD...HEAD",
+							returnStdout: true
+						).trim()
+					} else {
+						withCredentials([usernamePassword(credentialsId: 'gitlab-auth', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+							sh """
+								git fetch https://${GIT_USERNAME}:${GIT_PASSWORD}@lab.ssafy.com/s14-ai-speech-sub1/S14P21A307.git ${targetBranch}
+								git checkout ${targetBranch}
+								git reset --hard FETCH_HEAD
+							"""
+						}
+						changedFiles = sh(
+							script: """
+								MERGE_BASE=\$(git merge-base HEAD^1 HEAD^2)
+								git diff --name-only \$MERGE_BASE HEAD^2 || git show --name-only --pretty=format:'' HEAD
+							""",
+							returnStdout: true
+						).trim()
+					}
+
 					echo "--- 변경된 파일 목록 ---"
 					echo changedFiles
 
@@ -68,8 +94,8 @@ pipeline {
 					expression {
 						return !shouldSkip
 					}
-					not {
-						branch 'develop'
+					expression {
+						env.gitlabMergeRequestState == 'opened'
 					}
 				}
 			}
@@ -103,7 +129,9 @@ pipeline {
 					expression {
 						!shouldSkip
 					}
-					branch 'develop'
+					expression {
+						env.gitlabMergeRequestState == 'merged'
+					}
 				}
 			}
 			steps {
@@ -129,7 +157,9 @@ pipeline {
 					expression {
 						!shouldSkip
 					}
-					branch 'develop'
+					expression {
+						env.gitlabMergeRequestState == 'merged'
+					}
 				}
 			}
 			steps {
