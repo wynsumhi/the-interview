@@ -26,7 +26,7 @@ pipeline {
 					}
 
 					def changedFiles = ""
-					if(env.gitlabMergeRequestIid && env.gitlabActionType != 'MERGE') {
+					if(env.gitlabMergeRequestIid && env.gitlabMergeRequestState == 'opened') {
 						changedFiles = sh(
 							script: "git diff --name-only FETCH_HEAD...HEAD",
 							returnStdout: true
@@ -94,7 +94,7 @@ pipeline {
 						return !shouldSkip
 					}
 					expression {
-						env.gitlabActionType != 'MERGE'
+						env.gitlabMergeRequestState == 'opened'
 					}
 				}
 			}
@@ -165,7 +165,7 @@ pipeline {
 						!shouldSkip
 					}
 					expression {
-						env.gitlabActionType == 'MERGE'
+						env.gitlabMergeRequestState == 'merged'
 					}
 				}
 			}
@@ -193,7 +193,7 @@ pipeline {
 						!shouldSkip
 					}
 					expression {
-						env.gitlabActionType == 'MERGE'
+						env.gitlabMergeRequestState == 'merged'
 					}
 				}
 			}

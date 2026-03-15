@@ -94,7 +94,7 @@ pipeline {
 						return !shouldSkip
 					}
 					expression {
-						env.gitlabActionType != 'MERGE'
+						env.gitlabMergeRequestState == 'opened'
 					}
 				}
 			}
@@ -129,7 +129,7 @@ pipeline {
 						!shouldSkip
 					}
 					expression {
-						env.gitlabActionType == 'MERGE'
+						env.gitlabMergeRequestState == 'merged'
 					}
 				}
 			}
@@ -157,7 +157,7 @@ pipeline {
 						!shouldSkip
 					}
 					expression {
-						env.gitlabActionType == 'MERGE'
+						env.gitlabMergeRequestState == 'merged'
 					}
 				}
 			}
