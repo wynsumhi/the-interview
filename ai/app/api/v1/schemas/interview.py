@@ -20,14 +20,11 @@ class NextOpeningResponse(BaseModel):
     """다음 회차 첫 질문 생성 응답 본문.
 
     Attributes:
-        question_text: LLM이 생성한 환영 인사 + 꼬리 질문 텍스트.
-        tts_audio_base64: `question_text`를 TTS로 변환한 mp3 바이트를 base64로 인코딩한 값.
-        tts_audio_mime_type: base64 오디오의 MIME 타입.
+        db_question: LLM이 생성한 다음 회차 첫 질문 텍스트.
+            백엔드가 DB에 저장한 뒤 StartTTSRequest의 db_question 필드로 그대로 사용한다.
     """
 
-    question_text: str
-    tts_audio_base64: str
-    tts_audio_mime_type: str = "audio/mpeg"
+    db_question: str
 
 
 class InterviewPipelineResponse(BaseModel):
