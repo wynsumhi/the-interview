@@ -15,6 +15,7 @@ public enum ErrorStatus {
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "해당 사용자를 찾을 수 없습니다."),
     NICKNAME_NOT_VALID(HttpStatus.BAD_REQUEST, "400", "닉네임이 유효하지 않습니다."),
     QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "해당 질문을 찾을 수 없습니다"),
+    ANSWER_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "해당 답변을 찾을 수 없습니다"),
     INTERVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "해당 인터뷰를 찾을 수 없습니다");
     private final HttpStatus httpStatus;
     private final String code;
