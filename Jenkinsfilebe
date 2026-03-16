@@ -1,50 +1,249 @@
+def shouldSkip = false
+def isSelfBuild = false
 pipeline {
 	agent any
 
-	triggers {
-		gitlab(
-			triggerOnMergeRequest: true,
-			branchFilterType: 'NameBased',
-			includeBranchesSpec: 'develop',
-			secretToken: '23a5aec516daed32e74f226d49cdf08',
-			includePathsSpec: 'be/.*'
-		)
+	options {
+		gitLabConnection('GitLab_Codelian_AccessToken')
 	}
 
 	stages {
+		// BE 파일 변동여부 체크
+		stage('Check Backend Changes') {
+			steps {
+				script {
+					echo "--- 디버깅용 출력 ---"
+					echo "gitlabSourceBranch: ${env.gitlabSourceBranch}"
+					echo "gitlabActionType: ${env.gitlabActionType}"
+					echo "gitlabMergeRequestState: ${env.gitlabMergeRequestState}"
+					echo "gitlabMergeRequestIid : ${env.gitlabMergeRequestIid}"
+
+					['BE-Test', 'BE-build', 'BE-deploy'].each { statusName ->
+						updateGitlabCommitStatus name: statusName, state: 'pending'
+					}
+					isSelfBuild = currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause').size() > 0
+					if(isSelfBuild) {
+						echo "------- 💡 수동 빌드를 시작합니다. -------"
+						shouldSkip = false
+					} else {
+						def targetBranch = env.gitlabTargetBranch ?: "develop"
+
+						withCredentials([usernamePassword(credentialsId: 'gitlab-auth', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+							sh "git fetch https://${GIT_USERNAME}:${GIT_PASSWORD}@lab.ssafy.com/s14-ai-speech-sub1/S14P21A307.git ${targetBranch}"
+						}
+
+						def changedFiles = ""
+						if(env.gitlabMergeRequestState == 'opened') {
+							changedFiles = sh(
+								script: "git diff --name-only FETCH_HEAD...HEAD",
+								returnStdout: true
+							).trim()
+						} else {
+							withCredentials([usernamePassword(credentialsId: 'gitlab-auth', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+								sh """
+								git fetch https://${GIT_USERNAME}:${GIT_PASSWORD}@lab.ssafy.com/s14-ai-speech-sub1/S14P21A307.git ${targetBranch}
+								git checkout ${targetBranch}
+								git reset --hard FETCH_HEAD
+							"""
+							}
+							changedFiles = sh(
+								script: """
+								MERGE_BASE=\$(git merge-base HEAD^1 HEAD^2)
+								git diff --name-only \$MERGE_BASE HEAD^2 || git show --name-only --pretty=format:'' HEAD
+							""",
+								returnStdout: true
+							).trim()
+						}
+
+						echo "--- 변경된 파일 목록 ---"
+						echo changedFiles
+
+						// BE 파일에 변동여부 체크
+						def isBeChanged = changedFiles.split('\n').any {
+							it.startsWith('be/')
+						}
+
+						// 변동이 없으면 종료
+						if (!isBeChanged) {
+							echo "↩️ Backend 변경사항 없음. 빌드를 종료합니다."
+							shouldSkip = true
+							['BE-Test', 'BE-build', 'BE-deploy'].each { statusName ->
+								updateGitlabCommitStatus name: statusName, state: 'success'
+							}
+						} else {
+							echo "⏩ Backend 변경 감지됨. 빌드 절차를 계속합니다."
+						}
+					}
+				}
+			}
+		}
+
 		// 환경변수
 		stage('Prepare Env') {
+			when {
+				expression {
+					return !shouldSkip
+				}
+			}
 			steps {
 				// Jenkins Credentials에서 .env 파일을 app에 복사시킴
 				withCredentials([
 					file(credentialsId: 'ENV_FILE', variable: 'ENV'),
 				]) {
-					sh "cp $ENV infra/app/.env"
+					sh 'cp $ENV infra/app/.env'
+				}
+			}
+		}
+
+		stage('BE Unit Test') {
+			when {
+				allOf {
+					expression {
+						return !shouldSkip
+					}
+					expression {
+						env.gitlabMergeRequestState == 'opened' || isSelfBuild
+					}
+				}
+			}
+			steps {
+				updateGitlabCommitStatus name: 'BE-Test', state: 'running'
+				echo "------- 🧪 BE Unit Test 시작 -------"
+				script {
+					sh "docker rm -f be-test-container || true"
+					try {
+						sh "mkdir -p be/theinterview/build/test-results/test"
+						sh "docker build --memory=1g --memory-swap=2g --target build -t be-test-image ./be/theinterview"
+						sh """
+							docker run --name be-test-container \
+							--network theinterview-net \
+							--env-file infra/app/.env \
+							-e SPRING_PROFILES_ACTIVE=dev \
+							-m 1g --memory-swap 2g \
+							be-test-image ./gradlew test --no-daemon \
+							-Dorg.gradle.jvmargs="-Xmx768m" \
+							-Dspring.profiles.active=dev
+						"""
+					} finally {
+						sh """
+							docker cp be-test-container:/app/build/test-results/test/. ./be/theinterview/build/test-results/test/ || true
+							docker rm -f be-test-container || true
+						"""
+					}
+				}
+			}
+			post {
+				always {
+					junit 'be/theinterview/build/test-results/test/*.xml'
+				}
+				success {
+					updateGitlabCommitStatus name: 'BE-Test', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'BE-Test', state: 'failed'
+					script {
+						def rootUrl = "https://j14a307.p.ssafy.io/infra/jenkins"
+						def blueOceanUrl = "${rootUrl}/blue/organizations/jenkins/${env.JOB_NAME.replaceAll('/','%2F')}/detail/${env.JOB_NAME.split('/')[-1]}/${env.BUILD_NUMBER}/tests"
+
+						def summary = "❌ **BE Unit Test 실패 보고서**\n\n"
+						summary += "\n---\n"
+						summary += "\nℹ️ 상세 내용을 확인해주세요.\n"
+						summary += "[Jenkins 빌드 결과](${env.BUILD_URL}testReport/) | "
+						summary += "[Blue Ocean 리포트](${blueOceanUrl})"
+
+						def mrIid = env.gitlabMergeRequestIid ?: "1"
+						withCredentials([usernamePassword(credentialsId: 'gitlab-auth', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+							sh """
+								curl --request POST \
+									 --header "PRIVATE-TOKEN: ${GIT_PASSWORD}" \
+									 --data-urlencode "body=${summary}" \
+									 "https://lab.ssafy.com/api/v4/projects/s14-ai-speech-sub1%2FS14P21A307/merge_requests/${mrIid}/notes"
+							"""
+						}
+					}
 				}
 			}
 		}
 
 		// 백엔드 컨테이너 CI/CD
-		stage('Deploy Backend') {
+		stage('BE Continuous Integration (CI)') {
+			when {
+				allOf {
+					expression {
+						!shouldSkip
+					}
+					expression {
+						env.gitlabMergeRequestState == 'merged' || isSelfBuild
+					}
+				}
+			}
 			steps {
-				// 백엔드만 빌드하고 배포 (기존 컨테이너는 유지됨)
+				updateGitlabCommitStatus name: 'BE-build', state: 'running'
+				echo "------- 🔅 Back-End 이미지 빌드 시작 -------"
 				sh """
 				export COMPOSE_PROJECT_NAME=theinterview
-				docker ps -a --format "{{.Names}}" | grep "backend" | xargs -r docker rm -f
-				docker compose -f infra/app/app-compose.yml up -d --build --no-deps backend
+				docker compose -f infra/app/app-compose.yml build backend
 				"""
+			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'BE-build', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'BE-build', state: 'failed'
+				}
+			}
+		}
+		stage('BE Continuous Deployment (CD)') {
+			when {
+				allOf {
+					expression {
+						!shouldSkip
+					}
+					expression {
+						env.gitlabMergeRequestState == 'merged' || isSelfBuild
+					}
+				}
+			}
+			steps {
+				updateGitlabCommitStatus name: 'BE-deploy', state: 'running'
+				echo "------- 🔅 Back-End 컨테이너 배포 시작 -------"
+				echo "------- ⤵️ Start Back-End container down... -------"
+				sh """
+				docker ps -a --format "{{.Names}}" | grep "backend" | xargs -r docker rm -f
+				"""
+				echo "------- ⤴️ Start Back-End container up... -------"
+				sh """
+				docker compose -f infra/app/app-compose.yml up -d --no-deps backend
+				"""
+			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'BE-deploy', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'BE-deploy', state: 'failed'
+				}
 			}
 		}
 	}
+
 	post {
 		always {
 			echo '🚧 Cleaning up dangling images...'
-			sh "docker image prune -f"
+			sh "docker image prune -f || true"
 		}
 		success {
+			updateGitlabCommitStatus name: 'BE-build', state: 'success'
+			updateGitlabCommitStatus name: 'BE-deploy', state: 'success'
 			echo '✅ Deployment finished successfully!'
 		}
 		failure {
+			script {
+				['BE-Test', 'BE-build', 'BE-deploy'].each { statusName ->
+					updateGitlabCommitStatus name: statusName, state: 'failed'
+				}
+			}
 			echo '⚠️ Deployment failed. Check the logs.'
 		}
 	}

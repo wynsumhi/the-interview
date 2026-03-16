@@ -15,7 +15,7 @@ export const MOCK_INTERVIEW_DETAIL: InterviewDetail = {
   interview_id: 101,
   member_id: 1,
   title: "비 오는 날의 조각들",
-  status: "COMPLETED",
+  status: "CONNECTING",
   share_range: "PRIVATE",
   created_at: "2026-03-10T14:00:00Z",
   updated_at: "2026-03-10T14:30:00Z",

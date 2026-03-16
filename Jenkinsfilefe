@@ -1,50 +1,213 @@
+def shouldSkip = false
+def isSelfBuild = false
 pipeline {
 	agent any
 
-	triggers {
-		gitlab(
-			triggerOnMergeRequest: true,
-			branchFilterType: 'NameBased',
-			includeBranchesSpec: 'develop',
-			secretToken: 'cec65daa349ce15aa1f1cdc542dd0b4',
-			includePathsSpec: 'fe/.*'
-		)
+	options {
+		gitLabConnection('GitLab_Codelian_AccessToken')
 	}
 
 	stages {
+		// FE 파일 변동여부 체크
+		stage('Check Frontend Changes') {
+			steps {
+				script {
+					echo "--- 디버깅용 출력 ---"
+					echo "gitlabSourceBranch: ${env.gitlabSourceBranch}"
+					echo "gitlabActionType: ${env.gitlabActionType}"
+					echo "gitlabMergeRequestState: ${env.gitlabMergeRequestState}"
+					echo "gitlabMergeRequestIid : ${env.gitlabMergeRequestIid}"
+
+					['FE-Test', 'FE-build', 'FE-deploy'].each { statusName ->
+						updateGitlabCommitStatus name: statusName, state: 'pending'
+					}
+					isSelfBuild = currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause').size() > 0
+					if(isSelfBuild) {
+						echo "------- 💡 수동 빌드를 시작합니다. -------"
+						shouldSkip = false
+					} else {
+						def targetBranch = env.gitlabTargetBranch ?: "develop"
+
+						withCredentials([usernamePassword(credentialsId: 'gitlab-auth', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+							sh "git fetch https://${GIT_USERNAME}:${GIT_PASSWORD}@lab.ssafy.com/s14-ai-speech-sub1/S14P21A307.git ${targetBranch}"
+						}
+
+						def changedFiles = ""
+						if(env.gitlabMergeRequestState == 'opened') {
+							changedFiles = sh(
+								script: "git diff --name-only FETCH_HEAD...HEAD",
+								returnStdout: true
+							).trim()
+						} else {
+							withCredentials([usernamePassword(credentialsId: 'gitlab-auth', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+								sh """
+									git fetch https://${GIT_USERNAME}:${GIT_PASSWORD}@lab.ssafy.com/s14-ai-speech-sub1/S14P21A307.git ${targetBranch}
+									git checkout ${targetBranch}
+									git reset --hard FETCH_HEAD
+								"""
+							}
+							changedFiles = sh(
+								script: """
+									MERGE_BASE=\$(git merge-base HEAD^1 HEAD^2)
+									git diff --name-only \$MERGE_BASE HEAD^2 || git show --name-only --pretty=format:'' HEAD
+								""",
+								returnStdout: true
+							).trim()
+						}
+
+						echo "--- 변경된 파일 목록 ---"
+						echo changedFiles
+
+						// FE 파일에 변동여부 체크
+						def isFeChanged = changedFiles.split('\n').any {
+							it.startsWith('fe/')
+						}
+
+						// 변동이 없으면 종료
+						if (!isFeChanged) {
+							echo "↩️ Frontend 변경사항 없음. 빌드를 종료합니다."
+							shouldSkip = true
+							['FE-Test', 'FE-build', 'FE-deploy'].each { statusName ->
+								updateGitlabCommitStatus name: statusName, state: 'success'
+							}
+						} else {
+							echo "⏩ Frontend 변경 감지됨. 빌드 절차를 계속합니다."
+						}
+					}
+				}
+			}
+		}
+
 		// 환경변수
 		stage('Prepare Env') {
+			when {
+				expression {
+					return !shouldSkip
+				}
+			}
 			steps {
 				// Jenkins Credentials에서 .env 파일을 app에 복사시킴
 				withCredentials([
 					file(credentialsId: 'ENV_FILE', variable: 'ENV'),
 				]) {
-					sh "cp $ENV infra/app/.env"
+					sh 'cp $ENV infra/app/.env'
+				}
+			}
+		}
+
+		stage('FE Unit Test') {
+			when {
+				allOf {
+					expression {
+						return !shouldSkip
+					}
+					expression {
+						env.gitlabMergeRequestState == 'opened'
+					}
+				}
+			}
+			steps {
+				updateGitlabCommitStatus name: 'FE-Test', state: 'running'
+				echo "------- 🧪 FE Unit Test 시작 -------"
+				script {
+					sh "docker rm -f fe-test-container || true"
+					try {
+						sh "docker build --memory=1g --memory-swap=2g --target builder -t fe-test-image ./fe"
+						sh 'docker run --name fe-test-container -m 1g --memory-swap 2g fe-test-image pnpm test --watchAll=false'
+					} finally {
+						sh "docker rm -f fe-test-container || true"
+					}
+				}
+			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'FE-Test', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'FE-Test', state: 'failed'
 				}
 			}
 		}
 
 		// 프론트엔드 컨테이너 CI/CD
-		stage('Deploy Frontend') {
+		stage('FE Continuous Integration (CI)') {
+			when {
+				allOf {
+					expression {
+						!shouldSkip
+					}
+					expression {
+						env.gitlabMergeRequestState == 'merged'
+					}
+				}
+			}
 			steps {
-				// 프론트엔드 배포
+				updateGitlabCommitStatus name: 'FE-build', state: 'running'
+				echo "------- 🔅 Front-End 이미지 빌드 시작 -------"
 				sh """
         		export COMPOSE_PROJECT_NAME=theinterview
-        		docker ps -a --format "{{.Names}}" | grep "frontend" | xargs -r docker rm -f
-				docker compose -f infra/app/app-compose.yml up -d --build --no-deps frontend
+				docker compose -f infra/app/app-compose.yml build frontend
 				"""
+			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'FE-build', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'FE-build', state: 'failed'
+				}
+			}
+		}
+		stage('FE Continuous Deployment (CD)') {
+			when {
+				allOf {
+					expression {
+						!shouldSkip
+					}
+					expression {
+						env.gitlabMergeRequestState == 'merged'
+					}
+				}
+			}
+			steps {
+				updateGitlabCommitStatus name: 'FE-deploy', state: 'running'
+				echo "------- 🔅 Front-End 컨테이너 배포 시작 -------"
+				echo "------- ⤵️ Start Front-End container down... -------"
+				sh """
+				docker ps -a --format "{{.Names}}" | grep "frontend" | xargs -r docker rm -f
+				"""
+				echo "------- ⤴️ Start Front-End container up... -------"
+				sh """
+				docker compose -f infra/app/app-compose.yml up -d --no-deps frontend
+				"""
+			}
+			post {
+				success {
+					updateGitlabCommitStatus name: 'FE-deploy', state: 'success'
+				}
+				failure {
+					updateGitlabCommitStatus name: 'FE-deploy', state: 'failed'
+				}
 			}
 		}
 	}
+
 	post {
 		always {
 			echo '🚧 Cleaning up dangling images...'
-			sh "docker image prune -f"
+			sh "docker image prune -f || true"
 		}
 		success {
+			updateGitlabCommitStatus name: 'FE-build', state: 'success'
+			updateGitlabCommitStatus name: 'FE-deploy', state: 'success'
 			echo '✅ Deployment finished successfully!'
 		}
 		failure {
+			script {
+				['FE-Test', 'FE-build', 'FE-deploy'].each { statusName ->
+					updateGitlabCommitStatus name: statusName, state: 'failed'
+				}
+			}
 			echo '⚠️ Deployment failed. Check the logs.'
 		}
 	}
