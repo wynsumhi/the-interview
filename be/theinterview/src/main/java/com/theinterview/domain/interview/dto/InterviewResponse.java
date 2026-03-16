@@ -58,4 +58,28 @@ public abstract class InterviewResponse {
         private String interviewTitle; // 인터뷰 제목
         private LocalDate interviewDate; // 인터뷰 생성일(년-월-일)
     }
+
+    // 인터뷰 히스토리 상세 조회
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    @Builder
+    public static class InterviewHistoryDetailDTO {
+
+        private String interviewTitle; // 인터뷰 제목
+        private LocalDate interviewDate; // 인터뷰 생성일(년-월-일)
+        private List<InterviewHistoryDetail> interview; // 인터뷰 내용
+    }
+
+    // 인터뷰 내용
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    @Builder
+    public static class InterviewHistoryDetail {
+
+        private String interviewQuestion; // 인터뷰 질문
+        private String interviewText; // 인터뷰 답변
+        private String interviewVoice; // 인터뷰 음성파일 UUID
+    }
 }

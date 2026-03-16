@@ -8,6 +8,8 @@ import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageReques
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistory;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetail;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.entity.Interview;
 import com.theinterview.domain.interview.entity.InterviewAnswer;
@@ -217,6 +219,43 @@ public class InterviewService {
                 .interviews(interviewHistories)
                 .totalPages(interviews.getTotalPages())
                 .currentPage(page)
+                .build();
+    }
+
+    // 인터뷰 히스토리 상세조회
+    public InterviewHistoryDetailDTO getInterviewHistoryDetail(Integer interviewId,
+            Integer memberId) {
+        // 인터뷰 조회
+        Interview interview = interviewRepository.findById(interviewId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+
+        // 요청한 사용자와 인터뷰 진행한 사용자가 다른 경우
+        if (!interview.getMember().getId().equals(memberId)) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        // 인터뷰 질문 조회
+        List<InterviewQuestion> questions = interviewQuestionRepository.findAllByInterviewIdOrderBySequence(
+                interviewId);
+
+        // 질문에 맵핑되는 답변 조회
+        List<InterviewHistoryDetail> details = questions.stream()
+                .map(question -> {
+                    InterviewAnswer answer = interviewAnswerRepository
+                            .findByInterviewQuestionId(question.getId())
+                            .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
+
+                    return InterviewHistoryDetail.builder()
+                            .interviewQuestion(question.getQuestionText())
+                            .interviewText(answer.getAnswerText())
+                            .interviewVoice(answer.getAnswerAudioUrl())
+                            .build();
+                }).toList();
+
+        return InterviewHistoryDetailDTO.builder()
+                .interviewTitle(interview.getTitle())
+                .interviewDate(interview.getCreatedAt().toLocalDate())
+                .interview(details)
                 .build();
     }
 }
