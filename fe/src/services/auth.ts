@@ -25,3 +25,24 @@ export const signup = async (data: SignupRequest): Promise<SignupResponse> => {
   // response.data: axios가 HTTP 응답에서 실제 JSON 바디만 꺼내줌
   return response.data;
 };
+
+// 로그인 요청 시 서버에 전달할 데이터 형태
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+// 로그인 성공 시 서버가 돌려주는 데이터 형태
+// accessToken: 실제 API 요청에 사용하는 짧은 수명의 토큰
+// refreshToken: accessToken 만료 시 재발급받기 위한 긴 수명의 토큰
+export interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+}
+
+// 로그인 API 호출 함수
+// POST /auth/login 엔드포인트로 요청
+export const login = async (data: LoginRequest): Promise<LoginResponse> => {
+  const response = await instance.post<LoginResponse>("/auth/login", data);
+  return response.data;
+};
