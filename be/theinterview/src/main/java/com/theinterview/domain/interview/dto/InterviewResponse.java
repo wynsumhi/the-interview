@@ -31,5 +31,6 @@ public abstract class InterviewResponse {
         private Integer interviewId; // 진행중인 인터뷰 id
         private Integer questionId; // 생성된 질문 id(첫 질문을 일단 생성한다고 가정함)
         private String interviewTitle; // 인터뷰 제목
+        private String ttsAudioBase64; // tts 음성 파일
     }
 }

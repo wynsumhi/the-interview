@@ -24,6 +24,8 @@
     <div class="box" id="questionArea" style="display: none; background-color: #eef2f5;">
         <h3>🤔 현재 질문 <span id="qIdBadge" class="badge"></span></h3>
         <p id="currentQuestionText" style="font-size: 18px; font-weight: bold;"></p>
+        <p>🔊 <strong>AI 음성 (TTS):</strong></p>
+        <audio id="aiAudioPlayer" controls style="margin-top: 5px;"></audio>
     </div>
 
     <div class="box">
@@ -35,8 +37,6 @@
     <div class="box" id="resultArea" style="display: none;">
         <h3>✨ 방금 서버에서 온 결과</h3>
         <p>🗣️ <strong>내 답변 (STT):</strong> <span id="sttResult"></span></p>
-        <p>🔊 <strong>AI 음성 (TTS):</strong></p>
-        <audio id="audioPlayback" controls style="margin-top: 10px;"></audio>
     </div>
 
     <script>
@@ -44,7 +44,6 @@
         let mediaRecorder = null;
         let audioChunks = [];
         
-        // ⭐️ 글로벌 상태 관리 (식별자 추적)
         let currentInterviewId = null;
         let currentQuestionId = null; 
 
@@ -55,7 +54,7 @@
             try {
                 document.getElementById('status').innerText = "인터뷰 생성 중...";
                 
-                const response = await fetch('http://localhost:8080/api/v1/interview', { // 포트 및 주소 확인
+                const response = await fetch('http://localhost:8080/api/v1/interview', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -66,25 +65,20 @@
 
                 if (!response.ok) throw new Error("HTTP 요청 실패");
 
-                // 1. JSON 데이터 원본 받기
                 const rawData = await response.json();
-                console.log("📦 서버 원본 응답:", rawData); // F12 콘솔에서 구조 확인용
+                console.log("📦 서버 원본 응답:", rawData);
 
-                // 2. ⭐️ 공통 응답 래퍼(Wrapper) 껍질 벗기기
-                // rawData.result가 있으면 쓰고, 없으면 rawData.data를 쓰고, 둘 다 없으면 그냥 원본(rawData) 사용
                 const payload = rawData.result || rawData.data || rawData;
 
-                // 3. 상태 저장 및 UI 업데이트
                 currentInterviewId = payload.interviewId;
                 currentQuestionId = payload.questionId;
                 
-                // 화면 업데이트
                 document.getElementById('roomInfo').innerText = `✅ 인터뷰 번호: ${currentInterviewId}번 준비 완료!`;
                 
-                // 첫 질문 렌더링 (DTO 변수명이 interviewTitle 이므로 매핑)
+                // 💡 수정됨: UI 업데이트 및 첫 질문 TTS 재생
                 updateQuestionUI(currentQuestionId, payload.interviewTitle);
+                playAiAudio(payload.ttsAudioBase64); // 첫 질문 오디오 재생
 
-                // 웹소켓 연결
                 connectWebSocket(token, currentInterviewId);
 
             } catch (error) {
@@ -104,7 +98,6 @@
                 document.getElementById('status').style.color = "green";
                 document.getElementById('startBtn').disabled = false;
                 
-                // 구독 시작
                 stompClient.subscribe('/topic/interview/room/' + interviewId, function (response) {
                     const responseDto = JSON.parse(response.body);
                     handleAiResponse(responseDto);
@@ -140,10 +133,9 @@
             reader.onloadend = function() {
                 const base64Audio = reader.result.split(',')[1]; 
                 
-                // ⭐️ AudioMessageRequest 규격에 맞춘 페이로드 조립
                 const payload = {
                     interviewId: currentInterviewId, 
-                    questionId: currentQuestionId,     // 현재 대답하고 있는 질문의 ID
+                    questionId: currentQuestionId,
                     audioData: base64Audio,
                     isFinal: true
                 };
@@ -161,22 +153,16 @@
             document.getElementById('status').innerText = "✅ 통신 파이프라인 연결됨!";
             document.getElementById('status').style.color = "green";
             
-            // 1. 하단 결과 영역 렌더링
+            // STT 렌더링
             document.getElementById('resultArea').style.display = 'block';
             document.getElementById('sttResult').innerText = data.sttResult;
             
-            // TTS 오디오 렌더링
-            const audio = document.getElementById('audioPlayback');
-            if (data.ttsAudioBase64) {
-                audio.src = "data:audio/webm;base64," + data.ttsAudioBase64;
-                // audio.play(); // 필요시 자동 재생 주석 해제
-            }
-
-            // 2. ⭐️ 글로벌 상태 업데이트 및 상단 질문 UI 변경 (다음 턴 준비)
+            // 💡 수정됨: 상태 업데이트, 질문 UI 변경 및 꼬리 질문 TTS 재생
             currentQuestionId = data.questionId; 
             updateQuestionUI(currentQuestionId, data.followUpQuestion);
+            playAiAudio(data.ttsAudioBase64); // 꼬리 질문 오디오 재생
             
-            document.getElementById('startBtn').disabled = false; // 다시 답변할 수 있게 버튼 활성화
+            document.getElementById('startBtn').disabled = false; 
         }
 
         // UI 헬퍼 함수
@@ -184,6 +170,20 @@
             document.getElementById('questionArea').style.display = 'block';
             document.getElementById('qIdBadge').innerText = `Q.ID: ${qId}`;
             document.getElementById('currentQuestionText').innerText = text;
+        }
+
+        // 💡 새롭게 추가된 헬퍼 함수: TTS 재생 전담 로직
+        function playAiAudio(base64Data) {
+            const audio = document.getElementById('aiAudioPlayer');
+            if (base64Data) {
+                // 명세서에 맞게 mime-type 설정 (mp3 또는 webm 등 서버 환경에 맞춰 수정 가능)
+                audio.src = "data:audio/mpeg;base64," + base64Data;
+                audio.play().catch(error => {
+                    console.log("자동 재생 정책에 의해 재생이 차단되었습니다. 사용자가 직접 재생 버튼을 눌러야 합니다.", error);
+                });
+            } else {
+                audio.src = ""; // 데이터가 없으면 초기화
+            }
         }
     </script>
 </body>
