@@ -32,7 +32,7 @@ def validate_audio_upload(audio_file: UploadFile) -> None:
 
 def run_interview_pipeline_from_upload(
     audio_file: UploadFile,
-    is_first_finished: bool = True,
+    is_first_finished: bool,
     sequence: int | None = None,
     nickname: str | None = None,
     previous_question: str | None = None,

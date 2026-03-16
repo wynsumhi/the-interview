@@ -44,7 +44,7 @@ def _build_first_interview_messages(
 
 def run_interview_pipeline(
     audio_file_path: str,
-    is_first_finished: bool = True,
+    is_first_finished: bool,
     sequence: int | None = None,
     nickname: str | None = None,
     previous_question: str | None = None,

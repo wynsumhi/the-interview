@@ -13,7 +13,7 @@ router = APIRouter()
 )
 def run_interview_pipeline_endpoint(
     audio_file: UploadFile = File(...),
-    is_first_finished: bool = Form(default=True),
+    is_first_finished: bool = Form(...),
     sequence: int | None = Form(default=None),
     nickname: str | None = Form(default=None),
     previous_question: str | None = Form(default=None),
