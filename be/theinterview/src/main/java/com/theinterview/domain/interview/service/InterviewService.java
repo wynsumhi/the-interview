@@ -133,6 +133,7 @@ public class InterviewService {
                 .interviewId(interview.getId())
                 .questionId(question.getId())
                 .interviewTitle(question.getQuestionText())
+                .ttsAudioBase64(aiStartTtsResponse.getTtsAudioBase64())
                 .build();
     }
 
