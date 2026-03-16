@@ -51,9 +51,6 @@ public class InterviewService {
             throws IOException {
 
         // 필요 도메인 엔티티 조회
-        InterviewQuestion currentQuestion = interviewQuestionRepository.findById(
-                        request.getQuestionId())
-                .orElseThrow(() -> new GeneralException(ErrorStatus.QUESTION_NOT_FOUND));
         Interview interview = interviewRepository.findById(request.getInterviewId())
                 .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
         Member member = interview.getMember();
