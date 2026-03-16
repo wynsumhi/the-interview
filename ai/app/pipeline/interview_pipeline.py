@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.prompts.interview_prompts import INTERVIEW_SYSTEM_PROMPT
+from app.prompts.interview_prompts import (
+    FIRST_INTERVIEW_QUESTION_MAP,
+    FIRST_INTERVIEW_SYSTEM_PROMPT,
+    INTERVIEW_SYSTEM_PROMPT,
+)
 from app.services.llm_service import create_message
 from app.services.stt_service import speech_to_text
 from app.services.tts_service import text_to_speech
@@ -16,25 +20,55 @@ class InterviewPipelineResult:
     tts_audio: bytes
 
 
-def build_interview_messages(stt_text: str) -> list[dict[str, str]]:
-    # 이후 guardrail이나 대화 히스토리가 들어와도 이 함수에서 메시지 조립 규칙을 확장하면 된다.
-    return [
-        {
-            "role": "user",
-            "content": stt_text,
-        }
-    ]
+def _build_regular_messages(stt_text: str) -> list[dict[str, str]]:
+    return [{"role": "user", "content": stt_text}]
+
+
+def _build_first_interview_messages(
+    stt_text: str,
+    nickname: str,
+    sequence: int,
+    previous_question: str | None,
+) -> list[dict[str, str]]:
+    if sequence == 1:
+        context = "첫 질문이므로 이전 대화 없음."
+    else:
+        context = f"직전 질문:\n{previous_question}\n\n사용자 답변:\n{stt_text}"
+    user_message = (
+        f"사용자 닉네임: {nickname}\n"
+        f"현재 진행할 질문: {FIRST_INTERVIEW_QUESTION_MAP[sequence]}\n\n"
+        f"대화 맥락:\n{context}"
+    )
+    return [{"role": "user", "content": user_message}]
 
 
 def run_interview_pipeline(
     audio_file_path: str,
+    is_first: bool = False,
+    sequence: int | None = None,
+    nickname: str | None = None,
+    previous_question: str | None = None,
     max_tokens: int = 1024,
 ) -> InterviewPipelineResult:
-    # 현재 단계에서는 guardrail 없이 STT -> LLM -> TTS만 직선으로 연결한다.
+    # STT -> LLM -> TTS 순서로 실행한다.
+    # is_first 여부에 따라 시스템 프롬프트와 메시지 조립 방식이 달라진다.
     stt_text = speech_to_text(audio_file_path)
+
+    if is_first:
+        system = FIRST_INTERVIEW_SYSTEM_PROMPT
+        messages = _build_first_interview_messages(
+            stt_text=stt_text,
+            nickname=nickname or "",
+            sequence=sequence or 1,
+            previous_question=previous_question,
+        )
+    else:
+        system = INTERVIEW_SYSTEM_PROMPT
+        messages = _build_regular_messages(stt_text)
+
     llm_text = create_message(
-        messages=build_interview_messages(stt_text),
-        system=INTERVIEW_SYSTEM_PROMPT,
+        messages=messages,
+        system=system,
         max_tokens=max_tokens,
     )
     tts_audio = text_to_speech(llm_text)
