@@ -22,7 +22,7 @@ def test_interview_start_tts_returns_new_user_question_and_audio() -> None:
             "/api/v1/interviews/start-tts",
             json={
                 "nickname": "민수",
-                "is_new_user": True,
+                "is_first_finished": False,
             },
         )
 
@@ -33,7 +33,7 @@ def test_interview_start_tts_returns_new_user_question_and_audio() -> None:
         "tts_audio_mime_type": "audio/mpeg",
     }
     start_tts_mock.assert_called_once_with(
-        is_new_user=True,
+        is_first_finished=False,
         nickname="민수",
         db_question=None,
     )
@@ -42,19 +42,19 @@ def test_interview_start_tts_returns_new_user_question_and_audio() -> None:
 def test_interview_start_tts_returns_bad_request_when_service_validation_fails() -> None:
     with patch(
         "app.api.v1.endpoints.interview.generate_interview_start_tts",
-        side_effect=ValueError("db_question is required when is_new_user is false."),
+        side_effect=ValueError("db_question is required when is_first_finished is true."),
     ):
         response = client.post(
             "/api/v1/interviews/start-tts",
             json={
                 "nickname": "민수",
-                "is_new_user": False,
+                "is_first_finished": True,
             },
         )
 
     assert response.status_code == 400
     assert response.json() == {
-        "detail": "db_question is required when is_new_user is false.",
+        "detail": "db_question is required when is_first_finished is true.",
     }
 
 

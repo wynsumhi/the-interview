@@ -36,19 +36,20 @@ def validate_audio_upload(audio_file: UploadFile) -> None:
 
 
 def build_interview_start_question_text(
-    is_new_user: bool,
+    is_first_finished: bool,
     nickname: str | None = None,
     db_question: str | None = None,
 ) -> str:
     """인터뷰 시작 시점에 TTS로 읽을 최종 질문 텍스트를 결정한다.
 
-    신규 유저는 하드코딩 템플릿에 닉네임을 치환하고, 기존 유저는 DB 질문을 그대로 사용한다.
+    첫 인터뷰를 아직 마치지 않은 사용자는 하드코딩 템플릿에 닉네임을 치환하고,
+    첫 인터뷰를 이미 마친 사용자는 DB 질문을 그대로 사용한다.
     API 계층에서는 이 함수가 발생시키는 `ValueError`를 400 응답으로 변환한다.
 
     Args:
-        is_new_user: 백엔드가 판단해서 전달한 신규 유저 여부.
-        nickname: 신규 유저일 때 템플릿에 삽입할 닉네임.
-        db_question: 기존 유저일 때 사용할 DB 질문 텍스트.
+        is_first_finished: 백엔드가 전달한 첫 인터뷰 완료 여부.
+        nickname: 첫 인터뷰 시작 사용자일 때 템플릿에 삽입할 닉네임.
+        db_question: 첫 인터뷰를 이미 마친 사용자일 때 사용할 DB 질문 텍스트.
 
     Returns:
         str: TTS provider에 실제로 전달할 최종 질문 텍스트.
@@ -57,38 +58,38 @@ def build_interview_start_question_text(
         ValueError: 분기별 필수 값이 비어 있으면 예외를 발생시킨다.
     """
 
-    if is_new_user:
+    if not is_first_finished:
         normalized_nickname = (nickname or "").strip()
         if not normalized_nickname:
-            raise ValueError("nickname is required when is_new_user is true.")
+            raise ValueError("nickname is required when is_first_finished is false.")
 
         return NEW_USER_START_QUESTION_TEMPLATE.format(nickname=normalized_nickname)
 
     normalized_db_question = (db_question or "").strip()
     if not normalized_db_question:
-        raise ValueError("db_question is required when is_new_user is false.")
+        raise ValueError("db_question is required when is_first_finished is true.")
 
     return normalized_db_question
 
 
 def generate_interview_start_tts(
-    is_new_user: bool,
+    is_first_finished: bool,
     nickname: str | None = None,
     db_question: str | None = None,
 ) -> dict[str, str]:
     """인터뷰 시작 질문을 결정하고 TTS 오디오까지 생성해 API 응답 형태로 반환한다.
 
     Args:
-        is_new_user: 신규 유저 여부.
-        nickname: 신규 유저일 때 하드코딩 질문에 삽입할 닉네임.
-        db_question: 기존 유저일 때 사용할 DB 질문.
+        is_first_finished: 첫 인터뷰 완료 여부.
+        nickname: 첫 인터뷰 시작 사용자일 때 하드코딩 질문에 삽입할 닉네임.
+        db_question: 첫 인터뷰를 이미 마친 사용자일 때 사용할 DB 질문.
 
     Returns:
         dict[str, str]: 최종 질문 텍스트와 base64 인코딩된 TTS 오디오 응답 데이터.
     """
 
     question_text = build_interview_start_question_text(
-        is_new_user=is_new_user,
+        is_first_finished=is_first_finished,
         nickname=nickname,
         db_question=db_question,
     )

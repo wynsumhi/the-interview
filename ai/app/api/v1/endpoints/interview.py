@@ -23,22 +23,23 @@ def generate_interview_start_tts_endpoint(
 ) -> InterviewStartTTSResponse:
     """인터뷰 시작 시점에 읽어줄 질문 텍스트를 결정하고 TTS 오디오를 생성한다.
 
-    신규 유저면 닉네임을 치환한 하드코딩 질문을 사용하고, 기존 유저면 DB 질문을 그대로 사용한다.
+    `is_first_finished=false`면 닉네임을 치환한 하드코딩 질문을 사용하고,
+    `is_first_finished=true`면 DB 질문을 그대로 사용한다.
     최종 질문 텍스트와 mp3 오디오를 base64로 인코딩한 값을 함께 반환한다.
 
     Args:
-        request: 백엔드가 전달한 신규 여부, 닉네임, DB 질문을 담은 JSON 요청 본문.
+        request: 백엔드가 전달한 첫 인터뷰 완료 여부, 닉네임, DB 질문을 담은 JSON 요청 본문.
 
     Returns:
         InterviewStartTTSResponse: 실제로 사용된 질문 텍스트와 base64 인코딩된 TTS 오디오 응답.
 
     Raises:
-        HTTPException: 신규/기존 유저 분기에 필요한 입력값이 비어 있으면 400 응답을 반환한다.
+        HTTPException: 완료 여부 분기에 필요한 입력값이 비어 있으면 400 응답을 반환한다.
     """
 
     try:
         result = generate_interview_start_tts(
-            is_new_user=request.is_new_user,
+            is_first_finished=request.is_first_finished,
             nickname=request.nickname,
             db_question=request.db_question,
         )

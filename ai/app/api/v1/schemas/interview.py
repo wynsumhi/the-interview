@@ -26,15 +26,15 @@ class InterviewStartTTSRequest(BaseModel):
 
     Attributes:
         nickname: 신규 유저일 때 하드코딩 시작 질문에 삽입할 사용자 닉네임.
-        is_new_user: 사용자가 첫 인터뷰를 시작하는 신규 유저인지 여부.
-        db_question: 기존 유저일 때 DB에 저장된 시작 질문 텍스트.
+        is_first_finished: 첫 인터뷰를 이미 마친 사용자 여부.
+        db_question: 첫 인터뷰를 이미 마친 사용자일 때 DB에 저장된 시작 질문 텍스트.
     """
 
     # 신규 유저 시작 질문 템플릿에 닉네임을 치환하기 위해 사용한다.
     nickname: str | None = None
-    # 첫 인터뷰 시작 여부를 백엔드가 미리 판단해서 내려주는 분기 기준이다.
-    is_new_user: bool
-    # 기존 유저의 n회차 인터뷰 시작 시에는 DB 질문을 그대로 TTS 입력으로 사용한다.
+    # false면 첫 인터뷰 시작으로 간주하고, true면 이전 인터뷰가 끝난 사용자로 해석한다.
+    is_first_finished: bool
+    # 첫 인터뷰를 이미 마친 사용자라면 DB 질문을 그대로 TTS 입력으로 사용한다.
     db_question: str | None = None
 
 
