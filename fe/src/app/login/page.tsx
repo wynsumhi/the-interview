@@ -37,6 +37,11 @@ export default function LoginPage() {
       localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("refreshToken", refreshToken);
 
+      // Next.js 미들웨어는 서버에서 실행되어 localStorage를 못 읽음
+      // 쿠키는 서버/클라이언트 양쪽에서 읽을 수 있어서 미들웨어 인증 체크에 사용
+      // path=/: 모든 경로에서 쿠키 접근 가능 / max-age: 쿠키 유효 시간(초)
+      document.cookie = `accessToken=${accessToken}; path=/; max-age=${60 * 60 * 24}`;
+
       // 로그인 성공 → 홈으로 이동
       router.push("/");
     } catch (err: unknown) {
