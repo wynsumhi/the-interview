@@ -65,17 +65,6 @@ public class MemberService {
         return new MemberInfoDTO(saveMember);
     }
 
-    // 이메일 중복 체크 헬퍼 메서드
-    public boolean checkEmail(String email) {
-        // 이메일 중복 체크
-        return !memberRepository.existsByEmail(email);
-    }
-
-    // 닉네임 중복 체크 헬퍼 메서드
-    public boolean checkNickname(String nickname) {
-        return !memberRepository.existsByNickname(nickname);
-    }
-
     // 로그인 및 토큰 발급 로직
     @Transactional(readOnly = true)
     public TokenResponseDTO login(LoginRequestDTO request) {
@@ -145,11 +134,27 @@ public class MemberService {
     @Transactional
     public MemberInfoDTO updateMemberInfo(String email, MemberInfoUpdateRequest request) {
 
+        // 닉네임 중복 검사
+        if (!checkNickname(request.getNickname())) {
+            throw new GeneralException(ErrorStatus.MEMBER_ALREADY_EXISTS);
+        }
+
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
         member.changeMemberInfo(request);
         return new MemberInfoDTO(member);
 
+    }
+
+    // 이메일 중복 체크 헬퍼 메서드
+    public boolean checkEmail(String email) {
+        // 이메일 중복 체크
+        return !memberRepository.existsByEmail(email);
+    }
+
+    // 닉네임 중복 체크 헬퍼 메서드
+    public boolean checkNickname(String nickname) {
+        return !memberRepository.existsByNickname(nickname);
     }
 }

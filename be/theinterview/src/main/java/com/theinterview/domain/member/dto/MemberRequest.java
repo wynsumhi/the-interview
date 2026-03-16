@@ -49,7 +49,10 @@ public abstract class MemberRequest {
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     public static class MemberInfoUpdateRequest {
-        
+
+        @NotBlank(message = "닉네임은 비어있을 수 없습니다.")
+        @Pattern(regexp = "^[a-zA-Z가-힣]{3,8}$",
+                message = "닉네임은 3~8자의 영문 혹은 한글만 가능합니다.")
         private String nickname;
     }
 

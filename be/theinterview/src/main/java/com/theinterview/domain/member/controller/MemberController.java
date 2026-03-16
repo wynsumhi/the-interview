@@ -120,7 +120,7 @@ public class MemberController {
     @PatchMapping("/me")
     public ApiResponse<MemberInfoDTO> changeMemberInfo(
             @AuthenticationPrincipal User user,
-            @RequestBody MemberInfoUpdateRequest request
+            @Valid @RequestBody MemberInfoUpdateRequest request
     ) {
         // 서비스 레이어 호출
         MemberInfoDTO memberInfoDTO = memberService.updateMemberInfo(user.getUsername(), request);

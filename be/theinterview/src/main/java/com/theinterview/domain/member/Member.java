@@ -15,10 +15,12 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+@Slf4j
 @Entity
 @Table(name = "member")
 @Getter
@@ -69,10 +71,14 @@ public class Member {
 
         String changeNickname = request.getNickname();
 
+        System.out.println(changeNickname);
+
         if (changeNickname != null && changeNickname.length() >= 3
                 && changeNickname.length() <= 8) {
             this.nickname = changeNickname;
+        } else {
+            throw new GeneralException(ErrorStatus.NICKNAME_NOT_VALID);
         }
-        throw new GeneralException(ErrorStatus.NICKNAME_NOT_VALID);
+
     }
 }
