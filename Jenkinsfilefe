@@ -1,5 +1,8 @@
 def shouldSkip = false
 def isSelfBuild = false
+def feTestStatus = 'canceled'
+def feBuildStatus = 'canceled'
+def feDeployStatus = 'canceled'
 pipeline {
 	agent any
 
@@ -67,13 +70,13 @@ pipeline {
 						if (!isFeChanged) {
 							echo "↩️ Frontend 변경사항 없음. 빌드를 종료합니다."
 							shouldSkip = true
-							['FE-Test', 'FE-build', 'FE-deploy'].each { statusName ->
-								updateGitlabCommitStatus name: statusName, state: 'success'
-							}
+							feTestStatus = 'success'
+							feBuildStatus = 'success'
+							feDeployStatus = 'success'
 						} else {
 							echo "⏩ Frontend 변경 감지됨. 빌드 절차를 계속합니다."
 							if(env.gitlabMergeRequestState == 'merged') {
-								updateGitlabCommitStatus name: 'FE-Test', state: 'success'
+								feTestStatus = 'success'
 							}
 						}
 					}
@@ -105,7 +108,7 @@ pipeline {
 						return !shouldSkip
 					}
 					expression {
-						env.gitlabMergeRequestState == 'opened'
+						env.gitlabMergeRequestState == 'opened' || isSelfBuild
 					}
 				}
 			}
@@ -124,10 +127,14 @@ pipeline {
 			}
 			post {
 				success {
-					updateGitlabCommitStatus name: 'FE-Test', state: 'success'
+					script {
+						feTestStatus = 'success'
+					}
 				}
 				failure {
-					updateGitlabCommitStatus name: 'FE-Test', state: 'failed'
+					script {
+						feTestStatus = 'failed'
+					}
 				}
 			}
 		}
@@ -140,7 +147,7 @@ pipeline {
 						!shouldSkip
 					}
 					expression {
-						env.gitlabMergeRequestState == 'merged'
+						env.gitlabMergeRequestState == 'merged' || isSelfBuild
 					}
 				}
 			}
@@ -154,10 +161,14 @@ pipeline {
 			}
 			post {
 				success {
-					updateGitlabCommitStatus name: 'FE-build', state: 'success'
+					script {
+						feBuildStatus = 'success'
+					}
 				}
 				failure {
-					updateGitlabCommitStatus name: 'FE-build', state: 'failed'
+					script {
+						feBuildStatus = 'failed'
+					}
 				}
 			}
 		}
@@ -168,7 +179,7 @@ pipeline {
 						!shouldSkip
 					}
 					expression {
-						env.gitlabMergeRequestState == 'merged'
+						env.gitlabMergeRequestState == 'merged' || isSelfBuild
 					}
 				}
 			}
@@ -211,10 +222,14 @@ pipeline {
 			}
 			post {
 				success {
-					updateGitlabCommitStatus name: 'FE-deploy', state: 'success'
+					script {
+						feDeployStatus = 'success'
+					}
 				}
 				failure {
-					updateGitlabCommitStatus name: 'FE-deploy', state: 'failed'
+					script {
+						feDeployStatus = 'failed'
+					}
 				}
 			}
 		}
@@ -222,21 +237,19 @@ pipeline {
 
 	post {
 		always {
+			script {
+				updateGitlabCommitStatus name: 'FE-Test', state: feTestStatus
+				updateGitlabCommitStatus name: 'FE-build', state: feBuildStatus
+				updateGitlabCommitStatus name: 'FE-deploy', state: feDeployStatus
+			}
 			echo '🚧 Cleaning up dangling images...'
 			sh "docker image prune -f || true"
 			sh "docker builder prune -f --keep-storage=5gb || true"
 		}
 		success {
-			updateGitlabCommitStatus name: 'FE-build', state: 'success'
-			updateGitlabCommitStatus name: 'FE-deploy', state: 'success'
 			echo '✅ Deployment finished successfully!'
 		}
 		failure {
-			script {
-				['FE-Test', 'FE-build', 'FE-deploy'].each { statusName ->
-					updateGitlabCommitStatus name: statusName, state: 'failed'
-				}
-			}
 			echo '⚠️ Deployment failed. Check the logs.'
 		}
 	}
