@@ -27,7 +27,7 @@ export default function ArchivePage() {
               나와 나눈 대화의 조각들을 <br />
               이곳에서 다시 들여다보세요.
             </p>
-            <Link href="/interview/start" className={styles.startLink}>
+            <Link href="/interview/setup" className={styles.startLink}>
               인터뷰 시작하기 <span>→</span>
             </Link>
           </div>
@@ -37,7 +37,12 @@ export default function ArchivePage() {
         <section className={styles.rightSection}>
           <div
             className={styles.folderStack}
-            style={{ '--n': totalItems, '--tab-h': `${TAB_HEIGHT}px` } as React.CSSProperties}
+            style={
+              {
+                "--n": totalItems,
+                "--tab-h": `${TAB_HEIGHT}px`,
+              } as React.CSSProperties
+            }
           >
             {displayItems.map((_, idx) => {
               const item = interviews[idx];

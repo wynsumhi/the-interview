@@ -29,7 +29,10 @@ export default function Navbar() {
   // 드롭다운 외부 클릭 시 자동으로 닫히도록 처리
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setIsDropdownOpen(false);
       }
     };
@@ -77,7 +80,7 @@ export default function Navbar() {
             <Link href="/explore" className={styles.navLink}>
               인터뷰 둘러보기
             </Link>
-            <Link href="/interview/start" className={styles.startBtn}>
+            <Link href="/interview/setup" className={styles.startBtn}>
               인터뷰 시작
             </Link>
 
