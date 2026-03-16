@@ -35,25 +35,27 @@ public abstract class InterviewResponse {
         private String interviewTitle; // 인터뷰 제목
     }
 
+    // 인터뷰 히스토리 전체 목록 조회
     @Getter
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
     public static class InterviewHistoryDTO {
 
-        private List<InterviewHistory> interviews;
-        private int totalPages;
-        private int currentPage;
+        private List<InterviewHistory> interviews; // 인터뷰 정보
+        private int totalPages; // 전체 페이지
+        private int currentPage; // 현재 페이지
     }
 
+    // 인터뷰 정보
     @Getter
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
     public static class InterviewHistory {
 
-        private Integer interviewId;
-        private String interviewTitle;
-        private LocalDate interviewDate;
+        private Integer interviewId; // 인터뷰 ID
+        private String interviewTitle; // 인터뷰 제목
+        private LocalDate interviewDate; // 인터뷰 생성일(년-월-일)
     }
 }
