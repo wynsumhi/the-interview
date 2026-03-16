@@ -19,7 +19,7 @@ def test_interview_start_tts_returns_new_user_question_and_audio() -> None:
         },
     ) as start_tts_mock:
         response = client.post(
-            "/api/v1/interviews/start-tts",
+            "/api/v1/ai/interview/start-tts",
             json={
                 "nickname": "민수",
                 "is_first_finished": False,
@@ -45,7 +45,7 @@ def test_interview_start_tts_returns_bad_request_when_service_validation_fails()
         side_effect=ValueError("db_question is required when is_first_finished is true."),
     ):
         response = client.post(
-            "/api/v1/interviews/start-tts",
+            "/api/v1/ai/interview/start-tts",
             json={
                 "nickname": "민수",
                 "is_first_finished": True,
@@ -69,7 +69,7 @@ def test_interview_pipeline_returns_follow_up_and_tts_audio() -> None:
         },
     ) as pipeline_mock:
         response = client.post(
-            "/api/v1/ai/interviews/pipeline",
+            "/api/v1/ai/interview/pipeline",
             files={"audio_file": ("answer.webm", BytesIO(b"webm-audio"), "audio/webm")},
             data={"is_first_finished": "false", "max_tokens": "256"},
         )
@@ -86,7 +86,7 @@ def test_interview_pipeline_returns_follow_up_and_tts_audio() -> None:
 
 def test_interview_pipeline_rejects_non_webm_upload() -> None:
     response = client.post(
-        "/api/v1/ai/interviews/pipeline",
+        "/api/v1/ai/interview/pipeline",
         files={"audio_file": ("answer.wav", BytesIO(b"wav-audio"), "audio/wav")},
     )
 
