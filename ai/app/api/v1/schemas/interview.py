@@ -1,6 +1,35 @@
 from pydantic import BaseModel
 
 
+class NextOpeningRequest(BaseModel):
+    """다음 회차 첫 질문 생성 요청 본문.
+
+    Attributes:
+        previous_context: 직전 인터뷰 내용을 백엔드가 텍스트로 조합해 전달한 값
+            - 2회차 생성 시: 1회차의 5번째 Q&A만 포함
+            - 이후 생성 시: 직전 인터뷰 전체 Q&A 포함
+            어떤 내용을 포함할지는 백엔드가 제공하는 interview_id 기반으로 판단한다.
+        nickname: 사용자 닉네임. 환영 인사에 자연스러운 경우 사용한다.
+    """
+
+    previous_context: str
+    nickname: str | None = None
+
+
+class NextOpeningResponse(BaseModel):
+    """다음 회차 첫 질문 생성 응답 본문.
+
+    Attributes:
+        question_text: LLM이 생성한 환영 인사 + 꼬리 질문 텍스트.
+        tts_audio_base64: `question_text`를 TTS로 변환한 mp3 바이트를 base64로 인코딩한 값.
+        tts_audio_mime_type: base64 오디오의 MIME 타입.
+    """
+
+    question_text: str
+    tts_audio_base64: str
+    tts_audio_mime_type: str = "audio/mpeg"
+
+
 class InterviewPipelineResponse(BaseModel):
     """인터뷰 파이프라인 API 응답 본문.
 
