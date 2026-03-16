@@ -86,17 +86,70 @@
   background: var(--sage);
 }
 
+/* 프로필 버튼 + 드롭다운을 묶는 컨테이너 - position:relative가 있어야 드롭다운이 아래에 정확히 위치함 */
+.profileWrapper {
+  position: relative;
+}
+
+/* 프로필 원형 버튼 - 클릭하면 드롭다운 토글 */
 .profileCircle {
   width: 32px;
   height: 32px;
   background: var(--border);
   border-radius: 50%;
   display: block;
+  border: none;
+  cursor: pointer;
   transition: transform 0.2s;
 }
 
 .profileCircle:hover {
   transform: scale(1.1);
+}
+
+/* 드롭다운 메뉴 - profileWrapper 기준으로 오른쪽 하단에 위치 */
+.dropdown {
+  position: absolute;
+  top: calc(100% + 10px); /* 프로필 원 바로 아래 10px 간격 */
+  right: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-width: 130px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  z-index: 100;
+}
+
+/* 드롭다운 안의 각 항목 */
+.dropdownItem {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--charcoal);
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-decoration: none;
+}
+
+.dropdownItem:hover {
+  background: var(--border);
+  color: var(--fg);
+}
+
+/* 로그아웃은 색상을 살짝 다르게 구분 */
+.dropdownItem.logout {
+  border-top: 1px solid var(--border);
+  color: #999;
+}
+
+.dropdownItem.logout:hover {
+  color: #e53e3e;
+  background: #fff5f5;
 }
 
 .logoutBtn {

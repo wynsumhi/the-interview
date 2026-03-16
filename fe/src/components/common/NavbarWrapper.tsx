@@ -7,7 +7,7 @@ export default function NavbarWrapper() {
   const pathname = usePathname();
 
   // NavBar를 숨길 경로 리스트
-  const hideNavbarPaths = ["/interview/session"];
+  const hideNavbarPaths = ["/interview/conversation", "/interview/setup"];
   const shouldHideNavbar = hideNavbarPaths.includes(pathname);
 
   if (shouldHideNavbar) return null;
