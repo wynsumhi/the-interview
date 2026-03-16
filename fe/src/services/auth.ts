@@ -41,8 +41,8 @@ export interface LoginResponse {
 }
 
 // 로그인 API 호출 함수
-// POST /api/v1/auth/login 엔드포인트로 요청
+// POST /auth/login 엔드포인트로 요청
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
-  const response = await instance.post<LoginResponse>("/api/v1/auth/login", data);
+  const response = await instance.post<LoginResponse>("/auth/login", data);
   return response.data;
 };
