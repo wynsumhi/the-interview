@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { logout } from "@/services/auth"; // 로그아웃 API 호출 함수
 import styles from "./Navbar.module.css";
@@ -15,16 +15,19 @@ export default function Navbar() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const router = useRouter();
+  // 경로 변화 감지 - 페이지 이동 시 로그인 상태 재확인에 사용
+  const pathname = usePathname();
 
   // useRef: 드롭다운 DOM 요소를 직접 참조 - 외부 클릭 감지에 사용
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // 컴포넌트가 브라우저에 마운트된 시점에 localStorage의 토큰 존재 여부로 로그인 상태 결정
-  // useEffect는 클라이언트(브라우저)에서만 실행 → localStorage 안전하게 접근 가능
+  // pathname이 바뀔 때마다 토큰 재확인
+  // 이유: Navbar는 레이아웃에 있어서 페이지 이동 시 재마운트되지 않음
+  // [] 대신 [pathname]을 쓰면 경로 변경마다 이 effect가 다시 실행됨
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
-    setIsLoggedIn(!!token); // !!: 값이 있으면 true, 없으면 false로 변환
-  }, []); // [] = 최초 마운트 시 한 번만 실행
+    setIsLoggedIn(!!token);
+  }, [pathname]); // pathname 변경 시마다 로그인 상태 동기화
 
   // 드롭다운 외부 클릭 시 자동으로 닫히도록 처리
   useEffect(() => {
