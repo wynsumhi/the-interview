@@ -15,12 +15,15 @@ import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.repository.MemberRepository;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Base64;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
@@ -40,23 +43,30 @@ public class InterviewService {
     private final InterviewQuestionRepository interviewQuestionRepository;
     private final InterviewAnswerRepository interviewAnswerRepository;
 
+    @Value("${file.audio.base-path}")
+    private String answerAudioPath;
+
     @Transactional
-    public FollowUpQuestionDTO oneQnAInterviewFlow(AudioMessageRequest request) throws IOException {
+    public FollowUpQuestionDTO oneQnAInterviewFlow(AudioMessageRequest request)
+            throws IOException {
+
+        // 필요 도메인 엔티티 조회
+        Interview interview = interviewRepository.findById(request.getInterviewId())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+        Member member = interview.getMember();
+
+        // 현재 클라이언트가 구독중인 방 번호(interviewId)
+        Integer interviewId = request.getInterviewId();
 
         // 클라이언트에서 보낸 Base64 데이터를 순수 바이트 배열로 변환
         byte[] audioBytes = Base64.getDecoder().decode(request.getAudioData());
         log.info("수신된 파일 크기: {} bytes", audioBytes.length);
 
+        // 파일 저장 유틸 메서드 호출
+        String savedFilePath = saveAnswerFile(audioBytes, member.getId(), interviewId);
+
         // ai 서버 호출
         AiPipelineResponse aiPipelineResponse = callFastApiForNextQuestion(audioBytes);
-
-        // 현재 클라이언트가 구독중인 방 번호(interviewId)
-        Integer interviewId = request.getInterviewId();
-
-        // MVP: 오디오 파일 프로젝트 최상단에 저장
-        File dest = new File("test_audio_" + interviewId + ".webm");
-        Files.write(dest.toPath(), audioBytes);
-        log.info("음성 파일 저장 완료: {}", dest.getAbsoluteFile());
 
         // 현재 사용자가 답변한 질문
         InterviewQuestion question = interviewQuestionRepository.findById(request.getQuestionId())
@@ -66,13 +76,9 @@ public class InterviewService {
         InterviewAnswer answer =
                 interviewAnswerRepository.save(InterviewAnswer.builder()
                         .interviewQuestion(question)
-                        .answerAudioUrl(dest.getAbsolutePath())
+                        .answerAudioUrl(savedFilePath)
                         .answerText("아직 텍스트를 반환하는 로직이 구현되지 않아 임시 텍스트를 반환합니다.")
                         .build());
-
-        // 현재 사용자가 진행하고 있는 인터뷰 객체
-        Interview interview = interviewRepository.findById(request.getInterviewId())
-                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
 
         // 생성된 질문 저장
         InterviewQuestion generatedQuestion = interviewQuestionRepository.save(
@@ -91,6 +97,34 @@ public class InterviewService {
                 .questionId(generatedQuestion.getId())
                 .build();
     }
+
+    /**
+     * 음성 바이트 배열을 지정된 경로에 저장하는 유틸 메서드
+     *
+     */
+    private String saveAnswerFile(byte[] audioBytes, Integer memberId, Integer interviewId)
+            throws IOException {
+
+        String fileName = UUID.randomUUID().toString() + ".webm";
+
+        Path directoryPath = Paths.get(answerAudioPath, String.valueOf(memberId),
+                String.valueOf(interviewId));
+
+        // 디렉토리가 없다면 생성
+        if (!Files.exists(directoryPath)) {
+            Files.createDirectories(directoryPath);
+        }
+
+        // 최종 파일 경로 조립 후 byte 배열 쓰기
+        Path filePath = directoryPath.resolve(fileName);
+        Files.write(filePath, audioBytes);
+
+        log.info("음성 파일 저장 완료: {}", filePath.toAbsolutePath());
+
+        // DB에 저장할 경로 문자열 반환
+        return filePath.toAbsolutePath().toString();
+    }
+
 
     @Transactional
     public WebSocketConnectResponse issueWebSocketId(String email) {
