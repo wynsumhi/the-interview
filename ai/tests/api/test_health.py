@@ -12,7 +12,7 @@ def test_root_returns_service_name() -> None:
 
 
 def test_health_check_returns_ok() -> None:
-    response = client.get("/api/v1/health")
+    response = client.get("/api/v1/ai/health")
 
     assert response.status_code == 200
     assert response.json() == {

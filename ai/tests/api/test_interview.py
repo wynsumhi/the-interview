@@ -19,7 +19,7 @@ def test_interview_pipeline_returns_follow_up_and_tts_audio() -> None:
         },
     ) as pipeline_mock:
         response = client.post(
-            "/api/v1/interviews/pipeline",
+            "/api/v1/ai/interviews/pipeline",
             files={"audio_file": ("answer.webm", BytesIO(b"webm-audio"), "audio/webm")},
             data={"max_tokens": "256"},
         )
@@ -36,7 +36,7 @@ def test_interview_pipeline_returns_follow_up_and_tts_audio() -> None:
 
 def test_interview_pipeline_rejects_non_webm_upload() -> None:
     response = client.post(
-        "/api/v1/interviews/pipeline",
+        "/api/v1/ai/interviews/pipeline",
         files={"audio_file": ("answer.wav", BytesIO(b"wav-audio"), "audio/wav")},
     )
 
