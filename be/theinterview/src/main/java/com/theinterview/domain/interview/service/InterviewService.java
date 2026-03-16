@@ -6,6 +6,8 @@ import com.theinterview.domain.interview.Repository.InterviewRepository;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistory;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.entity.Interview;
 import com.theinterview.domain.interview.entity.InterviewAnswer;
@@ -20,11 +22,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
@@ -100,7 +106,6 @@ public class InterviewService {
 
     /**
      * 음성 바이트 배열을 지정된 경로에 저장하는 유틸 메서드
-     *
      */
     private String saveAnswerFile(byte[] audioBytes, Integer memberId, Integer interviewId)
             throws IOException {
@@ -188,5 +193,30 @@ public class InterviewService {
         log.info("AI 서버와 통신 완료 반환된 텍스트: {}", aiPipelineResponse.getQuestionText());
 
         return aiPipelineResponse;
+    }
+
+    // 인터뷰 히스토리 조회
+    public InterviewHistoryDTO getInterviewHistoryList(Integer memberId, Integer page) {
+        // 인터뷰의 상태가 FINISHED인 정보만 5개씩 가져옴
+        Pageable pageable = PageRequest.of(page, 5);
+        Page<Interview> interviews = interviewRepository.findAllByMemberIdAndStatus(memberId,
+                InterviewStatus.FINISHED, pageable);
+
+        log.info("[InterviewService - getHistoryList] memberID : {} / Load Interviews Size : {}",
+                memberId, interviews.getTotalElements());
+
+        List<InterviewHistory> interviewHistories = interviews.getContent().stream()
+                .map(interview -> InterviewHistory.builder()
+                        .interviewId(interview.getId())
+                        .interviewTitle(interview.getTitle())
+                        .interviewDate(interview.getCreatedAt().toLocalDate())
+                        .build())
+                .toList();
+
+        return InterviewHistoryDTO.builder()
+                .interviews(interviewHistories)
+                .totalPages(interviews.getTotalPages())
+                .currentPage(page)
+                .build();
     }
 }

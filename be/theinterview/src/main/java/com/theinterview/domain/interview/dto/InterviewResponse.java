@@ -1,6 +1,8 @@
 package com.theinterview.domain.interview.dto;
 
 
+import java.time.LocalDate;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,5 +33,27 @@ public abstract class InterviewResponse {
         private Integer interviewId; // 진행중인 인터뷰 id
         private Integer questionId; // 생성된 질문 id(첫 질문을 일단 생성한다고 가정함)
         private String interviewTitle; // 인터뷰 제목
+    }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    @Builder
+    public static class InterviewHistoryDTO {
+
+        private List<InterviewHistory> interviews;
+        private int totalPages;
+        private int currentPage;
+    }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    @Builder
+    public static class InterviewHistory {
+
+        private Integer interviewId;
+        private String interviewTitle;
+        private LocalDate interviewDate;
     }
 }
