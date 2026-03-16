@@ -6,6 +6,12 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
+# FE 환경변수 설정
+ARG API_URL
+
+# FE 환경변수 ENV 등록
+ENV NEXT_PUBLIC_API_URL=$API_URL
+
 # 종속성 파일 복사 (pnpm-lock.yaml이 핵심!)
 COPY package.json pnpm-lock.yaml ./
 
