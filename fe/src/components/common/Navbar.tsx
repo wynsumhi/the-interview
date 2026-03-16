@@ -7,8 +7,9 @@ import { logout } from "@/services/auth"; // 로그아웃 API 호출 함수
 import styles from "./Navbar.module.css";
 
 export default function Navbar() {
-  // 테스트를 위한 임시 로그인 상태 (실제 구현 시 auth logic 연동)
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  // 초기값 false → useEffect에서 localStorage를 확인 후 실제 상태로 업데이트
+  // false로 시작하는 이유: Next.js는 서버에서 먼저 렌더링하는데 서버에는 localStorage가 없음
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // 드롭다운 열림/닫힘 상태
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -18,17 +19,21 @@ export default function Navbar() {
   // useRef: 드롭다운 DOM 요소를 직접 참조 - 외부 클릭 감지에 사용
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // 컴포넌트가 브라우저에 마운트된 시점에 localStorage의 토큰 존재 여부로 로그인 상태 결정
+  // useEffect는 클라이언트(브라우저)에서만 실행 → localStorage 안전하게 접근 가능
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    setIsLoggedIn(!!token); // !!: 값이 있으면 true, 없으면 false로 변환
+  }, []); // [] = 최초 마운트 시 한 번만 실행
+
   // 드롭다운 외부 클릭 시 자동으로 닫히도록 처리
-  // useEffect: 컴포넌트가 마운트될 때 이벤트 리스너 등록, 언마운트 시 제거
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      // dropdownRef.current가 클릭된 영역을 포함하지 않으면 닫기
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    // cleanup 함수: 컴포넌트가 사라질 때 리스너 제거 (메모리 누수 방지)
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
@@ -39,9 +44,11 @@ export default function Navbar() {
     } catch {
       // 서버 오류가 나도 프론트 토큰은 반드시 삭제
     } finally {
-      // localStorage에서 토큰 제거 → 이후 API 요청에 토큰이 실리지 않음
+      // localStorage + 쿠키 토큰 모두 제거
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
+      // 미들웨어가 쿠키를 보고 보호 라우트를 차단하므로 쿠키도 삭제
+      document.cookie = "accessToken=; path=/; max-age=0";
       setIsLoggedIn(false);
       setIsDropdownOpen(false);
       router.push("/login");
