@@ -1,5 +1,8 @@
 def shouldSkip = false
 def isSelfBuild = false
+def beTestStatus = 'canceled'
+def beBuildStatus = 'canceled'
+def beDeployStatus = 'canceled'
 pipeline {
 	agent any
 
@@ -67,13 +70,13 @@ pipeline {
 						if (!isBeChanged) {
 							echo "↩️ Backend 변경사항 없음. 빌드를 종료합니다."
 							shouldSkip = true
-							['BE-Test', 'BE-build', 'BE-deploy'].each { statusName ->
-								updateGitlabCommitStatus name: statusName, state: 'success'
-							}
+							beTestStatus = 'success'
+							beBuildStatus = 'success'
+							beDeployStatus = 'success'
 						} else {
 							echo "⏩ Backend 변경 감지됨. 빌드 절차를 계속합니다."
 							if(env.gitlabMergeRequestState == 'merged') {
-								updateGitlabCommitStatus name: 'BE-Test', state: 'success'
+								beTestStatus = 'success'
 							}
 						}
 					}
@@ -140,10 +143,14 @@ pipeline {
 					junit 'be/theinterview/build/test-results/test/*.xml'
 				}
 				success {
-					updateGitlabCommitStatus name: 'BE-Test', state: 'success'
+					script {
+						beTestStatus = 'success'
+					}
 				}
 				failure {
-					updateGitlabCommitStatus name: 'BE-Test', state: 'failed'
+					script {
+						beTestStatus = 'failed'
+					}
 					script {
 						def rootUrl = "https://j14a307.p.ssafy.io/infra/jenkins"
 						def blueOceanUrl = "${rootUrl}/blue/organizations/jenkins/${env.JOB_NAME.replaceAll('/','%2F')}/detail/${env.JOB_NAME.split('/')[-1]}/${env.BUILD_NUMBER}/tests"
@@ -190,10 +197,14 @@ pipeline {
 			}
 			post {
 				success {
-					updateGitlabCommitStatus name: 'BE-build', state: 'success'
+					script {
+						beBuildStatus = 'success'
+					}
 				}
 				failure {
-					updateGitlabCommitStatus name: 'BE-build', state: 'failed'
+					script {
+						beBuildStatus = 'failed'
+					}
 				}
 			}
 		}
@@ -247,10 +258,14 @@ pipeline {
 			}
 			post {
 				success {
-					updateGitlabCommitStatus name: 'BE-deploy', state: 'success'
+					script {
+						beDeployStatus = 'success'
+					}
 				}
 				failure {
-					updateGitlabCommitStatus name: 'BE-deploy', state: 'failed'
+					script {
+						beDeployStatus = 'failed'
+					}
 				}
 			}
 		}
@@ -258,21 +273,19 @@ pipeline {
 
 	post {
 		always {
+			script {
+				updateGitlabCommitStatus name: 'BE-Test', state: beTestStatus
+				updateGitlabCommitStatus name: 'BE-build', state: beBuildStatus
+				updateGitlabCommitStatus name: 'BE-deploy', state: beDeployStatus
+			}
 			echo '🚧 Cleaning up dangling images...'
 			sh "docker image prune -f || true"
 			sh "docker builder prune -f --keep-storage=5gb || true"
 		}
 		success {
-			updateGitlabCommitStatus name: 'BE-build', state: 'success'
-			updateGitlabCommitStatus name: 'BE-deploy', state: 'success'
 			echo '✅ Deployment finished successfully!'
 		}
 		failure {
-			script {
-				['BE-Test', 'BE-build', 'BE-deploy'].each { statusName ->
-					updateGitlabCommitStatus name: statusName, state: 'failed'
-				}
-			}
 			echo '⚠️ Deployment failed. Check the logs.'
 		}
 	}
