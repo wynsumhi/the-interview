@@ -20,10 +20,10 @@ def test_build_interview_start_question_text_for_new_user() -> None:
 def test_build_interview_start_question_text_for_existing_user() -> None:
     result = build_interview_start_question_text(
         is_first_finished=True,
-        db_question="이전 면접 내용을 바탕으로 최근 프로젝트 경험을 설명해 주세요.",
+        db_question="이전 인터뷰 내용을 바탕으로 최근 프로젝트 경험을 설명해 주세요.",
     )
 
-    assert result == "이전 면접 내용을 바탕으로 최근 프로젝트 경험을 설명해 주세요."
+    assert result == "이전 인터뷰 내용을 바탕으로 최근 프로젝트 경험을 설명해 주세요."
 
 
 @pytest.mark.parametrize(

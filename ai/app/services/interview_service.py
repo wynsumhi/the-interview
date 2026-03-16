@@ -10,7 +10,7 @@ from fastapi import UploadFile
 from app.pipeline.interview_pipeline import run_interview_pipeline
 from app.services.tts_service import text_to_speech
 
-# 현재 면접 답변 업로드 API는 webm 파일만 받도록 제한한다.
+# 현재 인터뷰 답변 업로드 API는 webm 파일만 받도록 제한한다.
 ALLOWED_AUDIO_EXTENSIONS = {".webm"}
 # JSON 응답에서 사용하는 기본 오디오 MIME 타입이다.
 DEFAULT_AUDIO_MIME_TYPE = "audio/mpeg"
@@ -110,10 +110,10 @@ def run_interview_pipeline_from_upload(
     previous_question: str | None = None,
     max_tokens: int = 1024,
 ) -> dict[str, str]:
-    """업로드 음성 파일을 면접 파이프라인에 전달하고 API 응답 형태로 변환한다.
+    """업로드 음성 파일을 인터뷰 파이프라인에 전달하고 API 응답 형태로 변환한다.
 
     Args:
-        audio_file: 면접 답변 음성 파일.
+        audio_file: 인터뷰 답변 음성 파일.
         is_first_finished: 첫 질문 응답이 끝난 뒤인지 여부.
         sequence: 첫 인터뷰 질문 순서.
         nickname: 첫 인터뷰 질문 생성에 사용할 닉네임.

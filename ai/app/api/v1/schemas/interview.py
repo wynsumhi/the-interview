@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 
 class InterviewPipelineResponse(BaseModel):
-    """면접 파이프라인 API 응답 본문.
+    """인터뷰 파이프라인 API 응답 본문.
 
     Attributes:
         stt_text: 업로드된 답변 음성을 STT로 변환한 텍스트.

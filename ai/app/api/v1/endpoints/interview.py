@@ -65,13 +65,13 @@ def run_interview_pipeline_endpoint(
     previous_question: str | None = Form(default=None),
     max_tokens: int = Form(default=1024),
 ) -> InterviewPipelineResponse:
-    """면접 답변 음성을 받아 STT, 질문 생성, TTS까지 한 번에 수행한다.
+    """인터뷰 답변 음성을 받아 STT, 질문 생성, TTS까지 한 번에 수행한다.
 
     첫 인터뷰 진행 여부와 질문 순서를 함께 전달받아 파이프라인 내부 분기 로직에 넘긴다.
     업로드 파일은 현재 webm만 허용하며, 생성된 질문 오디오는 base64 문자열로 반환한다.
 
     Args:
-        audio_file: 사용자의 면접 답변 음성 파일.
+        audio_file: 사용자의 인터뷰 답변 음성 파일.
         is_first_finished: 첫 질문 응답이 끝난 뒤인지 여부.
         sequence: 첫 인터뷰 질문 순서.
         nickname: 첫 인터뷰 질문 생성에 필요한 닉네임.
