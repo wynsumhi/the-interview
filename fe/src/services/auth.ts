@@ -19,9 +19,9 @@ export interface SignupResponse {
 
 // 회원가입 API 호출 함수
 // async/await: 서버 응답을 기다렸다가 결과를 반환하는 비동기 함수
-// POST /api/v1/auth/signup 엔드포인트로 요청
+// POST /auth/signup 엔드포인트로 요청
 export const signup = async (data: SignupRequest): Promise<SignupResponse> => {
-  const response = await instance.post<SignupResponse>("/api/v1/auth/signup", data);
+  const response = await instance.post<SignupResponse>("/auth/signup", data);
   // response.data: axios가 HTTP 응답에서 실제 JSON 바디만 꺼내줌
   return response.data;
 };
