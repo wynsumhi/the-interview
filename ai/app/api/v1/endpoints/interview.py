@@ -13,7 +13,7 @@ router = APIRouter()
 )
 def run_interview_pipeline_endpoint(
     audio_file: UploadFile = File(...),
-    is_first: bool = Form(default=False),
+    is_first_finished: bool = Form(default=True),
     sequence: int | None = Form(default=None),
     nickname: str | None = Form(default=None),
     previous_question: str | None = Form(default=None),
@@ -21,15 +21,16 @@ def run_interview_pipeline_endpoint(
 ) -> InterviewPipelineResponse:
     """면접 답변 음성을 입력받아 다음 질문과 TTS 음성을 반환한다.
 
-    최초 인터뷰(is_first=True)와 일반 인터뷰(is_first=False) 모두 이 엔드포인트에서 처리한다.
-    백엔드가 is_first_finished 여부에 따라 is_first 파라미터를 설정해 호출한다.
+    최초 인터뷰(is_first_finished=False)와 일반 인터뷰(is_first_finished=True) 모두 처리한다.
+    백엔드가 사용자의 is_first_finished 값을 그대로 전달한다.
 
     Args:
         audio_file: 면접자의 답변이 담긴 `webm` 오디오 파일.
-        is_first: 최초 인터뷰 여부. True이면 최초 인터뷰 프롬프트를 사용한다.
-        sequence: 최초 인터뷰 질문 순서 (1~5). is_first=True일 때만 사용한다.
-        nickname: 사용자 닉네임. is_first=True일 때 LLM 호칭으로 활용한다.
-        previous_question: 직전 AI 질문 텍스트. is_first=True이고 sequence >= 2일 때 사용한다.
+        is_first_finished: 최초 인터뷰 완료 여부. False이면 최초 인터뷰 프롬프트를 사용한다.
+        sequence: 최초 인터뷰 질문 순서 (1~5). is_first_finished=False일 때만 사용한다.
+        nickname: 사용자 닉네임. is_first_finished=False일 때 LLM 호칭으로 활용한다.
+        previous_question: 직전 질문 텍스트.
+                            is_first_finished=False이고 sequence >= 2일 때 사용한다.
         max_tokens: LLM 응답 생성 시 사용할 최대 토큰 수.
 
     Returns:
@@ -44,7 +45,7 @@ def run_interview_pipeline_endpoint(
     try:
         result = run_interview_pipeline_from_upload(
             audio_file=audio_file,
-            is_first=is_first,
+            is_first_finished=is_first_finished,
             sequence=sequence,
             nickname=nickname,
             previous_question=previous_question,

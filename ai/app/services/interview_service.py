@@ -32,7 +32,7 @@ def validate_audio_upload(audio_file: UploadFile) -> None:
 
 def run_interview_pipeline_from_upload(
     audio_file: UploadFile,
-    is_first: bool = False,
+    is_first_finished: bool = True,
     sequence: int | None = None,
     nickname: str | None = None,
     previous_question: str | None = None,
@@ -40,15 +40,15 @@ def run_interview_pipeline_from_upload(
 ) -> dict[str, str]:
     """업로드된 음성 파일로 인터뷰 파이프라인을 실행하고 API 응답 형태로 변환한다.
 
-    최초 인터뷰(is_first=True)와 일반 인터뷰(is_first=False) 모두 이 함수에서 처리한다.
+    최초 인터뷰와 일반 인터뷰 모두 이 함수에서 처리한다.
     분기 로직은 파이프라인 내부에 위임하고, 이 함수는 파일 처리와 응답 직렬화만 담당한다.
 
     Args:
         audio_file: 백엔드가 전달한 면접 답변 음성 파일. 현재는 `.webm`만 허용한다.
-        is_first: 최초 인터뷰 여부. True이면 최초 인터뷰 프롬프트와 질문 맵을 사용한다.
-        sequence: 최초 인터뷰 질문 순서 (1~5). is_first=True일 때만 사용한다.
-        nickname: 사용자 닉네임. is_first=True일 때 LLM 호칭으로 활용한다.
-        previous_question: 직전 AI 질문 텍스트. is_first=True이고 sequence >= 2일 때 사용한다.
+        is_first_finished: 최초 인터뷰 완료 여부. False이면 최초 인터뷰 프롬프트를 사용한다.
+        sequence: 최초 인터뷰 질문 순서 (1~5). is_first_finished=False일 때만 사용한다.
+        nickname: 사용자 닉네임. is_first_finished=False일 때 LLM 호칭으로 활용한다.
+        previous_question: 직전 AI 질문 텍스트. 최초 인터뷰이고 sequence >= 2일 때 사용한다.
         max_tokens: LLM이 생성할 질문의 최대 토큰 수.
 
     Returns:
@@ -71,7 +71,7 @@ def run_interview_pipeline_from_upload(
 
         pipeline_result = run_interview_pipeline(
             str(temp_file_path),
-            is_first=is_first,
+            is_first_finished=is_first_finished,
             sequence=sequence,
             nickname=nickname,
             previous_question=previous_question,

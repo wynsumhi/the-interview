@@ -44,17 +44,17 @@ def _build_first_interview_messages(
 
 def run_interview_pipeline(
     audio_file_path: str,
-    is_first: bool = False,
+    is_first_finished: bool = True,
     sequence: int | None = None,
     nickname: str | None = None,
     previous_question: str | None = None,
     max_tokens: int = 1024,
 ) -> InterviewPipelineResult:
     # STT -> LLM -> TTS 순서로 실행한다.
-    # is_first 여부에 따라 시스템 프롬프트와 메시지 조립 방식이 달라진다.
+    # is_first_finished=False이면 최초 인터뷰, True이면 일반 인터뷰 프롬프트를 사용한다.
     stt_text = speech_to_text(audio_file_path)
 
-    if is_first:
+    if not is_first_finished:
         system = FIRST_INTERVIEW_SYSTEM_PROMPT
         messages = _build_first_interview_messages(
             stt_text=stt_text,
