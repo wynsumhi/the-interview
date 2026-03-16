@@ -20,4 +20,18 @@ public abstract class FastApiResponse {
         @JsonProperty("tts_audio_mime_type")
         private String ttsAudioMimeType;
     }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    public static class AiStartTtsResponse {
+
+        @JsonProperty("question_text")
+        private String questionText;
+
+        @JsonProperty("tts_audio_base64")
+        private String ttsAudioBase64;
+
+        @JsonProperty("tts_audio_mime_type")
+        private String ttsAudioMimeType;
+    }
 }

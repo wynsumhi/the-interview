@@ -2,7 +2,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { MOCK_USER, MOCK_ARCHIVE_LIST } from "@/constants/mockData";
+import { logout } from "@/services/auth";
 import styles from "./page.module.css";
 
 export default function MyPage() {
@@ -71,7 +73,7 @@ export default function MyPage() {
           </div>
           <div className={styles.btnGroup}>
             <button className={styles.saveBtn}>변경사항 저장</button>
-            <button className={styles.withdrawBtn}>로그아웃</button>
+            <button className={styles.withdrawBtn}>회원탈퇴</button>
           </div>
         </section>
       ) : (

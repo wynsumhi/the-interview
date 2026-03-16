@@ -1,5 +1,8 @@
 def shouldSkip = false
 def isSelfBuild = false
+def feTestStatus = 'canceled'
+def feBuildStatus = 'canceled'
+def feDeployStatus = 'canceled'
 pipeline {
 	agent any
 
@@ -67,11 +70,14 @@ pipeline {
 						if (!isFeChanged) {
 							echo "↩️ Frontend 변경사항 없음. 빌드를 종료합니다."
 							shouldSkip = true
-							['FE-Test', 'FE-build', 'FE-deploy'].each { statusName ->
-								updateGitlabCommitStatus name: statusName, state: 'success'
-							}
+							feTestStatus = 'success'
+							feBuildStatus = 'success'
+							feDeployStatus = 'success'
 						} else {
 							echo "⏩ Frontend 변경 감지됨. 빌드 절차를 계속합니다."
+							if(env.gitlabMergeRequestState == 'merged') {
+								feTestStatus = 'success'
+							}
 						}
 					}
 				}
@@ -102,7 +108,7 @@ pipeline {
 						return !shouldSkip
 					}
 					expression {
-						env.gitlabMergeRequestState == 'opened'
+						env.gitlabMergeRequestState == 'opened' || isSelfBuild
 					}
 				}
 			}
@@ -121,10 +127,14 @@ pipeline {
 			}
 			post {
 				success {
-					updateGitlabCommitStatus name: 'FE-Test', state: 'success'
+					script {
+						feTestStatus = 'success'
+					}
 				}
 				failure {
-					updateGitlabCommitStatus name: 'FE-Test', state: 'failed'
+					script {
+						feTestStatus = 'failed'
+					}
 				}
 			}
 		}
@@ -137,7 +147,7 @@ pipeline {
 						!shouldSkip
 					}
 					expression {
-						env.gitlabMergeRequestState == 'merged'
+						env.gitlabMergeRequestState == 'merged' || isSelfBuild
 					}
 				}
 			}
@@ -151,10 +161,14 @@ pipeline {
 			}
 			post {
 				success {
-					updateGitlabCommitStatus name: 'FE-build', state: 'success'
+					script {
+						feBuildStatus = 'success'
+					}
 				}
 				failure {
-					updateGitlabCommitStatus name: 'FE-build', state: 'failed'
+					script {
+						feBuildStatus = 'failed'
+					}
 				}
 			}
 		}
@@ -165,7 +179,7 @@ pipeline {
 						!shouldSkip
 					}
 					expression {
-						env.gitlabMergeRequestState == 'merged'
+						env.gitlabMergeRequestState == 'merged' || isSelfBuild
 					}
 				}
 			}
@@ -174,19 +188,48 @@ pipeline {
 				echo "------- 🔅 Front-End 컨테이너 배포 시작 -------"
 				echo "------- ⤵️ Start Front-End container down... -------"
 				sh """
+					echo "------- 🔍 이미지 SHA 확인 -------"
+					CONTAINER_IMAGE=\$(docker inspect frontend --format='{{.Image}}' 2>/dev/null || echo "컨테이너 없음")
+					LATEST_IMAGE=\$(docker inspect theinterview-frontend:latest --format='{{.Id}}' 2>/dev/null || echo "이미지 없음")
+					echo "현재 컨테이너 사용 이미지 SHA : \$CONTAINER_IMAGE"
+					echo "현재 latest 이미지 SHA       : \$LATEST_IMAGE"
+					if [ "\$CONTAINER_IMAGE" = "\$LATEST_IMAGE" ]; then
+						echo "✅ 이미지 SHA 일치"
+					else
+						echo "⚠️ 이미지 SHA 불일치 - 컨테이너 재생성 필요"
+					fi
+				"""
+				sh """
 				docker ps -a --format "{{.Names}}" | grep "frontend" | xargs -r docker rm -f
 				"""
 				echo "------- ⤴️ Start Front-End container up... -------"
 				sh """
-				docker compose -f infra/app/app-compose.yml up -d --no-deps frontend
+				docker compose -f infra/app/app-compose.yml up -d --no-deps --force-recreate frontend
+				"""
+				sh """
+					echo "------- 🔍 배포 후 이미지 SHA 재확인 -------"
+					CONTAINER_IMAGE=\$(docker inspect frontend --format='{{.Image}}')
+					LATEST_IMAGE=\$(docker inspect theinterview-frontend:latest --format='{{.Id}}')
+					echo "현재 컨테이너 사용 이미지 SHA : \$CONTAINER_IMAGE"
+					echo "현재 latest 이미지 SHA       : \$LATEST_IMAGE"
+					if [ "\$CONTAINER_IMAGE" = "\$LATEST_IMAGE" ]; then
+						echo "✅ 이미지 동기화 완료"
+					else
+						echo "❌ 이미지 동기화 실패"
+						exit 1
+					fi
 				"""
 			}
 			post {
 				success {
-					updateGitlabCommitStatus name: 'FE-deploy', state: 'success'
+					script {
+						feDeployStatus = 'success'
+					}
 				}
 				failure {
-					updateGitlabCommitStatus name: 'FE-deploy', state: 'failed'
+					script {
+						feDeployStatus = 'failed'
+					}
 				}
 			}
 		}
@@ -194,20 +237,19 @@ pipeline {
 
 	post {
 		always {
+			script {
+				updateGitlabCommitStatus name: 'FE-Test', state: feTestStatus
+				updateGitlabCommitStatus name: 'FE-build', state: feBuildStatus
+				updateGitlabCommitStatus name: 'FE-deploy', state: feDeployStatus
+			}
 			echo '🚧 Cleaning up dangling images...'
 			sh "docker image prune -f || true"
+			sh "docker builder prune -f --keep-storage=5gb || true"
 		}
 		success {
-			updateGitlabCommitStatus name: 'FE-build', state: 'success'
-			updateGitlabCommitStatus name: 'FE-deploy', state: 'success'
 			echo '✅ Deployment finished successfully!'
 		}
 		failure {
-			script {
-				['FE-Test', 'FE-build', 'FE-deploy'].each { statusName ->
-					updateGitlabCommitStatus name: statusName, state: 'failed'
-				}
-			}
 			echo '⚠️ Deployment failed. Check the logs.'
 		}
 	}

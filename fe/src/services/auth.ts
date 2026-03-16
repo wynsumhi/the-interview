@@ -46,3 +46,11 @@ export const login = async (data: LoginRequest): Promise<LoginResponse> => {
   const response = await instance.post<LoginResponse>("/auth/login", data);
   return response.data;
 };
+
+// 로그아웃 API 호출 함수
+// 서버에서 Redis에 저장된 refreshToken을 삭제하고 쿠키도 제거함
+// req/res body 없음 - 서버가 쿠키에서 직접 refreshToken을 읽어 처리
+// accessToken은 서버에서 완전 무효화가 안 되므로 프론트에서도 반드시 삭제해야 함
+export const logout = async (): Promise<void> => {
+  await instance.post("/auth/logout");
+};

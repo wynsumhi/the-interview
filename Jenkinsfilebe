@@ -1,5 +1,8 @@
 def shouldSkip = false
 def isSelfBuild = false
+def beTestStatus = 'canceled'
+def beBuildStatus = 'canceled'
+def beDeployStatus = 'canceled'
 pipeline {
 	agent any
 
@@ -67,11 +70,14 @@ pipeline {
 						if (!isBeChanged) {
 							echo "↩️ Backend 변경사항 없음. 빌드를 종료합니다."
 							shouldSkip = true
-							['BE-Test', 'BE-build', 'BE-deploy'].each { statusName ->
-								updateGitlabCommitStatus name: statusName, state: 'success'
-							}
+							beTestStatus = 'success'
+							beBuildStatus = 'success'
+							beDeployStatus = 'success'
 						} else {
 							echo "⏩ Backend 변경 감지됨. 빌드 절차를 계속합니다."
+							if(env.gitlabMergeRequestState == 'merged') {
+								beTestStatus = 'success'
+							}
 						}
 					}
 				}
@@ -137,10 +143,14 @@ pipeline {
 					junit 'be/theinterview/build/test-results/test/*.xml'
 				}
 				success {
-					updateGitlabCommitStatus name: 'BE-Test', state: 'success'
+					script {
+						beTestStatus = 'success'
+					}
 				}
 				failure {
-					updateGitlabCommitStatus name: 'BE-Test', state: 'failed'
+					script {
+						beTestStatus = 'failed'
+					}
 					script {
 						def rootUrl = "https://j14a307.p.ssafy.io/infra/jenkins"
 						def blueOceanUrl = "${rootUrl}/blue/organizations/jenkins/${env.JOB_NAME.replaceAll('/','%2F')}/detail/${env.JOB_NAME.split('/')[-1]}/${env.BUILD_NUMBER}/tests"
@@ -187,10 +197,14 @@ pipeline {
 			}
 			post {
 				success {
-					updateGitlabCommitStatus name: 'BE-build', state: 'success'
+					script {
+						beBuildStatus = 'success'
+					}
 				}
 				failure {
-					updateGitlabCommitStatus name: 'BE-build', state: 'failed'
+					script {
+						beBuildStatus = 'failed'
+					}
 				}
 			}
 		}
@@ -210,19 +224,48 @@ pipeline {
 				echo "------- 🔅 Back-End 컨테이너 배포 시작 -------"
 				echo "------- ⤵️ Start Back-End container down... -------"
 				sh """
+					echo "------- 🔍 이미지 SHA 확인 -------"
+					CONTAINER_IMAGE=\$(docker inspect backend --format='{{.Image}}' 2>/dev/null || echo "컨테이너 없음")
+					LATEST_IMAGE=\$(docker inspect theinterview-backend:latest --format='{{.Id}}' 2>/dev/null || echo "이미지 없음")
+					echo "현재 컨테이너 사용 이미지 SHA : \$CONTAINER_IMAGE"
+					echo "현재 latest 이미지 SHA       : \$LATEST_IMAGE"
+					if [ "\$CONTAINER_IMAGE" = "\$LATEST_IMAGE" ]; then
+						echo "✅ 이미지 SHA 일치"
+					else
+						echo "⚠️ 이미지 SHA 불일치 - 컨테이너 재생성 필요"
+					fi
+				"""
+				sh """
 				docker ps -a --format "{{.Names}}" | grep "backend" | xargs -r docker rm -f
 				"""
 				echo "------- ⤴️ Start Back-End container up... -------"
 				sh """
-				docker compose -f infra/app/app-compose.yml up -d --no-deps backend
+				docker compose -f infra/app/app-compose.yml up -d --no-deps --force-recreate backend
+				"""
+				sh """
+					echo "------- 🔍 배포 후 이미지 SHA 재확인 -------"
+					CONTAINER_IMAGE=\$(docker inspect backend --format='{{.Image}}')
+					LATEST_IMAGE=\$(docker inspect theinterview-backend:latest --format='{{.Id}}')
+					echo "현재 컨테이너 사용 이미지 SHA : \$CONTAINER_IMAGE"
+					echo "현재 latest 이미지 SHA       : \$LATEST_IMAGE"
+					if [ "\$CONTAINER_IMAGE" = "\$LATEST_IMAGE" ]; then
+						echo "✅ 이미지 동기화 완료"
+					else
+						echo "❌ 이미지 동기화 실패"
+						exit 1
+					fi
 				"""
 			}
 			post {
 				success {
-					updateGitlabCommitStatus name: 'BE-deploy', state: 'success'
+					script {
+						beDeployStatus = 'success'
+					}
 				}
 				failure {
-					updateGitlabCommitStatus name: 'BE-deploy', state: 'failed'
+					script {
+						beDeployStatus = 'failed'
+					}
 				}
 			}
 		}
@@ -230,20 +273,19 @@ pipeline {
 
 	post {
 		always {
+			script {
+				updateGitlabCommitStatus name: 'BE-Test', state: beTestStatus
+				updateGitlabCommitStatus name: 'BE-build', state: beBuildStatus
+				updateGitlabCommitStatus name: 'BE-deploy', state: beDeployStatus
+			}
 			echo '🚧 Cleaning up dangling images...'
 			sh "docker image prune -f || true"
+			sh "docker builder prune -f --keep-storage=5gb || true"
 		}
 		success {
-			updateGitlabCommitStatus name: 'BE-build', state: 'success'
-			updateGitlabCommitStatus name: 'BE-deploy', state: 'success'
 			echo '✅ Deployment finished successfully!'
 		}
 		failure {
-			script {
-				['BE-Test', 'BE-build', 'BE-deploy'].each { statusName ->
-					updateGitlabCommitStatus name: statusName, state: 'failed'
-				}
-			}
 			echo '⚠️ Deployment failed. Check the logs.'
 		}
 	}

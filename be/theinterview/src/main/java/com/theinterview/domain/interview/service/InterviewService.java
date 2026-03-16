@@ -3,7 +3,9 @@ package com.theinterview.domain.interview.service;
 import com.theinterview.domain.interview.Repository.InterviewAnswerRepository;
 import com.theinterview.domain.interview.Repository.InterviewQuestionRepository;
 import com.theinterview.domain.interview.Repository.InterviewRepository;
+import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistory;
@@ -37,7 +39,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Service
@@ -50,6 +51,7 @@ public class InterviewService {
     private final WebClient webClient;
     private final InterviewQuestionRepository interviewQuestionRepository;
     private final InterviewAnswerRepository interviewAnswerRepository;
+    private final AiUtils aiUtils;
 
     @Value("${file.audio.base-path}")
     private String answerAudioPath;
@@ -74,7 +76,7 @@ public class InterviewService {
         String savedFilePath = saveAnswerFile(audioBytes, member.getId(), interviewId);
 
         // ai 서버 호출
-        AiPipelineResponse aiPipelineResponse = callFastApiForNextQuestion(audioBytes);
+        AiPipelineResponse aiPipelineResponse = aiUtils.callFastApiForNextQuestion(audioBytes);
 
         // 현재 사용자가 답변한 질문
         InterviewQuestion question = interviewQuestionRepository.findById(request.getQuestionId())
@@ -106,8 +108,49 @@ public class InterviewService {
                 .build();
     }
 
+
+    // 웹소켓 연결 전, 클라이언트가 구독 할 인터뷰 pk를 발급하고, 첫 질문 텍스트를 TTS로 변환하여 전달함
+    @Transactional
+    public WebSocketConnectResponse issueWebSocketId(String email) {
+
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        // 시작 질문 및 TTS 변환 요청
+        AiStartTtsResponse aiStartTtsResponse = aiUtils.callFastApiForStartTts(AiStartTtsRequest
+                .builder()
+                .dbQuestion(null)
+                .nickname(member.getNickname())
+                .isFirstFinished(member.getIsFirstFinished())
+                .build());
+
+        // 새로운 인터뷰 세션 생성 및 DB에 저장(todo: 첫 질문 생성 로직 완료 시 첫 사용자 여부에 따라 분기처리 필요)
+        Interview interview = interviewRepository.save(Interview.builder()
+                .member(member)
+                .shareRange(true)
+                .title(aiStartTtsResponse.getQuestionText())
+                .status(InterviewStatus.BEFORE_START)
+                .build());
+        log.info("인터뷰 세션 생성 성공 interviewId: {}", interview.getId());
+
+        // 생성된 질문 DB에 삽입
+        InterviewQuestion question = interviewQuestionRepository.save(InterviewQuestion.builder()
+                .interview(interview)
+                .sequence(1)
+                .questionText(interview.getTitle())
+                .build());
+
+        return WebSocketConnectResponse.builder()
+                .interviewId(interview.getId())
+                .questionId(question.getId())
+                .interviewTitle(question.getQuestionText())
+                .ttsAudioBase64(aiStartTtsResponse.getTtsAudioBase64())
+                .build();
+    }
+
     /**
      * 음성 바이트 배열을 지정된 경로에 저장하는 유틸 메서드
+     *
      */
     private String saveAnswerFile(byte[] audioBytes, Integer memberId, Integer interviewId)
             throws IOException {
@@ -130,71 +173,6 @@ public class InterviewService {
 
         // DB에 저장할 경로 문자열 반환
         return filePath.toAbsolutePath().toString();
-    }
-
-
-    @Transactional
-    public WebSocketConnectResponse issueWebSocketId(String email) {
-
-        Member member = memberRepository.findByEmail(email)
-                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
-
-        // 새로운 인터뷰 세션 생성 및 DB에 저장
-        Interview interview = interviewRepository.save(Interview.builder()
-                .member(member)
-                .shareRange(true)
-                .title("아직 질문 관련 로직/데이터가 구축되지 않아, 임시 텍스트를 반환합니다.")
-                .status(InterviewStatus.BEFORE_START)
-                .build());
-        log.info("인터뷰 세션 생성 성공 interviewId: {}", interview.getId());
-
-        // 생성된 질문 DB에 삽입
-        InterviewQuestion question = interviewQuestionRepository.save(InterviewQuestion.builder()
-                .interview(interview)
-                .sequence(1)
-                .questionText(interview.getTitle())
-                .build());
-
-        return WebSocketConnectResponse.builder()
-                .interviewId(interview.getId())
-                .questionId(question.getId())
-                .interviewTitle(question.getQuestionText())
-                .build();
-    }
-
-
-    // fast api를 호출하여 꼬리질문 관련 파이프라인을 거치는 헬퍼 메서드
-    public AiPipelineResponse callFastApiForNextQuestion(byte[] audioBytes) {
-
-        // muiltpart/form-data 생성을 위한 빌더
-        MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
-
-        // 순수 byte 배열에 파일명(.webm) 메타데이터를 강제 주입
-        // 익명 클래스 활용으로 getFilename 메서드를 오버라이딩하여 해당 byte 배열의 이름을 강제로 변경함
-        ByteArrayResource audioResource = new ByteArrayResource(audioBytes) {
-            @Override
-            public String getFilename() {
-                return "answer.webm";
-            }
-        };
-
-        // 명세서에 맞춰 데이터 삽입
-        bodyBuilder.part("audio_file", audioResource)
-                .contentType(MediaType.parseMediaType("audio/webm"));
-
-        log.info("AI 서버와 통신 시작 요청 URI: {}", "/api/v1/interviews/pipeline");
-        // 비동기 webclient를 이용한 post 요청
-        AiPipelineResponse aiPipelineResponse = webClient.post()
-                .uri("/api/v1/interviews/pipeline")
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
-                .retrieve()
-                .bodyToMono(AiPipelineResponse.class)
-                .block();  // 웹소켓 흐름을 동기화하기 위해 대기(필요시 완전 비동기화 리팩터링) MVP 이후
-
-        log.info("AI 서버와 통신 완료 반환된 텍스트: {}", aiPipelineResponse.getQuestionText());
-
-        return aiPipelineResponse;
     }
 
     // 인터뷰 히스토리 조회
