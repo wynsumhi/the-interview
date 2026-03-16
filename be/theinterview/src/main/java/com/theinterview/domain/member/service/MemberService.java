@@ -2,8 +2,8 @@ package com.theinterview.domain.member.service;
 
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.dto.MemberRequest.LoginRequestDTO;
+import com.theinterview.domain.member.dto.MemberRequest.MemberInfoUpdateRequest;
 import com.theinterview.domain.member.dto.MemberRequest.MemberJoinRequest;
-import com.theinterview.domain.member.dto.MemberResponse.LoginTestDTO;
 import com.theinterview.domain.member.dto.MemberResponse.MemberInfoDTO;
 import com.theinterview.domain.member.dto.MemberResponse.TokenResponseDTO;
 import com.theinterview.domain.member.repository.MemberRepository;
@@ -65,17 +65,6 @@ public class MemberService {
         return new MemberInfoDTO(saveMember);
     }
 
-    // 이메일 중복 체크 헬퍼 메서드
-    public boolean checkEmail(String email) {
-        // 이메일 중복 체크
-        return !memberRepository.existsByEmail(email);
-    }
-
-    // 닉네임 중복 체크 헬퍼 메서드
-    public boolean checkNickname(String nickname) {
-        return !memberRepository.existsByNickname(nickname);
-    }
-
     // 로그인 및 토큰 발급 로직
     @Transactional(readOnly = true)
     public TokenResponseDTO login(LoginRequestDTO request) {
@@ -132,11 +121,40 @@ public class MemberService {
         }
     }
 
+    // 회원 정보 조회 메서드
     @Transactional(readOnly = true)
-    public LoginTestDTO loginTest(String email) {
+    public MemberInfoDTO getMemberInfo(String email) {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
-        return new LoginTestDTO(member);
+        return new MemberInfoDTO(member);
+    }
+
+    // 회원 정보 수정 메서드
+    @Transactional
+    public MemberInfoDTO updateMemberInfo(String email, MemberInfoUpdateRequest request) {
+
+        // 닉네임 중복 검사
+        if (!checkNickname(request.getNickname())) {
+            throw new GeneralException(ErrorStatus.MEMBER_ALREADY_EXISTS);
+        }
+
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        member.changeMemberInfo(request);
+        return new MemberInfoDTO(member);
+
+    }
+
+    // 이메일 중복 체크 헬퍼 메서드
+    public boolean checkEmail(String email) {
+        // 이메일 중복 체크
+        return !memberRepository.existsByEmail(email);
+    }
+
+    // 닉네임 중복 체크 헬퍼 메서드
+    public boolean checkNickname(String nickname) {
+        return !memberRepository.existsByNickname(nickname);
     }
 }
