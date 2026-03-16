@@ -11,9 +11,12 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @OpenAPIDefinition(
-        info = @Info(title = "The Interview의 API 명세서",
-                description = "The Interview의 Swagger 페이지 입니다."),
-        security = @SecurityRequirement(name = " bearerAuth")
+        info = @Info(
+                title = "The Interview API",
+                description = "The Interview backend API documentation",
+                version = "v1"
+        ),
+        security = @SecurityRequirement(name = "bearerAuth")
 )
 @SecurityScheme(
         name = "bearerAuth",
@@ -24,12 +27,10 @@ import org.springframework.context.annotation.Configuration;
 public class SwaggerConfig {
 
     @Bean
-    GroupedOpenApi exampleOpenApi() {
-        String[] paths = {"/example/test/**"};
-        return GroupedOpenApi.builder().group("Swagger Example Controller API")
-                .pathsToMatch(paths)
+    public GroupedOpenApi theInterviewOpenApi() {
+        return GroupedOpenApi.builder()
+                .group("the-interview")
+                .pathsToMatch("/v1/**", "/example/**")
                 .build();
     }
-
-
 }
