@@ -7,8 +7,8 @@ app = FastAPI(
     title="The Interview AI API",
     version="0.1.0",
 )
-# 모든 버전드 API는 /api/v1 하위로 노출한다.
-app.include_router(api_router, prefix="/api/v1")
+# 모든 버전드 API는 /api/v1/ai 하위로 노출한다.
+app.include_router(api_router, prefix="/api/v1/ai")
 
 
 @app.get("/", summary="Root")
