@@ -56,7 +56,8 @@ public class AiUtils {
     // 인터뷰 첫 시작 질문 TTS 반환을 위해 AI 서버 호출 메서드
     public AiStartTtsResponse callFastApiForStartTts(AiStartTtsRequest request
     ) {
-        
+
+        log.info("AI 서버와 TTS 통신 시작 uri: {}", "/api/v1/ai/interviews/start-tts");
         // AI 서버 호출
         AiStartTtsResponse response = webClient.post()
                 .uri("/api/v1/ai/interviews/start-tts")

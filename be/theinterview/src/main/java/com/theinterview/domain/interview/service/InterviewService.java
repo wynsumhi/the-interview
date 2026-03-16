@@ -3,7 +3,9 @@ package com.theinterview.domain.interview.service;
 import com.theinterview.domain.interview.Repository.InterviewAnswerRepository;
 import com.theinterview.domain.interview.Repository.InterviewQuestionRepository;
 import com.theinterview.domain.interview.Repository.InterviewRepository;
+import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
@@ -103,16 +105,22 @@ public class InterviewService {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
+        // 시작 질문 및 TTS 변환 요청
+        AiStartTtsResponse aiStartTtsResponse = aiUtils.callFastApiForStartTts(AiStartTtsRequest
+                .builder()
+                .dbQuestion(null)
+                .nickname(member.getNickname())
+                .isFirstFinished(member.getIsFirstFinished())
+                .build());
+
         // 새로운 인터뷰 세션 생성 및 DB에 저장(todo: 첫 질문 생성 로직 완료 시 첫 사용자 여부에 따라 분기처리 필요)
         Interview interview = interviewRepository.save(Interview.builder()
                 .member(member)
                 .shareRange(true)
-                .title("안녕하세요. " + member.getNickname() + "님. 오늘 기분은 어떠신가요?")
+                .title(aiStartTtsResponse.getQuestionText())
                 .status(InterviewStatus.BEFORE_START)
                 .build());
         log.info("인터뷰 세션 생성 성공 interviewId: {}", interview.getId());
-
-        // TTS 인터뷰 질문 TTS 변환 호출
 
         // 생성된 질문 DB에 삽입
         InterviewQuestion question = interviewQuestionRepository.save(InterviewQuestion.builder()
