@@ -16,6 +16,8 @@ services:
       resources:
         limits:
           memory: 2G
+    volumes:
+      - /home/ubuntu/theInterview/history:/app/data/theInterview/history
 
   frontend:
     build:
