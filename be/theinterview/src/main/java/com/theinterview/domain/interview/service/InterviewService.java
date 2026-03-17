@@ -45,6 +45,7 @@ public class InterviewService {
     @Value("${file.audio.base-path}")
     private String answerAudioPath;
 
+    // 인터뷰 진행 중 꼬리 질문 생성 메서드
     @Transactional
     public FollowUpQuestionDTO oneQnAInterviewFlow(AudioMessageRequest request)
             throws IOException {
@@ -53,6 +54,14 @@ public class InterviewService {
         Interview interview = interviewRepository.findById(request.getInterviewId())
                 .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
         Member member = interview.getMember();
+
+        // 현재 사용자가 답변한 질문
+        InterviewQuestion question = interviewQuestionRepository.findById(request.getQuestionId())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.QUESTION_NOT_FOUND));
+
+        // 사용자 답변 저장 및 꼬리질문 생성 로직 시작이라고 표시
+        question.interviewQuestionInProgress();
+        log.info("사용자 답변 저장 및 꼬리질문 생성 로직 시작 status: {}", question.getStatus());
 
         // 현재 클라이언트가 구독중인 방 번호(interviewId)
         Integer interviewId = request.getInterviewId();
@@ -67,10 +76,6 @@ public class InterviewService {
         // ai 서버 호출
         AiPipelineResponse aiPipelineResponse = aiUtils.callFastApiForNextQuestion(audioBytes);
 
-        // 현재 사용자가 답변한 질문
-        InterviewQuestion question = interviewQuestionRepository.findById(request.getQuestionId())
-                .orElseThrow(() -> new GeneralException(ErrorStatus.QUESTION_NOT_FOUND));
-
         // 사용자의 답변 저장
         InterviewAnswer answer =
                 interviewAnswerRepository.save(InterviewAnswer.builder()
@@ -78,6 +83,11 @@ public class InterviewService {
                         .answerAudioUrl(savedFilePath)
                         .answerText("아직 텍스트를 반환하는 로직이 구현되지 않아 임시 텍스트를 반환합니다.")
                         .build());
+
+        // 사용자의 답변이 저장되었다면 해당 interviewQuestion 객체의 status를 답변 완료(종료로 바꿈)
+        question.interviewQuestionFinished();
+
+        log.info("사용자 답변 저장 및 꼬리질문 생성 로직 완료 status: {}", question.getStatus());
 
         // 생성된 질문 저장
         InterviewQuestion generatedQuestion = interviewQuestionRepository.save(
@@ -122,6 +132,9 @@ public class InterviewService {
                 .build());
         log.info("인터뷰 세션 생성 성공 interviewId: {}", interview.getId());
 
+        // 인터뷰 시작 처리
+        interview.interviewInProgress();
+
         // 생성된 질문 DB에 삽입
         InterviewQuestion question = interviewQuestionRepository.save(InterviewQuestion.builder()
                 .interview(interview)
@@ -135,6 +148,39 @@ public class InterviewService {
                 .interviewTitle(question.getQuestionText())
                 .ttsAudioBase64(aiStartTtsResponse.getTtsAudioBase64())
                 .build();
+    }
+
+
+    // 인터뷰 종료 메서드
+    @Transactional
+    public void exitInterview(String email, Integer interviewId, Integer questionId) {
+        // 필요한 인자 -> 사용자, 지금 인터뷰 객체, 지금 질문 객체
+
+        // 필요 도메인 엔티티
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Interview interview = interviewRepository.findById(interviewId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+        InterviewQuestion question = interviewQuestionRepository.findById(questionId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.QUESTION_NOT_FOUND));
+
+        // 현재 저장을 진행중인 질문이 있다면 예외를 발생시킴
+        if (question.getStatus() == InterviewStatus.IN_PROGRESS) {
+            throw new GeneralException(ErrorStatus.QUESTION_NOT_SAVED);
+        }
+
+        // 저장 진행중인 질문이 없다면 아래 로직을 실행함
+        // 여기서 ai 호출 -> 제목 및 마지막 답변에 대한 텍스트 변환, 다음 질문 생성
+        // 일단 사용자 답변 더미 텍스트 저장
+        InterviewAnswer saveAnswer = interviewAnswerRepository.save(InterviewAnswer.builder()
+                .interviewQuestion(question)
+                .answerAudioUrl("임시 오디오 경로")
+                .answerText("임시 답변 텍스트")
+                .build());
+
+        // AI 서버에서 반환한 인터뷰 제목으로 업데이트
+        interview.interviewFinished("임시 제목 텍스트");
+        // todo: 다음 질문 생성 저장 로직 추가
     }
 
     /**

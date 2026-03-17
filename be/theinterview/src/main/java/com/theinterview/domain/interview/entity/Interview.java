@@ -66,4 +66,19 @@ public class Interview {
         this.status = status;
         this.shareRange = shareRange;
     }
+
+    /**
+     * 인터뷰 상태 전환 메서드 (시작 전 -> 진행 중)
+     */
+    public void interviewInProgress() {
+        this.status = InterviewStatus.IN_PROGRESS;
+    }
+
+    /**
+     * 인터뷰 상태 전환 메서드 (진행중 -> 완료) 및 제목 수정
+     */
+    public void interviewFinished(String title) {
+        this.status = InterviewStatus.FINISHED;
+        this.title = title;
+    }
 }
