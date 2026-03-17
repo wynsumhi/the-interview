@@ -83,29 +83,69 @@
 }
 
 .visualizerArea {
-  /* 질문 텍스트 아래 100px 지점에 고정 배치 */
+  /* 질문 텍스트 아래 고정 배치 */
   position: absolute;
   top: calc(100% + 40px);
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  height: 120px; /* 비주얼라이저가 차지할 고정 높이 */
   display: flex;
   flex-direction: column;
   align-items: center;
-  pointer-events: none;
 }
 
-.listeningUI {
-  opacity: 0;
-  transform: translateY(10px);
-  transition: all 0.5s ease;
+/* 녹음 중 blob 버튼 전체 */
+.recordingBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  animation: fadeIn 0.4s ease;
 }
 
-/* 상태가 전환될 때 부드럽게 나타나도록 연출 */
-.focusMode .listeningUI {
+/* blob 배경 + 파형을 감싸는 원형 컨테이너 */
+.blobWrapper {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 컬러 blob 배경 */
+.blob {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 65% 30%, var(--blush), transparent 55%),
+    radial-gradient(circle at 35% 70%, var(--lavender), transparent 55%);
+  filter: blur(18px);
+  opacity: 0.85;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.recordingBtn:hover .blob {
   opacity: 1;
-  transform: translateY(0);
+  transform: scale(1.06);
+}
+
+/* NEXT > 레이블 */
+.nextLabel {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.8);
+  transition: color 0.2s ease;
+}
+
+.recordingBtn:hover .nextLabel {
+  color: #fff;
 }
 /* 2. 다이나믹 웨이브 비주얼라이저 */
 .waveContainer {
@@ -217,22 +257,3 @@
   animation: blink 1s infinite;
 }
 
-/* 답변 완료 버튼 */
-.submitBtn {
-  margin-top: 24px;
-  padding: 10px 28px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 999px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.submitBtn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.6);
-}

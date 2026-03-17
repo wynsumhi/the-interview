@@ -328,28 +328,24 @@ function ConversationContent() {
           </div>
 
           <div className={styles.visualizerArea}>
-            {/* 사용자 녹음 중 파형 */}
-            <div
-              className={styles.listeningUI}
-              style={{ opacity: isFocusMode ? 1 : 0 }}
-            >
-              <div className={styles.waveContainer}>
-                {waveHeights.map((h, i) => (
-                  <div
-                    key={i}
-                    className={styles.waveBar}
-                    style={{ height: `${h}px` }}
-                  />
-                ))}
-              </div>
-              <p className={styles.statusText}>당신의 목소리에 집중하고 있어요</p>
-              <button
-                className={styles.submitBtn}
-                onClick={handleSubmit}
-              >
-                답변 완료
+            {/* 사용자 녹음 중: blob 버튼 (클릭하면 답변 제출) */}
+            {isFocusMode && (
+              <button className={styles.recordingBtn} onClick={handleSubmit}>
+                <div className={styles.blobWrapper}>
+                  <div className={styles.blob} />
+                  <div className={styles.waveContainer}>
+                    {waveHeights.map((h, i) => (
+                      <div
+                        key={i}
+                        className={styles.waveBar}
+                        style={{ height: `${h}px` }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <span className={styles.nextLabel}>NEXT &gt;</span>
               </button>
-            </div>
+            )}
 
             {/* AI 응답 대기 중 */}
             {status === "WAITING_AI" && (
