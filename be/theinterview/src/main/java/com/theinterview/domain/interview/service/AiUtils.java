@@ -38,10 +38,10 @@ public class AiUtils {
         bodyBuilder.part("audio_file", audioResource)
                 .contentType(MediaType.parseMediaType("audio/webm"));
 
-        log.info("AI 서버와 통신 시작 요청 URI: {}", "/api/v1/ai/interviews/pipeline");
+        log.info("AI 서버와 통신 시작 요청 URI: {}", "/api/v1/ai/interview/pipeline");
         // 비동기 webclient를 이용한 post 요청
         AiPipelineResponse aiPipelineResponse = webClient.post()
-                .uri("/api/v1/ai/interviews/pipeline")
+                .uri("/api/v1/ai/interview/pipeline")
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
                 .retrieve()
@@ -57,10 +57,10 @@ public class AiUtils {
     public AiStartTtsResponse callFastApiForStartTts(AiStartTtsRequest request
     ) {
 
-        log.info("AI 서버와 TTS 통신 시작 uri: {}", "/api/v1/ai/interviews/start-tts");
+        log.info("AI 서버와 TTS 통신 시작 uri: {}", "/api/v1/ai/interview/start-tts");
         // AI 서버 호출
         AiStartTtsResponse response = webClient.post()
-                .uri("/api/v1/ai/interviews/start-tts")
+                .uri("/api/v1/ai/interview/start-tts")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .retrieve()

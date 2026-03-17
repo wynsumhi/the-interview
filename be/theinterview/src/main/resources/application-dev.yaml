@@ -35,3 +35,7 @@ jwt:
 file:
   audio:
     base-path: "/app/data/theInterview/history"
+
+# fastAPI 호출 경로
+fastapi:
+  base-path: "https://fastapi:8000"
