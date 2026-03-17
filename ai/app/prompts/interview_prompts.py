@@ -131,6 +131,8 @@ without focusing on any specific answer.
 - The title must align well with the interviewee's story.
 - Avoid unnecessary modifiers or exaggerated expressions.
 - Write in natural English without awkward phrasing.
+- The title should feel like a real magazine headline — evocative, emotional,
+and thought-provoking rather than a simple summary.
 
 [Output Format]
 - Output the title only.
