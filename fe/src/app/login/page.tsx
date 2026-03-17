@@ -30,12 +30,11 @@ export default function LoginPage() {
 
     try {
       // 로그인 API 호출 - 성공하면 accessToken, refreshToken 반환
-      const { accessToken, refreshToken } = await login({ email, password });
+      const { accessToken } = await login({ email, password });
 
       // localStorage: 브라우저에 데이터를 저장하는 공간 (탭을 닫아도 유지됨)
       // accessToken은 API 요청 시 헤더에 담아 보내는 인증 토큰
       localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("refreshToken", refreshToken);
 
       // Next.js 미들웨어는 서버에서 실행되어 localStorage를 못 읽음
       // 쿠키는 서버/클라이언트 양쪽에서 읽을 수 있어서 미들웨어 인증 체크에 사용

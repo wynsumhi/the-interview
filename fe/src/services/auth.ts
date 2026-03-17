@@ -37,14 +37,14 @@ export interface LoginRequest {
 // refreshToken: accessToken 만료 시 재발급받기 위한 긴 수명의 토큰
 export interface LoginResponse {
   accessToken: string;
-  refreshToken: string;
 }
 
 // 로그인 API 호출 함수
 // POST /auth/login 엔드포인트로 요청
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
-  const response = await instance.post<LoginResponse>("/auth/login", data);
-  return response.data;
+  const response = await instance.post("/auth/login", data);
+  // 백엔드 응답: { isSuccess, code, message, result: { accessToken } }
+  return response.data.result;
 };
 
 // 로그아웃 API 호출 함수
