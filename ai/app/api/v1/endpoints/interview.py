@@ -4,9 +4,12 @@ from app.api.v1.schemas import (
     InterviewPipelineResponse,
     InterviewStartTTSRequest,
     InterviewStartTTSResponse,
+    NextOpeningRequest,
+    NextOpeningResponse,
 )
 from app.services.interview_service import (
     generate_interview_start_tts,
+    generate_next_opening_question,
     run_interview_pipeline_from_upload,
 )
 
@@ -50,6 +53,33 @@ def generate_interview_start_tts_endpoint(
         ) from exc
 
     return InterviewStartTTSResponse.model_validate(result)
+
+
+@router.post(
+    "/next-opening",
+    response_model=NextOpeningResponse,
+    summary="Generate next interview opening question",
+)
+def generate_next_opening_question_endpoint(
+    request: NextOpeningRequest,
+) -> NextOpeningResponse:
+    """이전 인터뷰 내용을 바탕으로 다음 회차의 첫 질문을 생성한다.
+
+    백엔드가 interview_id 기반으로 참고할 인터뷰 내용을 선별해 `previous_context`로 전달한다.
+    생성된 질문은 백엔드가 DB에 저장하고, 다음 인터뷰 시작 시 /start-tts의 db_question으로 사용한다.
+
+    Args:
+        request: 이전 인터뷰 내용 텍스트와 사용자 닉네임을 담은 JSON 요청 본문.
+
+    Returns:
+        NextOpeningResponse: 다음 회차 첫 질문 텍스트.
+    """
+
+    result = generate_next_opening_question(
+        previous_context=request.previous_context,
+        nickname=request.nickname,
+    )
+    return NextOpeningResponse.model_validate(result)
 
 
 @router.post(
