@@ -113,79 +113,13 @@
   justify-content: center;
 }
 
-/* SVG 4개 레이어를 CSS로 재현 — mix-blend-mode 없이 순수 blur + gradient */
-.blobBackground {
+/* blob SVG — 절대 위치로 waveContainer/nextLabel 뒤에 깔림 */
+.blobSvg {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: 1;
-}
-
-.blobItem {
-  position: absolute;
-  filter: blur(17px);
-  animation: blobMove 8s infinite alternate ease-in-out;
-}
-
-/* Shape 0: 오른쪽 상단, 파란-보라 */
-.blobBlue {
-  width: 55%;
-  height: 65%;
-  top: 5%;
-  right: 8%;
-  border-radius: 60% 40% 55% 45% / 45% 60% 40% 55%;
-  background: linear-gradient(135deg, #6981ff 0%, rgba(198, 128, 89, 0) 70%);
-}
-
-/* Shape 1: 왼쪽 중하단, 핑크-보라 */
-.blobPink {
-  width: 62%;
-  height: 55%;
-  bottom: 8%;
-  left: 2%;
-  border-radius: 50% 50% 40% 60% / 55% 45% 55% 45%;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 182, 182, 0.62) 0%,
-    rgba(97, 65, 225, 0) 100%
-  );
-  animation-delay: -2s;
-}
-
-/* Shape 2: Shape 0 확대본 (레이어 깊이) */
-.blobPurple {
-  width: 72%;
-  height: 75%;
-  top: 0%;
-  right: 2%;
-  border-radius: 55% 45% 60% 40% / 40% 55% 45% 60%;
-  background: linear-gradient(135deg, #6981ff 0%, rgba(198, 128, 89, 0) 65%);
-  opacity: 0.6;
-  animation-delay: -4s;
-}
-
-/* Shape 3: Shape 1 확대본 */
-.blobOrange {
-  width: 70%;
-  height: 65%;
-  bottom: 2%;
-  left: 0%;
-  border-radius: 45% 55% 50% 50% / 60% 40% 60% 40%;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 182, 182, 0.62) 0%,
-    rgba(97, 65, 225, 0) 100%
-  );
-  opacity: 0.65;
-  animation-delay: -6s;
-}
-
-@keyframes blobMove {
-  from {
-    transform: translate(0, 0) scale(1);
-  }
-  to {
-    transform: translate(8px, 12px) scale(1.04);
-  }
 }
 
 /* 중앙 파형 비주얼라이저 */
