@@ -86,7 +86,7 @@ def generate_next_opening_question_endpoint(
 
 
 @router.post(
-    "/magazine-title",
+    "/title",
     response_model=MagazineTitleResponse,
     summary="Generate magazine title from interview",
 )
