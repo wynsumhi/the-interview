@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi import UploadFile
 
 from app.pipeline.interview_pipeline import run_interview_pipeline
-from app.prompts.interview_prompts import NEXT_OPENING_SYSTEM_PROMPT
+from app.prompts.interview_prompts import NEXT_OPENING_SYSTEM_PROMPT, TITLE_GENERATION_SYSTEM_PROMPT
 from app.services.llm_service import create_message
 from app.services.tts_service import text_to_speech
 
@@ -134,6 +134,31 @@ def generate_next_opening_question(
     )
 
     return {"db_question": db_question}
+
+
+def generate_magazine_title(
+    interview_context: str,
+    max_tokens: int = 64,
+) -> dict[str, str]:
+    """인터뷰 전체 내용을 바탕으로 매거진 스타일 타이틀을 생성한다.
+
+    생성된 타이틀은 백엔드가 매거진 아티클에 사용한다.
+
+    Args:
+        interview_context: 백엔드가 조합한 인터뷰 전체 Q&A 텍스트.
+        max_tokens: LLM 최대 토큰 수.
+
+    Returns:
+        dict[str, str]: 생성된 매거진 타이틀 텍스트.
+    """
+
+    title = create_message(
+        messages=[{"role": "user", "content": interview_context}],
+        system=TITLE_GENERATION_SYSTEM_PROMPT,
+        max_tokens=max_tokens,
+    )
+
+    return {"title": title}
 
 
 def run_interview_pipeline_from_upload(
