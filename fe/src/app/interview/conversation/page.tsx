@@ -82,12 +82,12 @@ function ConversationContent() {
 
   const initInterview = async () => {
     try {
-      const t0 = performance.now();
-
-      // 1. 인터뷰 생성 + 첫 질문 발급
-      const isPrevAffected = mode === "AUTO";
-      const data = await createInterview(isPrevAffected);
-      console.log(`[timing] ① createInterview: ${(performance.now() - t0).toFixed(0)}ms`);
+      // ①②③ 병렬 실행: createInterview, getUserMedia, ws-url fetch는 서로 의존 없음
+      const [data, stream, { apiUrl }] = await Promise.all([
+        createInterview(mode === "AUTO"),
+        navigator.mediaDevices.getUserMedia({ audio: true }),
+        fetch("/api/ws-url").then((r) => r.json()),
+      ]);
 
       questionRef.current = {
         interviewId: data.interviewId,
@@ -96,12 +96,8 @@ function ConversationContent() {
         ttsAudioBase64: data.ttsAudioBase64,
       };
 
-      // 2. 마이크 스트림 한 번만 열기 (VAD + 녹음 공유)
-      const t1 = performance.now();
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // AudioContext 초기화 (getUserMedia 완료 후)
       streamRef.current = stream;
-      console.log(`[timing] ② getUserMedia: ${(performance.now() - t1).toFixed(0)}ms`);
-
       const AudioContextClass =
         window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const audioContext = new AudioContextClass();
@@ -112,16 +108,9 @@ function ConversationContent() {
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
 
-      // 3. WebSocket URL 가져오기 (Next.js API route 경유)
-      const t2 = performance.now();
-      const res = await fetch("/api/ws-url");
-      const { apiUrl } = await res.json();
-      console.log(`[timing] ③ ws-url fetch: ${(performance.now() - t2).toFixed(0)}ms`);
-
       const token = localStorage.getItem("accessToken") ?? "";
 
-      // 4. STOMP 연결 + 구독
-      const t3 = performance.now();
+      // ④ STOMP 연결 + 구독 (interviewId 필요 → 위 병렬 완료 후 실행)
       connect(
         apiUrl,
         data.interviewId,
@@ -137,11 +126,7 @@ function ConversationContent() {
           setStatus("AI_SPEAKING");
         },
         // STOMP 연결 완료 시 첫 질문 재생 시작
-        () => {
-          console.log(`[timing] ④ STOMP connect: ${(performance.now() - t3).toFixed(0)}ms`);
-          console.log(`[timing] 전체 initInterview: ${(performance.now() - t0).toFixed(0)}ms`);
-          setStatus("AI_SPEAKING");
-        }
+        () => setStatus("AI_SPEAKING")
       );
     } catch (err) {
       console.error("인터뷰 초기화 실패:", err);
