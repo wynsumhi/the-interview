@@ -263,6 +263,16 @@ function ConversationContent() {
     loop();
   }, []);
 
+  // 버튼으로 수동 제출 — 침묵 타이머 취소 후 녹음 중단
+  const handleSubmit = () => {
+    if (statusRef.current !== "USER_RECORDING") return;
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    recorderRef.current?.stop();
+  };
+
   const stopVad = () => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -333,6 +343,12 @@ function ConversationContent() {
                 ))}
               </div>
               <p className={styles.statusText}>당신의 목소리에 집중하고 있어요</p>
+              <button
+                className={styles.submitBtn}
+                onClick={handleSubmit}
+              >
+                답변 완료
+              </button>
             </div>
 
             {/* AI 응답 대기 중 */}
