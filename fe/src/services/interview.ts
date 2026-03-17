@@ -19,7 +19,7 @@ export interface FollowUpQuestionDTO {
 
 // 인터뷰 생성 + 첫 질문 생성
 export async function createInterview(
-  isPrevAffected: boolean
+  isPrevAffected: boolean,
 ): Promise<CreateInterviewResult> {
   const res = await instance.post("/interview", { isPrevAffected });
   return res.data.result;
