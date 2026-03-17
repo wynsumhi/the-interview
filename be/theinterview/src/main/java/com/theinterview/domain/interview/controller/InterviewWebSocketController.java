@@ -28,7 +28,7 @@ public class InterviewWebSocketController {
     ) throws IOException {
         log.info("수신 데이터 확인 interviewId: {}", request.getInterviewId());
 
-        // 서비스 레이어 호출
+        // Facade 레이어 호출
         FollowUpQuestionDTO response = interviewFacade.processOneQnA(request);
 
         // 메시지 브로커에게 메시지 전달
