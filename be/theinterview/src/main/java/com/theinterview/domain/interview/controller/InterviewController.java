@@ -1,5 +1,6 @@
 package com.theinterview.domain.interview.controller;
 
+import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewStartRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.service.InterviewService;
@@ -30,5 +31,15 @@ public class InterviewController {
         String email = user.getUsername();
         // 서비스 레이어 호출
         return ApiResponse.onSuccess(interviewService.issueWebSocketId(email));
+    }
+
+    @PostMapping("/exit")
+    public ApiResponse<String> exitInterview(
+            @RequestBody InterviewExitRequest request,
+            @AuthenticationPrincipal User user
+    ) {
+        String email = user.getUsername();
+        // 서비스 레이어 호출
+        return ApiResponse.onSuccess(interviewService.exitInterview(request, email));
     }
 }

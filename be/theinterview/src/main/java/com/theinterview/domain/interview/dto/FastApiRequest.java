@@ -46,11 +46,25 @@ public abstract class FastApiRequest {
     public static class AiNextOpeningRequest {
 
         // 이전 인터뷰의 Q&A 리스트 (필수)
-        @JsonProperty("interview_context")
+        @JsonProperty("previous_context") // todo: ai 제목 생성 로직 머지 되면 변경해야함
         private String interviewContext;
 
         // 사용자의 닉네임 (선택)
         @JsonProperty("nickname")
         private String nickname;
+    }
+
+
+    // 퍼사드에서 데이터를 받아 올 목적으로 사용하는 내부 dto
+    @Getter
+    @Builder
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class AiPipelineReadyDto {
+
+        private String savedFilePath; // 파일 저장 경로
+        private Integer sequence; // 시퀀스
+        private String nickname; // 사용자 닉네임
+        private String previousQuestion; // 이전 대화 내역
     }
 }

@@ -35,7 +35,7 @@ public class QuestionCandidate {
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
-    @Column(name = "question_text", nullable = false)
+    @Column(name = "question_text", nullable = false, length = 500)
     private String questionText;
 
     @Column(name = "created_at", nullable = false)

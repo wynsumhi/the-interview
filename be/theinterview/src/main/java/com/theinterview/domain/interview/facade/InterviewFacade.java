@@ -1,5 +1,6 @@
 package com.theinterview.domain.interview.facade;
 
+import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
@@ -28,15 +29,19 @@ public class InterviewFacade {
 
         log.info("오디오 파일 저장 시작 및 DB 락 시도");
         // 1. 트랜잭션 O, 상태관리를 통한 DB 락 걸기 및 오디오 파일 저장
-        String savedFilePath = interviewService.lockQuestionAndSaveAudio(request, audioBytes);
+        AiPipelineReadyDto aiPipelineReadyDto = interviewService.lockQuestionAndSaveAudio(request,
+                audioBytes);
         log.info("오디오 파일 저장 및 DB 락 완료");
 
+        // todo: 첫 인터뷰에 한하여 시퀀스가 6 이상인 경우에 자동 종료 분기 필요
         // 2. 트랜잭션 X, AI 서버 호출
-        AiPipelineResponse aiPipelineResponse = aiUtils.callFastApiForNextQuestion(audioBytes);
+        AiPipelineResponse aiPipelineResponse = aiUtils.callFastApiForNextQuestion(audioBytes,
+                aiPipelineReadyDto.getSequence(), aiPipelineReadyDto.getNickname(),
+                aiPipelineReadyDto.getPreviousQuestion());
 
         log.info("DB 락 해제 시도 및 응답 시도");
         // 3. 트랜잭션 O, AI 응답 -> DB에 저장 후 락 풀기 후 DTO로 조립하여 응답
         return interviewService.saveAiResultAndUnlock(request,
-                aiPipelineResponse, savedFilePath);
+                aiPipelineResponse, aiPipelineReadyDto.getSavedFilePath());
     }
 }

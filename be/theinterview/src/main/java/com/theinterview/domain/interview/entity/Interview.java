@@ -14,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -61,6 +62,7 @@ public class Interview {
     private Boolean shareRange;
 
     @OneToMany(mappedBy = "interview")
+    @OrderBy("sequence ASC") // 시퀀스 순서대로 오름차순으로 가져옴
     private List<InterviewQuestion> interviewQuestions;
 
     @Builder

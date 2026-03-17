@@ -19,6 +19,9 @@ public abstract class FastApiResponse {
 
         @JsonProperty("tts_audio_mime_type")
         private String ttsAudioMimeType;
+
+        @JsonProperty("stt_text")
+        private String sttText;
     }
 
     @Getter
