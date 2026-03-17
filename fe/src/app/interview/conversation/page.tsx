@@ -89,7 +89,7 @@ function ConversationContent() {
       questionRef.current = {
         interviewId: data.interviewId,
         questionId: data.questionId,
-        questionText: data.questionText,
+        questionText: data.interviewTitle,
         ttsAudioBase64: data.ttsAudioBase64,
       };
 

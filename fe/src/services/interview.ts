@@ -4,7 +4,7 @@ import instance from "@/lib/axios";
 export interface CreateInterviewResult {
   interviewId: number;
   questionId: number;
-  questionText: string;
+  interviewTitle: string; // 첫 질문 텍스트
   ttsAudioBase64: string;
 }
 
