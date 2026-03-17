@@ -5,7 +5,7 @@ class NextOpeningRequest(BaseModel):
     """다음 회차 첫 질문 생성 요청 본문.
 
     Attributes:
-        previous_context: 직전 인터뷰 내용을 백엔드가 텍스트로 조합해 전달한 값.
+        interview_context: 직전 인터뷰 내용을 백엔드가 텍스트로 조합해 전달한 값.
             어떤 내용을 포함할지는 백엔드가 interview_id 기반으로 판단한다.
             - 2회차 생성 시: 1회차의 5번째 Q&A만 포함.
             - 3회차+ 생성 시: 직전 인터뷰 전체 Q&A 포함.
@@ -17,7 +17,7 @@ class NextOpeningRequest(BaseModel):
         nickname: 사용자 닉네임. 환영 인사에 자연스러운 경우 사용한다.
     """
 
-    previous_context: str
+    interview_context: str
     nickname: str | None = None
 
 

@@ -65,7 +65,7 @@ def generate_next_opening_question_endpoint(
 ) -> NextOpeningResponse:
     """이전 인터뷰 내용을 바탕으로 다음 회차의 첫 질문을 생성한다.
 
-    백엔드가 interview_id 기반으로 참고할 인터뷰 내용을 선별해 `previous_context`로 전달한다.
+    백엔드가 interview_id 기반으로 참고할 인터뷰 내용을 선별해 `interview_context`로 전달한다.
     생성된 질문은 백엔드가 DB에 저장하고, 다음 인터뷰 시작 시 /start-tts의 db_question으로 사용한다.
 
     Args:
@@ -76,7 +76,7 @@ def generate_next_opening_question_endpoint(
     """
 
     result = generate_next_opening_question(
-        previous_context=request.previous_context,
+        interview_context=request.interview_context,
         nickname=request.nickname,
     )
     return NextOpeningResponse.model_validate(result)
