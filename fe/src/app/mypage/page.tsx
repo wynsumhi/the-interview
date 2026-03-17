@@ -2,12 +2,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { MOCK_ARCHIVE_LIST } from "@/constants/mockData";
 import { logout } from "@/services/auth";
 import { getMe, updateMe } from "@/services/member";
 import styles from "./page.module.css";
 
 export default function MyPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"profile" | "bookmarks">(
     "profile",
   );
@@ -93,6 +95,7 @@ export default function MyPage() {
         </section>
       ) : (
         /* 2. 북마크 목록 섹션 (조회 및 삭제) */
+        // TODO: 실제 API 연동 후 MOCK_ARCHIVE_LIST 제거
         <section className={styles.bookmarkList}>
           {MOCK_ARCHIVE_LIST.length > 0 ? (
             MOCK_ARCHIVE_LIST.map((item) => (
