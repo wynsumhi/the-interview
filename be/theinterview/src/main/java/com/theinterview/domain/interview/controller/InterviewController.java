@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.User;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,6 +43,7 @@ public class InterviewController {
         return ApiResponse.onSuccess(interviewService.issueWebSocketId(email));
     }
 
+    // 인터뷰 목록 조회
     @GetMapping
     public ApiResponse<InterviewHistoryDTO> getInterviewsHistory(
             @RequestParam(defaultValue = "0") Integer page,
@@ -49,11 +51,13 @@ public class InterviewController {
     ) {
         Member member = memberRepository.findByEmail(user.getUsername())
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
         InterviewHistoryDTO interviewHistoryDTO = interviewService.getInterviewHistoryList(
                 member.getId(), page);
         return ApiResponse.onSuccess(interviewHistoryDTO);
     }
 
+    // 인터뷰 상세조회
     @GetMapping("/{interviewId}")
     public ApiResponse<InterviewHistoryDetailDTO> getInterviewHistoryDetail(
             @PathVariable(name = "interviewId") Integer interviewId,
@@ -61,8 +65,23 @@ public class InterviewController {
     ) {
         Member member = memberRepository.findByEmail(user.getUsername())
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
         InterviewHistoryDetailDTO interviewHistoryDetailDTO = interviewService.getInterviewHistoryDetail(
                 interviewId, member.getId());
         return ApiResponse.onSuccess(interviewHistoryDetailDTO);
+    }
+
+    // 인터뷰 삭제
+    @DeleteMapping("/{interviewId}")
+    public ApiResponse<Void> deleteInterview(
+            @PathVariable(name = "interviewId") Integer interviewId,
+            @AuthenticationPrincipal User user
+    ) {
+        Member member = memberRepository.findByEmail(user.getUsername())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        interviewService.deleteInterview(interviewId, member.getId());
+
+        return ApiResponse.OK;
     }
 }
