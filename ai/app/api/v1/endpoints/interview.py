@@ -4,11 +4,14 @@ from app.api.v1.schemas import (
     InterviewPipelineResponse,
     InterviewStartTTSRequest,
     InterviewStartTTSResponse,
+    MagazineTitleRequest,
+    MagazineTitleResponse,
     NextOpeningRequest,
     NextOpeningResponse,
 )
 from app.services.interview_service import (
     generate_interview_start_tts,
+    generate_magazine_title,
     generate_next_opening_question,
     run_interview_pipeline_from_upload,
 )
@@ -80,6 +83,32 @@ def generate_next_opening_question_endpoint(
         nickname=request.nickname,
     )
     return NextOpeningResponse.model_validate(result)
+
+
+@router.post(
+    "/magazine-title",
+    response_model=MagazineTitleResponse,
+    summary="Generate magazine title from interview",
+)
+def generate_magazine_title_endpoint(
+    request: MagazineTitleRequest,
+) -> MagazineTitleResponse:
+    """인터뷰 전체 내용을 바탕으로 매거진 스타일 타이틀을 생성한다.
+
+    백엔드가 인터뷰 전체 Q&A를 `interview_context`로 전달하면
+    LLM이 20자 이내의 매거진 제목을 반환한다.
+
+    Args:
+        request: 인터뷰 전체 Q&A 텍스트를 담은 JSON 요청 본문.
+
+    Returns:
+        MagazineTitleResponse: 생성된 매거진 타이틀 텍스트.
+    """
+
+    result = generate_magazine_title(
+        interview_context=request.interview_context,
+    )
+    return MagazineTitleResponse.model_validate(result)
 
 
 @router.post(
