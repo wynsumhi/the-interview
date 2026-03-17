@@ -21,6 +21,7 @@ import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.repository.MemberRepository;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
+import com.theinterview.global.util.FileDeleteUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,7 +37,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.client.WebClient;
 
 @Service
 @RequiredArgsConstructor
@@ -45,13 +45,16 @@ public class InterviewService {
 
     private final MemberRepository memberRepository;
     private final InterviewRepository interviewRepository;
-    private final WebClient webClient;
     private final InterviewQuestionRepository interviewQuestionRepository;
     private final InterviewAnswerRepository interviewAnswerRepository;
     private final AiUtils aiUtils;
+    private final FileDeleteUtils fileDeleteUtils;
 
     @Value("${file.audio.base-path}")
     private String answerAudioPath;
+
+    @Value("${file.audio.base-url}")
+    private String answerAudioUrl;
 
     @Transactional
     public FollowUpQuestionDTO oneQnAInterviewFlow(AudioMessageRequest request)
@@ -222,7 +225,9 @@ public class InterviewService {
                     return InterviewHistoryDetail.builder()
                             .interviewQuestion(question.getQuestionText())
                             .interviewText(answer.getAnswerText())
-                            .interviewVoice(answer.getAnswerAudioUrl())
+                            .interviewVoice(
+                                    answerAudioUrl + "/" + memberId + "/" + interviewId + "/"
+                                            + answer.getAnswerAudioUrl())
                             .build();
                 }).toList();
 
@@ -251,6 +256,10 @@ public class InterviewService {
                 .findAllByInterviewId(interviewId);
         questions.forEach(question ->
                 interviewAnswerRepository.deleteAllByInterviewQuestionId(question.getId()));
+
+        // EC2 파일 삭제
+        String dirPath = answerAudioPath + "/" + memberId + "/" + interviewId;
+        fileDeleteUtils.deleteDirectory(dirPath);
 
         // 2. 질문 삭제
         interviewQuestionRepository.deleteAllByInterviewId(interviewId);
