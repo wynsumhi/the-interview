@@ -45,6 +45,7 @@
   left: -10%;
   animation: float 10s infinite;
 }
+
 .orb2 {
   background: var(--sage);
   bottom: -10%;
@@ -61,11 +62,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  position: relative; /* 자식 요소인 visualizerArea의 기준점 */
+  position: relative;
 }
 
 .questionBox {
-  /* 질문이 항상 일정한 위치에 있도록 최소 높이 확보 */
   min-height: 120px;
   display: flex;
   align-items: center;
@@ -79,13 +79,12 @@
   line-height: 1.6;
   font-weight: 600;
   word-break: keep-all;
-  margin: 0; /* 불필요한 마진 제거 */
+  margin: 0;
 }
 
 .visualizerArea {
-  /* 질문 텍스트 아래 고정 배치 */
   position: absolute;
-  top: calc(100% + 40px);
+  top: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
@@ -94,93 +93,146 @@
   align-items: center;
 }
 
-/* 녹음 중 blob 버튼 전체 */
+/* 녹음 중 버튼 - 사진 스타일 반영 및 220px로 축소 */
 .recordingBtn {
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
+  outline: none;
   animation: fadeIn 0.5s ease;
 }
 
-/* blob 배경 + 파형 + NEXT 레이블을 모두 담는 컨테이너 */
 .blobWrapper {
   position: relative;
-  width: 280px;
-  height: 280px;
+  width: 220px;
+  height: 220px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
 }
 
-/* 비대칭 organic blob — 파란/분홍/보라 멀티 그라디언트 */
-.blob {
+/* SVG 4개 레이어를 CSS로 재현 — mix-blend-mode 없이 순수 blur + gradient */
+.blobBackground {
   position: absolute;
-  inset: -10px;
+  inset: 0;
+  z-index: 1;
+}
+
+.blobItem {
+  position: absolute;
+  filter: blur(17px);
+  animation: blobMove 8s infinite alternate ease-in-out;
+}
+
+/* Shape 0: 오른쪽 상단, 파란-보라 */
+.blobBlue {
+  width: 55%;
+  height: 65%;
+  top: 5%;
+  right: 8%;
   border-radius: 60% 40% 55% 45% / 45% 60% 40% 55%;
-  background:
-    radial-gradient(ellipse at 42% 20%, #818cf8 0%, transparent 52%),
-    radial-gradient(ellipse at 68% 48%, #fb7185 0%, transparent 48%),
-    radial-gradient(ellipse at 28% 68%, #c084fc 0%, transparent 52%),
-    radial-gradient(ellipse at 62% 78%, #f9a8d4 0%, transparent 44%);
-  filter: blur(22px);
-  opacity: 0.9;
-  transition: transform 0.35s ease, opacity 0.35s ease;
+  background: linear-gradient(135deg, #6981ff 0%, rgba(198, 128, 89, 0) 70%);
 }
 
-.recordingBtn:hover .blob {
-  transform: scale(1.05);
-  opacity: 1;
+/* Shape 1: 왼쪽 중하단, 핑크-보라 */
+.blobPink {
+  width: 62%;
+  height: 55%;
+  bottom: 8%;
+  left: 2%;
+  border-radius: 50% 50% 40% 60% / 55% 45% 55% 45%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 182, 182, 0.62) 0%,
+    rgba(97, 65, 225, 0) 100%
+  );
+  animation-delay: -2s;
 }
 
-/* 파형 막대: blob 위에서는 흰색으로 통일 */
-.blobWrapper .waveBar {
-  background: #fff !important;
-  opacity: 0.95;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+/* Shape 2: Shape 0 확대본 (레이어 깊이) */
+.blobPurple {
+  width: 72%;
+  height: 75%;
+  top: 0%;
+  right: 2%;
+  border-radius: 55% 45% 60% 40% / 40% 55% 45% 60%;
+  background: linear-gradient(135deg, #6981ff 0%, rgba(198, 128, 89, 0) 65%);
+  opacity: 0.6;
+  animation-delay: -4s;
 }
 
-/* NEXT > 레이블 — blob 안 하단 */
-.nextLabel {
-  position: relative; /* blob(absolute) 위에 렌더링 */
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  color: rgba(255, 255, 255, 0.9);
-  transition: color 0.2s ease;
+/* Shape 3: Shape 1 확대본 */
+.blobOrange {
+  width: 70%;
+  height: 65%;
+  bottom: 2%;
+  left: 0%;
+  border-radius: 45% 55% 50% 50% / 60% 40% 60% 40%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 182, 182, 0.62) 0%,
+    rgba(97, 65, 225, 0) 100%
+  );
+  opacity: 0.65;
+  animation-delay: -6s;
 }
 
-.recordingBtn:hover .nextLabel {
-  color: #fff;
+@keyframes blobMove {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(8px, 12px) scale(1.04);
+  }
 }
-/* 2. 다이나믹 웨이브 비주얼라이저 */
+
+/* 중앙 파형 비주얼라이저 */
 .waveContainer {
+  position: relative;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 60px;
-  margin-bottom: 24px;
+  gap: 6px;
+  height: 50px;
+  margin-bottom: 20px;
+  transition: opacity 0.3s ease;
+}
+
+/* 호버 시 파형 투명도 낮추기 */
+.recordingBtn:hover .waveContainer {
+  opacity: 0.2;
 }
 
 .waveBar {
-  width: 3px;
-  height: 4px;
-  background: #fff;
-  border-radius: 2px;
-  opacity: 0.3;
-  /* 인라인 스타일로 주파수 데이터에 따라 높이가 변화 */
+  width: 3.5px;
+  background-color: #ffffff;
+  border-radius: 20px;
   transition: height 0.08s ease;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
 }
 
-.focusMode .waveBar {
-  background: linear-gradient(to bottom, var(--blush), var(--lavender));
-  opacity: 1;
-  box-shadow: 0 0 15px var(--blush);
+/* NEXT > 레이블 */
+.nextLabel {
+  position: relative;
+  z-index: 10;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.25em;
+  color: rgba(255, 255, 255, 0.8);
+  transition: all 0.3s ease;
 }
 
+/* 호버 시 NEXT 텍스트 강하게 강조 */
+.recordingBtn:hover .nextLabel {
+  color: #ffffff;
+  transform: translateY(-3px);
+  text-shadow:
+    0 0 15px rgba(255, 255, 255, 1),
+    0 0 25px rgba(255, 255, 255, 0.5);
+}
 
 .errorText {
   font-size: 12px;
@@ -229,12 +281,6 @@
   }
 }
 
-/* 파형들 각각 다른 높이로 출발해 더 자연스럽게 */
-.waveBar:nth-child(even) {
-  opacity: 0.5;
-}
-
-/* 애니메이션 정의 */
 @keyframes float {
   0%,
   100% {
@@ -245,14 +291,18 @@
   }
 }
 
-@keyframes waveHeight {
-  0%,
-  100% {
-    height: 8px;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
   }
-  50% {
-    height: 40px;
+  to {
+    opacity: 1;
   }
+}
+
+.cursor {
+  color: var(--blush);
+  animation: blink 1s infinite;
 }
 
 @keyframes blink {
@@ -260,8 +310,3 @@
     opacity: 0;
   }
 }
-.cursor {
-  color: var(--blush);
-  animation: blink 1s infinite;
-}
-

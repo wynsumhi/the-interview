@@ -29,7 +29,6 @@ interface CurrentQuestion {
 
 export default function InterviewConversationPage() {
   return (
-    // useSearchParams는 Suspense 경계 안에서만 사용 가능
     <Suspense
       fallback={
         <div className={styles.container}>
@@ -51,12 +50,9 @@ function ConversationContent() {
   const [waveHeights, setWaveHeights] = useState<number[]>(DEFAULT_HEIGHTS);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // 현재 질문 ref (state 아닌 ref로 관리 - 콜백 클로저 문제 방지)
   const questionRef = useRef<CurrentQuestion | null>(null);
-  // status ref (비동기 콜백에서 최신 status 읽기 위해)
   const statusRef = useRef<InterviewStatus>("CONNECTING");
 
-  // 오디오 관련 ref
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -68,12 +64,10 @@ function ConversationContent() {
 
   const { connect, sendAudio, disconnect } = useStompInterview();
 
-  // status가 바뀔 때마다 ref 동기화
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
 
-  // 컴포넌트 마운트 시 인터뷰 초기화
   useEffect(() => {
     initInterview();
     return () => cleanup();
@@ -82,7 +76,6 @@ function ConversationContent() {
 
   const initInterview = async () => {
     try {
-      // ①②③ 병렬 실행: createInterview, getUserMedia, ws-url fetch는 서로 의존 없음
       const [data, stream, { apiUrl }] = await Promise.all([
         createInterview(mode === "AUTO"),
         navigator.mediaDevices.getUserMedia({ audio: true }),
@@ -96,10 +89,9 @@ function ConversationContent() {
         ttsAudioBase64: data.ttsAudioBase64,
       };
 
-      // AudioContext 초기화 (getUserMedia 완료 후)
       streamRef.current = stream;
       const AudioContextClass =
-        window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        window.AudioContext || (window as any).webkitAudioContext;
       const audioContext = new AudioContextClass();
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
@@ -110,12 +102,10 @@ function ConversationContent() {
 
       const token = localStorage.getItem("accessToken") ?? "";
 
-      // ④ STOMP 연결 + 구독 (interviewId 필요 → 위 병렬 완료 후 실행)
       connect(
         apiUrl,
         data.interviewId,
         token,
-        // 꼬리질문 수신 시
         (dto: FollowUpQuestionDTO) => {
           questionRef.current = {
             interviewId: dto.interviewId,
@@ -125,8 +115,7 @@ function ConversationContent() {
           };
           setStatus("AI_SPEAKING");
         },
-        // STOMP 연결 완료 시 첫 질문 재생 시작
-        () => setStatus("AI_SPEAKING")
+        () => setStatus("AI_SPEAKING"),
       );
     } catch (err) {
       console.error("인터뷰 초기화 실패:", err);
@@ -134,19 +123,16 @@ function ConversationContent() {
     }
   };
 
-  // AI_SPEAKING: 타이핑 애니메이션 + TTS 재생
   useEffect(() => {
     if (status !== "AI_SPEAKING") return;
     const question = questionRef.current;
     if (!question) return;
 
-    // 이전 TTS 중단
     if (ttsAudioRef.current) {
       ttsAudioRef.current.pause();
       ttsAudioRef.current = null;
     }
 
-    // 타이핑 애니메이션
     const text = question.questionText;
     setDisplayText("");
     let index = 0;
@@ -156,19 +142,17 @@ function ConversationContent() {
       if (index >= text.length) clearInterval(interval);
     }, 60);
 
-    // TTS 재생 후 USER_RECORDING으로 전환
     if (question.ttsAudioBase64) {
       const audio = playBase64Audio(question.ttsAudioBase64, () => {
         if (statusRef.current === "AI_SPEAKING") setStatus("USER_RECORDING");
       });
       ttsAudioRef.current = audio;
     } else {
-      // TTS 없으면 타이핑 완료 후 전환
       const timer = setTimeout(
         () => {
           if (statusRef.current === "AI_SPEAKING") setStatus("USER_RECORDING");
         },
-        text.length * 60 + 1500
+        text.length * 60 + 1500,
       );
       return () => {
         clearInterval(interval);
@@ -182,7 +166,6 @@ function ConversationContent() {
     };
   }, [status]);
 
-  // USER_RECORDING: 녹음 시작 + VAD
   useEffect(() => {
     if (status !== "USER_RECORDING") {
       stopVad();
@@ -197,7 +180,6 @@ function ConversationContent() {
   const startRecording = useCallback(() => {
     if (!streamRef.current) return;
     chunksRef.current = [];
-
     const recorder = new MediaRecorder(streamRef.current);
     recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
     recorder.onstop = async () => {
@@ -205,8 +187,6 @@ function ConversationContent() {
       const audioData = await blobToBase64(blob);
       const question = questionRef.current;
       if (!question) return;
-
-      // 서버로 음성 전송
       sendAudio({
         interviewId: question.interviewId,
         questionId: question.questionId,
@@ -215,23 +195,17 @@ function ConversationContent() {
       });
       setStatus("WAITING_AI");
     };
-
     recorder.start();
     recorderRef.current = recorder;
   }, [sendAudio]);
 
-  // 주파수 분석으로 파형 시각화 + 침묵 감지
   const startVad = useCallback(() => {
     if (!analyserRef.current) return;
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-
     const loop = () => {
       if (statusRef.current !== "USER_RECORDING") return;
       if (!analyserRef.current) return;
-
       analyserRef.current.getByteFrequencyData(dataArray);
-
-      // 주파수 데이터를 BAR_COUNT개 막대에 매핑
       const step = Math.floor(dataArray.length / BAR_COUNT);
       const heights = Array.from({ length: BAR_COUNT }, (_, i) => {
         const slice = dataArray.slice(i * step, (i + 1) * step);
@@ -239,8 +213,6 @@ function ConversationContent() {
         return Math.max(4, Math.round((avg / 255) * 80));
       });
       setWaveHeights(heights);
-
-      // 평균 볼륨으로 침묵 감지
       const avg = dataArray.reduce((p, c) => p + c, 0) / dataArray.length;
       if (avg < SILENCE_THRESHOLD) {
         if (!silenceTimerRef.current) {
@@ -256,14 +228,11 @@ function ConversationContent() {
           silenceTimerRef.current = null;
         }
       }
-
       animationFrameRef.current = requestAnimationFrame(loop);
     };
-
     loop();
   }, []);
 
-  // 버튼으로 수동 제출 — 침묵 타이머 취소 후 녹음 중단
   const handleSubmit = () => {
     if (statusRef.current !== "USER_RECORDING") return;
     if (silenceTimerRef.current) {
@@ -305,7 +274,6 @@ function ConversationContent() {
         <div className={`${styles.orb} ${styles.orb2}`} />
       </div>
 
-      {/* 초기 연결 중 */}
       {status === "CONNECTING" && !errorMsg && (
         <div className={styles.analyzingUI}>
           <div className={styles.loadingBar} />
@@ -317,7 +285,6 @@ function ConversationContent() {
 
       {status !== "CONNECTING" && (
         <section className={styles.content}>
-          {/* AI 질문 텍스트 */}
           <div className={styles.questionBox}>
             <h2 className={styles.questionText}>
               {displayText}
@@ -328,11 +295,18 @@ function ConversationContent() {
           </div>
 
           <div className={styles.visualizerArea}>
-            {/* 사용자 녹음 중: blob 버튼 (클릭하면 답변 제출) */}
             {isFocusMode && (
               <button className={styles.recordingBtn} onClick={handleSubmit}>
                 <div className={styles.blobWrapper}>
-                  <div className={styles.blob} />
+                  {/* 사진 느낌의 멀티 컬러 Blob 배경 */}
+                  <div className={styles.blobBackground}>
+                    <div className={`${styles.blobItem} ${styles.blobPurple}`} />
+                    <div className={`${styles.blobItem} ${styles.blobOrange}`} />
+                    <div className={`${styles.blobItem} ${styles.blobBlue}`} />
+                    <div className={`${styles.blobItem} ${styles.blobPink}`} />
+                  </div>
+
+                  {/* 중앙 파형 비주얼라이저 */}
                   <div className={styles.waveContainer}>
                     {waveHeights.map((h, i) => (
                       <div
@@ -342,13 +316,13 @@ function ConversationContent() {
                       />
                     ))}
                   </div>
-                  {/* blob 안 하단에 위치 */}
+
+                  {/* 하단 라벨 */}
                   <span className={styles.nextLabel}>NEXT &gt;</span>
                 </div>
               </button>
             )}
 
-            {/* AI 응답 대기 중 */}
             {status === "WAITING_AI" && (
               <div className={styles.analyzingUI}>
                 <div className={styles.loadingBar} />
@@ -364,15 +338,13 @@ function ConversationContent() {
   );
 }
 
-// Base64 TTS 데이터를 Audio 객체로 변환해 재생
 function playBase64Audio(
   base64: string,
-  onEnded: () => void
+  onEnded: () => void,
 ): HTMLAudioElement {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-
   const blob = new Blob([bytes], { type: "audio/mpeg" });
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
@@ -384,7 +356,6 @@ function playBase64Audio(
   return audio;
 }
 
-// Blob → Base64 (data URI 헤더 제거)
 async function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve) => {
     const reader = new FileReader();
