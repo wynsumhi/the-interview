@@ -10,23 +10,25 @@ export interface MemberResponse {
   nickname: string;
 }
 
-// 회원 정보 (닉네임) 수정 요청 시 서버에 전달할 데이터 형태 정의
+// 회원 정보 수정 요청 시 서버에 전달할 데이터 형태
 export interface UpdateMemberRequest {
   nickname: string;
 }
 
-// 회원 정보 조회 (GET)
+// 회원 정보 조회 API 호출 함수
+// GET /auth/me 엔드포인트로 요청
 export const getMe = async (): Promise<MemberResponse> => {
-  const response = await instance.get<MemberResponse>("/member/me");
-  return response.data;
+  const response = await instance.get("/auth/me");
+  return response.data.result;
 };
 
-// 회원 정보 (닉네임) 수정 (PATCH)
+// 회원 정보 수정 API 호출 함수
+// PATCH /auth/me 엔드포인트로 요청
 export const updateMe = async (
   data: UpdateMemberRequest,
 ): Promise<MemberResponse> => {
-  const response = await instance.patch<MemberResponse>("/member/me", data);
-  return response.data;
+  const response = await instance.patch("/auth/me", data);
+  return response.data.result;
 };
 
 // TODO: 회원 탈퇴 (DELETE)
