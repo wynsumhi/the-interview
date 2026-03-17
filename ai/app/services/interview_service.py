@@ -8,6 +8,8 @@ from pathlib import Path
 from fastapi import UploadFile
 
 from app.pipeline.interview_pipeline import run_interview_pipeline
+from app.prompts.interview_prompts import NEXT_OPENING_SYSTEM_PROMPT
+from app.services.llm_service import create_message
 from app.services.tts_service import text_to_speech
 
 # 현재 인터뷰 답변 업로드 API는 webm 파일만 받도록 제한한다.
@@ -100,6 +102,38 @@ def generate_interview_start_tts(
         "tts_audio_base64": base64.b64encode(tts_audio).decode("ascii"),
         "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
     }
+
+
+def generate_next_opening_question(
+    previous_context: str,
+    nickname: str | None = None,
+    max_tokens: int = 256,
+) -> dict[str, str]:
+    """이전 인터뷰 내용을 바탕으로 다음 회차의 첫 질문을 생성한다.
+
+    어떤 인터뷰 내용을 `previous_context`에 담을지는 백엔드가 판단한다.
+    (2회차: 1회차 5번째 Q&A, 3회차+: 직전 인터뷰 전체 Q&A)
+    생성된 질문은 백엔드가 DB에 저장한 뒤 /start-tts의 db_question으로 사용한다.
+
+    Args:
+        previous_context: 백엔드가 조합한 직전 인터뷰 내용 텍스트.
+        nickname: 환영 인사에 사용할 사용자 닉네임.
+        max_tokens: LLM 최대 토큰 수.
+
+    Returns:
+        dict[str, str]: 생성된 다음 회차 첫 질문 텍스트.
+    """
+
+    nickname_line = f"사용자 닉네임: {nickname}\n\n" if (nickname or "").strip() else ""
+    user_message = f"{nickname_line}이전 인터뷰 내용:\n{previous_context}"
+
+    db_question = create_message(
+        messages=[{"role": "user", "content": user_message}],
+        system=NEXT_OPENING_SYSTEM_PROMPT,
+        max_tokens=max_tokens,
+    )
+
+    return {"db_question": db_question}
 
 
 def run_interview_pipeline_from_upload(
