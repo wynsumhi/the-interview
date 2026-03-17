@@ -11,6 +11,6 @@ context_text = previous_context.read_text(encoding="utf-8")
 
 result = generate_next_opening_question(
     previous_context=context_text,
-    nickname="테스트유저",
+    nickname="길동",
 )
-print("생성된 첫 질문:", result["db_question"])
+print(result["db_question"])
