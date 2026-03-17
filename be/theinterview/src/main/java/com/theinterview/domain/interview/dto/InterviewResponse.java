@@ -44,7 +44,7 @@ public abstract class InterviewResponse {
     public static class InterviewHistoryDTO {
 
         private List<InterviewHistory> interviews; // 인터뷰 정보
-        private int totalPages; // 전체 페이지
+        private boolean hasNext; // 전체 페이지
         private int currentPage; // 현재 페이지
     }
 
