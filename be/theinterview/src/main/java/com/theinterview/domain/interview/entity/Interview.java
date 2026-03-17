@@ -13,8 +13,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -57,6 +59,9 @@ public class Interview {
 
     @Column(name = "share_range", nullable = false)
     private Boolean shareRange;
+
+    @OneToMany(mappedBy = "interview")
+    private List<InterviewQuestion> interviewQuestions;
 
     @Builder
     public Interview(Member member, String title, InterviewStatus status,

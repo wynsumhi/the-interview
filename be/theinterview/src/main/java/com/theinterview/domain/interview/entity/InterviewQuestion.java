@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
@@ -49,6 +50,9 @@ public class InterviewQuestion {
 
     @Column(name = "status", nullable = false)
     private InterviewStatus status;
+
+    @OneToOne(mappedBy = "interviewQuestion")
+    private InterviewAnswer interviewAnswer;
 
     @Builder
     public InterviewQuestion(Interview interview, Integer sequence, String questionText) {

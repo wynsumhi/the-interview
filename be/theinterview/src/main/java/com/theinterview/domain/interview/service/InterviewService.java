@@ -3,15 +3,21 @@ package com.theinterview.domain.interview.service;
 import com.theinterview.domain.interview.Repository.InterviewAnswerRepository;
 import com.theinterview.domain.interview.Repository.InterviewQuestionRepository;
 import com.theinterview.domain.interview.Repository.InterviewRepository;
+import com.theinterview.domain.interview.Repository.QuestionCandidateRepository;
+import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
+import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
+import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.entity.Interview;
 import com.theinterview.domain.interview.entity.InterviewAnswer;
 import com.theinterview.domain.interview.entity.InterviewQuestion;
+import com.theinterview.domain.interview.entity.QuestionCandidate;
 import com.theinterview.domain.interview.enums.InterviewStatus;
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.repository.MemberRepository;
@@ -21,13 +27,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.client.WebClient;
 
 @Service
 @RequiredArgsConstructor
@@ -36,9 +42,10 @@ public class InterviewService {
 
     private final MemberRepository memberRepository;
     private final InterviewRepository interviewRepository;
-    private final WebClient webClient;
     private final InterviewQuestionRepository interviewQuestionRepository;
     private final InterviewAnswerRepository interviewAnswerRepository;
+    private final QuestionCandidateRepository questionCandidateRepository;
+
     private final AiUtils aiUtils;
 
     @Value("${file.audio.base-path}")
@@ -46,6 +53,7 @@ public class InterviewService {
 
 
     // 웹소켓 연결 전, 클라이언트가 구독 할 인터뷰 pk를 발급하고, 첫 질문 텍스트를 TTS로 변환하여 전달함
+    // todo: facade 패턴 도입을 통해 메서드 분리 필요(커넥션 풀 고갈 문제 고려)
     @Transactional
     public WebSocketConnectResponse issueWebSocketId(String email) {
 
@@ -164,6 +172,7 @@ public class InterviewService {
 
 
     // 인터뷰 종료 메서드
+    // todo: facade 패턴 도입을 통해 메서드 분리 필요(커넥션 풀 고갈 문제 고려)
     @Transactional
     public void exitInterview(String email, Integer interviewId, Integer questionId) {
         // 필요한 인자 -> 사용자, 지금 인터뷰 객체, 지금 질문 객체
@@ -193,6 +202,36 @@ public class InterviewService {
         // AI 서버에서 반환한 인터뷰 제목으로 업데이트
         interview.interviewFinished("임시 제목 텍스트");
         // todo: 다음 질문 생성 저장 로직 추가
+        // 인터뷰의 모든 질문과 답변을 불러와서 조립
+        String request = "";
+        int counting = 1;
+
+        List<InterviewQuestion> interviewQuestions = interview.getInterviewQuestions();
+        for (InterviewQuestion interviewQuestion : interviewQuestions) {
+            request = request + "Q" + counting + interviewQuestion.getQuestionText() + "\n" + "A"
+                    + counting + interviewQuestion.getInterviewAnswer().getAnswerText() + "\n"
+                    + "\n";
+
+            counting += 1;
+
+        }
+
+        log.info("다음 질문 생성 AI 호출");
+        AiNextOpeningResponse aiNextOpeningResponse = aiUtils.callFastApiForNextOpening(
+                AiNextOpeningRequest.builder().interviewContext(request).build());
+        log.info("이번 인터뷰 제목 요약 AI 호출");
+        AiTitleResponse aiTitleResponse = aiUtils.callFastApiForInterviewTitle(
+                AiTitleRequest.builder().interviewContext(request).build());
+
+        // 다음 질문 저장
+        questionCandidateRepository.save(QuestionCandidate.builder()
+                .questionText(aiNextOpeningResponse.getDbQuestion())
+                .member(member)
+                .build());
+
+        // 인터뷰 제목 업데이트
+        interview.interviewFinished(aiTitleResponse.getTitle());
+
     }
 
 
