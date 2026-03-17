@@ -82,9 +82,12 @@ function ConversationContent() {
 
   const initInterview = async () => {
     try {
+      const t0 = performance.now();
+
       // 1. 인터뷰 생성 + 첫 질문 발급
       const isPrevAffected = mode === "AUTO";
       const data = await createInterview(isPrevAffected);
+      console.log(`[timing] ① createInterview: ${(performance.now() - t0).toFixed(0)}ms`);
 
       questionRef.current = {
         interviewId: data.interviewId,
@@ -94,8 +97,10 @@ function ConversationContent() {
       };
 
       // 2. 마이크 스트림 한 번만 열기 (VAD + 녹음 공유)
+      const t1 = performance.now();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
+      console.log(`[timing] ② getUserMedia: ${(performance.now() - t1).toFixed(0)}ms`);
 
       const AudioContextClass =
         window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -108,11 +113,15 @@ function ConversationContent() {
       analyserRef.current = analyser;
 
       // 3. WebSocket URL 가져오기 (Next.js API route 경유)
+      const t2 = performance.now();
       const res = await fetch("/api/ws-url");
       const { apiUrl } = await res.json();
+      console.log(`[timing] ③ ws-url fetch: ${(performance.now() - t2).toFixed(0)}ms`);
+
       const token = localStorage.getItem("accessToken") ?? "";
 
       // 4. STOMP 연결 + 구독
+      const t3 = performance.now();
       connect(
         apiUrl,
         data.interviewId,
@@ -128,7 +137,11 @@ function ConversationContent() {
           setStatus("AI_SPEAKING");
         },
         // STOMP 연결 완료 시 첫 질문 재생 시작
-        () => setStatus("AI_SPEAKING")
+        () => {
+          console.log(`[timing] ④ STOMP connect: ${(performance.now() - t3).toFixed(0)}ms`);
+          console.log(`[timing] 전체 initInterview: ${(performance.now() - t0).toFixed(0)}ms`);
+          setStatus("AI_SPEAKING");
+        }
       );
     } catch (err) {
       console.error("인터뷰 초기화 실패:", err);
