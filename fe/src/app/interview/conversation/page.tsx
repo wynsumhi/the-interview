@@ -342,8 +342,9 @@ function ConversationContent() {
                       />
                     ))}
                   </div>
+                  {/* blob 안 하단에 위치 */}
+                  <span className={styles.nextLabel}>NEXT &gt;</span>
                 </div>
-                <span className={styles.nextLabel}>NEXT &gt;</span>
               </button>
             )}
 

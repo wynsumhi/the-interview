@@ -96,51 +96,59 @@
 
 /* 녹음 중 blob 버튼 전체 */
 .recordingBtn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn 0.5s ease;
 }
 
-/* blob 배경 + 파형을 감싸는 원형 컨테이너 */
+/* blob 배경 + 파형 + NEXT 레이블을 모두 담는 컨테이너 */
 .blobWrapper {
   position: relative;
-  width: 180px;
-  height: 180px;
+  width: 280px;
+  height: 280px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 20px;
 }
 
-/* 컬러 blob 배경 */
+/* 비대칭 organic blob — 파란/분홍/보라 멀티 그라디언트 */
 .blob {
   position: absolute;
-  inset: 0;
-  border-radius: 50%;
+  inset: -10px;
+  border-radius: 60% 40% 55% 45% / 45% 60% 40% 55%;
   background:
-    radial-gradient(circle at 65% 30%, var(--blush), transparent 55%),
-    radial-gradient(circle at 35% 70%, var(--lavender), transparent 55%);
-  filter: blur(18px);
-  opacity: 0.85;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+    radial-gradient(ellipse at 42% 20%, #818cf8 0%, transparent 52%),
+    radial-gradient(ellipse at 68% 48%, #fb7185 0%, transparent 48%),
+    radial-gradient(ellipse at 28% 68%, #c084fc 0%, transparent 52%),
+    radial-gradient(ellipse at 62% 78%, #f9a8d4 0%, transparent 44%);
+  filter: blur(22px);
+  opacity: 0.9;
+  transition: transform 0.35s ease, opacity 0.35s ease;
 }
 
 .recordingBtn:hover .blob {
+  transform: scale(1.05);
   opacity: 1;
-  transform: scale(1.06);
 }
 
-/* NEXT > 레이블 */
+/* 파형 막대: blob 위에서는 흰색으로 통일 */
+.blobWrapper .waveBar {
+  background: #fff !important;
+  opacity: 0.95;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+}
+
+/* NEXT > 레이블 — blob 안 하단 */
 .nextLabel {
-  font-size: 15px;
+  position: relative; /* blob(absolute) 위에 렌더링 */
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.2em;
-  color: rgba(255, 255, 255, 0.8);
+  letter-spacing: 0.22em;
+  color: rgba(255, 255, 255, 0.9);
   transition: color 0.2s ease;
 }
 
