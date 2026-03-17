@@ -52,6 +52,31 @@ class InterviewPipelineResponse(BaseModel):
     tts_audio_mime_type: str = "audio/mpeg"
 
 
+class MagazineTitleRequest(BaseModel):
+    """매거진 타이틀 생성 요청 본문.
+
+    Attributes:
+        interview_context: 인터뷰 전체 Q&A 내용을 백엔드가 텍스트로 조합해 전달한 값.
+            포맷은 아래 형식을 따른다 (Q&A 번호 필수):
+                Q1. [질문 텍스트]
+                A1. [사용자 답변 텍스트]
+                Q2. [질문 텍스트]
+                A2. [사용자 답변 텍스트]
+    """
+
+    interview_context: str
+
+
+class MagazineTitleResponse(BaseModel):
+    """매거진 타이틀 생성 응답 본문.
+
+    Attributes:
+        title: LLM이 생성한 매거진 스타일 타이틀 텍스트.
+    """
+
+    title: str
+
+
 class InterviewStartTTSRequest(BaseModel):
     """인터뷰 시작 질문 TTS 생성 요청 본문.
 
