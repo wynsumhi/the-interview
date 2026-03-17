@@ -1,105 +1,239 @@
-// src/app/interview/session/page.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { useStompInterview } from "@/hooks/useStompInterview";
+import { createInterview } from "@/services/interview";
+import type { FollowUpQuestionDTO } from "@/services/interview";
 import styles from "./page.module.css";
 
-type InterviewStatus = "AI_SPEAKING" | "USER_LISTENING" | "ANALYZING";
+// 인터뷰 진행 상태 머신
+type InterviewStatus =
+  | "CONNECTING" // 초기화 중
+  | "AI_SPEAKING" // AI 질문 재생 + 타이핑
+  | "USER_RECORDING" // 사용자 답변 녹음 중
+  | "WAITING_AI"; // AI 응답 대기 중
 
 const BAR_COUNT = 12;
 const DEFAULT_HEIGHTS = Array<number>(BAR_COUNT).fill(4);
+const SILENCE_THRESHOLD = 10; // 침묵으로 판단하는 평균 볼륨 기준
+const SILENCE_DELAY_MS = 3000; // 침묵 감지 후 전송까지 대기 시간
 
-export default function InterviewSessionPage() {
-  const [status, setStatus] = useState<InterviewStatus>("AI_SPEAKING");
-  const [displayTitle, setDisplayTitle] = useState("");
+// 현재 질문 정보
+interface CurrentQuestion {
+  interviewId: number;
+  questionId: number;
+  questionText: string;
+  ttsAudioBase64: string;
+}
+
+export default function InterviewConversationPage() {
+  return (
+    // useSearchParams는 Suspense 경계 안에서만 사용 가능
+    <Suspense
+      fallback={
+        <div className={styles.container}>
+          <p className={styles.statusText}>불러오는 중...</p>
+        </div>
+      }
+    >
+      <ConversationContent />
+    </Suspense>
+  );
+}
+
+function ConversationContent() {
+  const searchParams = useSearchParams();
+  const mode = searchParams.get("mode") ?? "AUTO";
+
+  const [status, setStatus] = useState<InterviewStatus>("CONNECTING");
+  const [displayText, setDisplayText] = useState("");
   const [waveHeights, setWaveHeights] = useState<number[]>(DEFAULT_HEIGHTS);
-  const [micError, setMicError] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const fullTitle =
-    "오늘 당신의 마음을 가장 크게 흔들었던 문장은 무엇이었나요?";
+  // 현재 질문 ref (state 아닌 ref로 관리 - 콜백 클로저 문제 방지)
+  const questionRef = useRef<CurrentQuestion | null>(null);
+  // status ref (비동기 콜백에서 최신 status 읽기 위해)
+  const statusRef = useRef<InterviewStatus>("CONNECTING");
+
+  // 오디오 관련 ref
+  const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const statusRef = useRef<InterviewStatus>(status);
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  const { connect, sendAudio, disconnect } = useStompInterview();
+
+  // status가 바뀔 때마다 ref 동기화
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
 
-  // 1. 타이핑 및 초기 상태 제어
+  // 컴포넌트 마운트 시 인터뷰 초기화
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (status === "AI_SPEAKING") {
-      let index = 0;
-      interval = setInterval(() => {
-        setDisplayTitle(fullTitle.substring(0, index));
-        index++;
-        if (index > fullTitle.length) {
-          clearInterval(interval);
-          setTimeout(() => setStatus("USER_LISTENING"), 1500);
-        }
-      }, 70);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [status]);
+    initInterview();
+    return () => cleanup();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // 2. VAD 로직: 목소리 감지 시작
-  useEffect(() => {
-    if (status === "USER_LISTENING") {
-      startListening();
-    } else {
-      stopListening();
-    }
-    return () => stopListening();
-  }, [status]);
-
-  const startListening = async () => {
+  const initInterview = async () => {
     try {
-      if (!navigator.mediaDevices) {
-        setMicError("마이크는 HTTPS 환경에서만 사용할 수 있습니다.");
-        return;
-      }
+      // 1. 인터뷰 생성 + 첫 질문 발급
+      const isPrevAffected = mode === "AUTO";
+      const data = await createInterview(isPrevAffected);
+
+      questionRef.current = {
+        interviewId: data.interviewId,
+        questionId: data.questionId,
+        questionText: data.questionText,
+        ttsAudioBase64: data.ttsAudioBase64,
+      };
+
+      // 2. 마이크 스트림 한 번만 열기 (VAD + 녹음 공유)
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      setMicError(null);
 
       const AudioContextClass =
-        window.AudioContext || (window as any).webkitAudioContext;
+        window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const audioContext = new AudioContextClass();
       const analyser = audioContext.createAnalyser();
-      const source = audioContext.createMediaStreamSource(stream);
-
-      // fftSize 256으로 높여 주파수 해상도 향상 (frequencyBinCount = 128)
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.8; // 막대 움직임 부드럽게
-      source.connect(analyser);
-
+      analyser.smoothingTimeConstant = 0.8;
+      audioContext.createMediaStreamSource(stream).connect(analyser);
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
 
-      analyzeVolume();
+      // 3. WebSocket URL 가져오기 (Next.js API route 경유)
+      const res = await fetch("/api/ws-url");
+      const { apiUrl } = await res.json();
+      const token = localStorage.getItem("accessToken") ?? "";
+
+      // 4. STOMP 연결 + 구독
+      connect(
+        apiUrl,
+        data.interviewId,
+        token,
+        // 꼬리질문 수신 시
+        (dto: FollowUpQuestionDTO) => {
+          questionRef.current = {
+            interviewId: dto.interviewId,
+            questionId: dto.questionId,
+            questionText: dto.followUpQuestion,
+            ttsAudioBase64: dto.ttsAudioBase64,
+          };
+          setStatus("AI_SPEAKING");
+        },
+        // STOMP 연결 완료 시 첫 질문 재생 시작
+        () => setStatus("AI_SPEAKING")
+      );
     } catch (err) {
-      console.error("마이크 접근 실패:", err);
-      setMicError("마이크 접근에 실패했습니다. HTTPS 환경인지 확인해 주세요.");
+      console.error("인터뷰 초기화 실패:", err);
+      setErrorMsg("인터뷰를 시작할 수 없습니다. 마이크 권한을 확인해 주세요.");
     }
   };
 
-  const analyzeVolume = () => {
-    if (!analyserRef.current) return;
+  // AI_SPEAKING: 타이핑 애니메이션 + TTS 재생
+  useEffect(() => {
+    if (status !== "AI_SPEAKING") return;
+    const question = questionRef.current;
+    if (!question) return;
 
+    // 이전 TTS 중단
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause();
+      ttsAudioRef.current = null;
+    }
+
+    // 타이핑 애니메이션
+    const text = question.questionText;
+    setDisplayText("");
+    let index = 0;
+    const interval = setInterval(() => {
+      setDisplayText(text.substring(0, index + 1));
+      index++;
+      if (index >= text.length) clearInterval(interval);
+    }, 60);
+
+    // TTS 재생 후 USER_RECORDING으로 전환
+    if (question.ttsAudioBase64) {
+      const audio = playBase64Audio(question.ttsAudioBase64, () => {
+        if (statusRef.current === "AI_SPEAKING") setStatus("USER_RECORDING");
+      });
+      ttsAudioRef.current = audio;
+    } else {
+      // TTS 없으면 타이핑 완료 후 전환
+      const timer = setTimeout(
+        () => {
+          if (statusRef.current === "AI_SPEAKING") setStatus("USER_RECORDING");
+        },
+        text.length * 60 + 1500
+      );
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timer);
+      };
+    }
+
+    return () => {
+      clearInterval(interval);
+      ttsAudioRef.current?.pause();
+    };
+  }, [status]);
+
+  // USER_RECORDING: 녹음 시작 + VAD
+  useEffect(() => {
+    if (status !== "USER_RECORDING") {
+      stopVad();
+      return;
+    }
+    startRecording();
+    startVad();
+    return () => stopVad();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  const startRecording = useCallback(() => {
+    if (!streamRef.current) return;
+    chunksRef.current = [];
+
+    const recorder = new MediaRecorder(streamRef.current);
+    recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
+    recorder.onstop = async () => {
+      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+      const audioData = await blobToBase64(blob);
+      const question = questionRef.current;
+      if (!question) return;
+
+      // 서버로 음성 전송
+      sendAudio({
+        interviewId: question.interviewId,
+        questionId: question.questionId,
+        audioData,
+        isFinal: false,
+      });
+      setStatus("WAITING_AI");
+    };
+
+    recorder.start();
+    recorderRef.current = recorder;
+  }, [sendAudio]);
+
+  // 주파수 분석으로 파형 시각화 + 침묵 감지
+  const startVad = useCallback(() => {
+    if (!analyserRef.current) return;
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
 
-    const checkUpdate = () => {
-      if (statusRef.current !== "USER_LISTENING") return;
+    const loop = () => {
+      if (statusRef.current !== "USER_RECORDING") return;
       if (!analyserRef.current) return;
 
       analyserRef.current.getByteFrequencyData(dataArray);
 
-      // 주파수 데이터를 BAR_COUNT개 막대에 균등 매핑 (4px ~ 80px)
+      // 주파수 데이터를 BAR_COUNT개 막대에 매핑
       const step = Math.floor(dataArray.length / BAR_COUNT);
       const heights = Array.from({ length: BAR_COUNT }, (_, i) => {
         const slice = dataArray.slice(i * step, (i + 1) * step);
@@ -110,12 +244,13 @@ export default function InterviewSessionPage() {
 
       // 평균 볼륨으로 침묵 감지
       const avg = dataArray.reduce((p, c) => p + c, 0) / dataArray.length;
-      if (avg < 10) {
+      if (avg < SILENCE_THRESHOLD) {
         if (!silenceTimerRef.current) {
           silenceTimerRef.current = setTimeout(() => {
-            console.log("침묵 감지됨: 분석 단계로 전환");
-            setStatus("ANALYZING");
-          }, 3000);
+            if (statusRef.current === "USER_RECORDING") {
+              recorderRef.current?.stop();
+            }
+          }, SILENCE_DELAY_MS);
         }
       } else {
         if (silenceTimerRef.current) {
@@ -124,51 +259,72 @@ export default function InterviewSessionPage() {
         }
       }
 
-      animationFrameRef.current = requestAnimationFrame(checkUpdate);
+      animationFrameRef.current = requestAnimationFrame(loop);
     };
 
-    checkUpdate();
-  };
+    loop();
+  }, []);
 
-  const stopListening = () => {
+  const stopVad = () => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    silenceTimerRef.current = null;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    audioContextRef.current?.close();
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
     setWaveHeights(DEFAULT_HEIGHTS);
   };
 
+  const cleanup = () => {
+    stopVad();
+    recorderRef.current?.stop();
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    audioContextRef.current?.close();
+    ttsAudioRef.current?.pause();
+    disconnect();
+  };
+
+  const isFocusMode = status === "USER_RECORDING";
+
   return (
     <main
-      className={`${styles.container} ${status === "USER_LISTENING" ? styles.focusMode : ""}`}
+      className={`${styles.container} ${isFocusMode ? styles.focusMode : ""}`}
     >
       <div className={styles.orbWrapper}>
         <div className={`${styles.orb} ${styles.orb1}`} />
         <div className={`${styles.orb} ${styles.orb2}`} />
       </div>
 
-      <section className={styles.content}>
-        <div className={styles.questionBox}>
-          <h2 className={styles.questionText}>
-            {displayTitle}
-            {status === "AI_SPEAKING" && (
-              <span className={styles.cursor}>|</span>
-            )}
-          </h2>
+      {/* 초기 연결 중 */}
+      {status === "CONNECTING" && !errorMsg && (
+        <div className={styles.analyzingUI}>
+          <div className={styles.loadingBar} />
+          <p className={styles.statusText}>연결 중입니다...</p>
         </div>
+      )}
 
-        <div className={styles.visualizerArea}>
-          <div
-            className={styles.listeningUI}
-            style={{ opacity: status === "USER_LISTENING" ? 1 : 0 }}
-          >
-            {micError ? (
-              <p className={styles.errorText}>{micError}</p>
-            ) : (
+      {errorMsg && <p className={styles.errorText}>{errorMsg}</p>}
+
+      {status !== "CONNECTING" && (
+        <section className={styles.content}>
+          {/* AI 질문 텍스트 */}
+          <div className={styles.questionBox}>
+            <h2 className={styles.questionText}>
+              {displayText}
+              {status === "AI_SPEAKING" && (
+                <span className={styles.cursor}>|</span>
+              )}
+            </h2>
+          </div>
+
+          <div className={styles.visualizerArea}>
+            {/* 사용자 녹음 중 파형 */}
+            <div
+              className={styles.listeningUI}
+              style={{ opacity: isFocusMode ? 1 : 0 }}
+            >
               <div className={styles.waveContainer}>
                 {waveHeights.map((h, i) => (
                   <div
@@ -178,20 +334,53 @@ export default function InterviewSessionPage() {
                   />
                 ))}
               </div>
-            )}
-            <p className={styles.statusText}>당신의 목소리에 집중하고 있어요</p>
-          </div>
-
-          {status === "ANALYZING" && (
-            <div className={styles.analyzingUI}>
-              <div className={styles.loadingBar} />
-              <p className={styles.statusText}>
-                문장을 아카이빙하고 있습니다...
-              </p>
+              <p className={styles.statusText}>당신의 목소리에 집중하고 있어요</p>
             </div>
-          )}
-        </div>
-      </section>
+
+            {/* AI 응답 대기 중 */}
+            {status === "WAITING_AI" && (
+              <div className={styles.analyzingUI}>
+                <div className={styles.loadingBar} />
+                <p className={styles.statusText}>
+                  문장을 아카이빙하고 있습니다...
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
     </main>
   );
+}
+
+// Base64 TTS 데이터를 Audio 객체로 변환해 재생
+function playBase64Audio(
+  base64: string,
+  onEnded: () => void
+): HTMLAudioElement {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+  const blob = new Blob([bytes], { type: "audio/mpeg" });
+  const url = URL.createObjectURL(blob);
+  const audio = new Audio(url);
+  audio.onended = () => {
+    URL.revokeObjectURL(url);
+    onEnded();
+  };
+  audio.play().catch(console.error);
+  return audio;
+}
+
+// Blob → Base64 (data URI 헤더 제거)
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1]);
+    };
+    reader.readAsDataURL(blob);
+  });
 }
