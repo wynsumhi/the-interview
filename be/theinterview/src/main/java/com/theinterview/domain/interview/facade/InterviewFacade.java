@@ -6,6 +6,8 @@ import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageReques
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.service.AiUtils;
 import com.theinterview.domain.interview.service.InterviewService;
+import com.theinterview.global.response.exception.GeneralException;
+import com.theinterview.global.response.status.ErrorStatus;
 import java.io.IOException;
 import java.util.Base64;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,12 @@ public class InterviewFacade {
 
         // 클라이언트에서 보낸 Base64 데이터를 순수 바이트 배열로 변환
         byte[] audioBytes = Base64.getDecoder().decode(request.getAudioData());
+        log.info("오디오 파일 원본: {}", audioBytes);
+        // 만약 오디오 파일이 비어있다면
+        if (audioBytes == null || audioBytes.length == 0) {
+            throw new GeneralException(ErrorStatus.EMPTY_AUDIO_FILE);
+        }
+
         log.info("수신된 파일 크기: {} bytes", audioBytes.length);
 
         log.info("오디오 파일 저장 시작 및 DB 락 시도");
