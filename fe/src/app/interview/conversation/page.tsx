@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useStompInterview } from "@/hooks/useStompInterview";
-import { createInterview } from "@/services/interview";
+import { createInterview, exitInterview } from "@/services/interview";
 import type { FollowUpQuestionDTO } from "@/services/interview";
 import styles from "./page.module.css";
 
@@ -43,12 +43,14 @@ export default function InterviewConversationPage() {
 
 function ConversationContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const mode = searchParams.get("mode") ?? "AUTO";
 
   const [status, setStatus] = useState<InterviewStatus>("CONNECTING");
   const [displayText, setDisplayText] = useState("");
   const [waveHeights, setWaveHeights] = useState<number[]>(DEFAULT_HEIGHTS);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isExiting, setIsExiting] = useState(false);
 
   const questionRef = useRef<CurrentQuestion | null>(null);
   const statusRef = useRef<InterviewStatus>("CONNECTING");
@@ -69,18 +71,33 @@ function ConversationContent() {
   }, [status]);
 
   useEffect(() => {
-    initInterview();
-    return () => cleanup();
+    // cancelled 플래그: React StrictMode의 이중 실행 방지
+    // StrictMode는 개발 환경에서 mount → cleanup → remount 순서로 effect를 두 번 실행함
+    // async인 initInterview는 cleanup이 호출돼도 실행이 취소되지 않으므로
+    // Promise.all 완료 후 cancelled를 확인해 connect() 중복 호출을 막음
+    let cancelled = false;
+
+    initInterview(() => cancelled);
+    return () => {
+      cancelled = true;
+      cleanup();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const initInterview = async () => {
+  const initInterview = async (isCancelled: () => boolean) => {
     try {
       const [data, stream, { apiUrl }] = await Promise.all([
         createInterview(mode === "AUTO"),
         navigator.mediaDevices.getUserMedia({ audio: true }),
         fetch("/api/ws-url").then((r) => r.json()),
       ]);
+
+      // async 작업 완료 후 컴포넌트가 이미 cleanup된 경우 연결하지 않음
+      if (isCancelled()) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
 
       questionRef.current = {
         interviewId: data.interviewId,
@@ -118,8 +135,10 @@ function ConversationContent() {
         () => setStatus("AI_SPEAKING"),
       );
     } catch (err) {
-      console.error("인터뷰 초기화 실패:", err);
-      setErrorMsg("인터뷰를 시작할 수 없습니다. 마이크 권한을 확인해 주세요.");
+      if (!isCancelled()) {
+        console.error("인터뷰 초기화 실패:", err);
+        setErrorMsg("인터뷰를 시작할 수 없습니다. 마이크 권한을 확인해 주세요.");
+      }
     }
   };
 
@@ -242,6 +261,38 @@ function ConversationContent() {
     recorderRef.current?.stop();
   };
 
+  // 인터뷰 종료 버튼 핸들러
+  // 1) 진행 중인 녹음/오디오 정리 → 2) POST /interview/exit 호출 → 3) 리소스 cleanup → 4) /archive로 이동
+  const handleExit = async () => {
+    if (isExiting) return; // 중복 클릭 방지
+    setIsExiting(true);
+
+    // 녹음 중이었다면 onstop 핸들러를 먼저 제거 후 중단
+    // onstop을 그대로 두면 stop() 호출 시 sendAudio + setStatus("WAITING_AI")가
+    // 실행되어 종료 중에 불필요한 상태 전환과 백엔드 요청이 발생함
+    if (recorderRef.current) {
+      recorderRef.current.onstop = null;
+      recorderRef.current.stop();
+    }
+    ttsAudioRef.current?.pause();
+    // WebSocket을 먼저 끊어 백엔드로부터 메시지 수신 차단
+    disconnect();
+
+    const question = questionRef.current;
+    try {
+      if (question) {
+        // 서버에 종료 신호 전송 → AI가 요약 제목 생성해 반환 (현재는 사용하지 않고 archive로 이동)
+        await exitInterview(question.interviewId, question.questionId);
+      }
+    } catch (err) {
+      // 종료 API 실패해도 로컬 cleanup 후 이동
+      console.error("인터뷰 종료 요청 실패:", err);
+    } finally {
+      cleanup();
+      router.push("/archive");
+    }
+  };
+
   const stopVad = () => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -257,9 +308,14 @@ function ConversationContent() {
   const cleanup = () => {
     stopVad();
     recorderRef.current?.stop();
+    recorderRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    // ref를 null로 초기화하여 중복 호출 시 "Cannot close a closed AudioContext" 방지
     audioContextRef.current?.close();
+    audioContextRef.current = null;
     ttsAudioRef.current?.pause();
+    ttsAudioRef.current = null;
     disconnect();
   };
 
@@ -285,6 +341,16 @@ function ConversationContent() {
 
       {status !== "CONNECTING" && (
         <section className={styles.content}>
+          {/* 인터뷰 종료 버튼 - 우상단 고정
+               WAITING_AI: 음성 전송 후 백엔드 처리 중 → 도중에 종료 시 데이터 유실 위험
+               isExiting: 종료 API 호출 중 → 중복 클릭 방지 */}
+          <button
+            className={styles.exitBtn}
+            onClick={handleExit}
+            disabled={isExiting || status === "WAITING_AI"}
+          >
+            {isExiting ? "종료 중..." : "인터뷰 종료"}
+          </button>
           <div className={styles.questionBox}>
             <h2 className={styles.questionText}>
               {displayText}
