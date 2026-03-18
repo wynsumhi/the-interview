@@ -1,8 +1,8 @@
 def shouldSkip = false
 def isSelfBuild = false
-def feTestStatus = 'canceled'
-def feBuildStatus = 'canceled'
-def feDeployStatus = 'canceled'
+def feTestStatus = 'success'
+def feBuildStatus = 'success'
+def feDeployStatus = 'success'
 pipeline {
 	agent any
 
