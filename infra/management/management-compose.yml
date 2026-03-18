@@ -13,6 +13,7 @@ services:
       - ./nginx/default.conf:/etc/nginx/nginx.conf:ro
       - /home/ubuntu/infra/nginx/www:/var/www/certbot:ro
       - /home/ubuntu/infra/nginx/certs:/etc/letsencrypt:ro
+      - /home/ubuntu/theInterview/history:/var/www/html/history:ro
     networks:
       - theinterview-net
 
