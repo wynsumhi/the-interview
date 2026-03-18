@@ -27,7 +27,6 @@ public class InterviewFacade {
 
         // 클라이언트에서 보낸 Base64 데이터를 순수 바이트 배열로 변환
         byte[] audioBytes = Base64.getDecoder().decode(request.getAudioData());
-        log.info("오디오 파일 원본: {}", audioBytes);
         // 만약 오디오 파일이 비어있다면
         if (audioBytes == null || audioBytes.length == 0) {
             throw new GeneralException(ErrorStatus.EMPTY_AUDIO_FILE);

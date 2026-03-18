@@ -182,7 +182,7 @@ public class InterviewService {
                         .build()
         );
 
-        // 시퀀스가 6보다 크다면 다음 질문이 생성되지 않고 종료됨(최초 사용자 기준)
+        // 최초 사용자이고, 시퀀스가 6 이상이라면 다음 질문이 생성되지 않고 종료됨(최초 사용자 기준)
         if (!member.getIsFirstFinished() && question.getSequence() >= 6) {
             question.interviewQuestionFinished();
             // 생성된 텍스트 및 오디오 파일 반환
