@@ -25,6 +25,8 @@ export default function MyPage() {
 
   const handleSave = async () => {
     await updateMe({ nickname });
+    // 변경사항 저장 후 아카이브 페이지로 이동
+    router.push("/archive");
   };
 
   return (
