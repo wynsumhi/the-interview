@@ -3,7 +3,7 @@ import time
 
 from app.models.tts.supertonic_tts import synthesize_speech
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 def text_to_speech(question_text: str) -> bytes:

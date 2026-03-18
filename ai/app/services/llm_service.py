@@ -3,7 +3,7 @@ import time
 
 from app.models.llm.claude_client import create_claude_message
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 def create_message(

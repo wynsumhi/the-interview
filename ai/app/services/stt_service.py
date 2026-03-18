@@ -3,7 +3,7 @@ import time
 
 from app.models.stt.openai_stt import transcribe_audio_file
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 def speech_to_text(audio_file_path: str) -> str:

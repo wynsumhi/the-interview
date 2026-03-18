@@ -7,6 +7,23 @@ from app.api import api_router
 from app.core import DEFAULT_TTS_PRELOAD_ON_STARTUP
 from app.models.tts.supertonic_tts import warm_up_speech_engine
 
+
+def _configure_app_logging() -> None:
+    """app.* 로거가 uvicorn 콘솔 핸들러를 그대로 사용하도록 연결한다.
+
+    Docker에서 `docker compose logs -f fastapi`로 확인할 수 있도록
+    서비스 레이어에서 남기는 INFO 로그를 uvicorn.error 핸들러에 태운다.
+    """
+
+    uvicorn_error_logger = logging.getLogger("uvicorn.error")
+    app_logger = logging.getLogger("app")
+
+    app_logger.handlers = uvicorn_error_logger.handlers
+    app_logger.setLevel(logging.INFO)
+    app_logger.propagate = False
+
+
+_configure_app_logging()
 logger = logging.getLogger(__name__)
 
 
