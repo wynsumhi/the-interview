@@ -46,7 +46,7 @@ public abstract class FastApiRequest {
     public static class AiNextOpeningRequest {
 
         // 이전 인터뷰의 Q&A 리스트 (필수)
-        @JsonProperty("previous_context") // todo: ai 제목 생성 로직 머지 되면 변경해야함
+        @JsonProperty("interview_context") // todo: ai 제목 생성 로직 머지 되면 변경해야함
         private String interviewContext;
 
         // 사용자의 닉네임 (선택)
@@ -66,5 +66,6 @@ public abstract class FastApiRequest {
         private Integer sequence; // 시퀀스
         private String nickname; // 사용자 닉네임
         private String previousQuestion; // 이전 대화 내역
+        private Boolean isFirstFinished;
     }
 }

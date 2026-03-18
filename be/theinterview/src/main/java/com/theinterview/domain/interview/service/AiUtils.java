@@ -31,7 +31,8 @@ public class AiUtils {
             byte[] audioBytes,
             int sequence,
             String nickname,
-            String previousQuestion) {
+            String previousQuestion,
+            Boolean isFirstFinished) {
 
         // multipart/form-data 생성을 위한 빌더
         MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
@@ -47,7 +48,7 @@ public class AiUtils {
                 .contentType(MediaType.parseMediaType("audio/webm"));
 
         // 2. MVP 기준 필수 파라미터 세팅 (항상 false)
-        bodyBuilder.part("is_first_finished", false);
+        bodyBuilder.part("is_first_finished", isFirstFinished);
 
         // 3. is_first_finished=false 일 때 권장/필수 파라미터 세팅
         bodyBuilder.part("sequence", sequence);

@@ -37,7 +37,7 @@ public class InterviewFacade {
         // 2. 트랜잭션 X, AI 서버 호출
         AiPipelineResponse aiPipelineResponse = aiUtils.callFastApiForNextQuestion(audioBytes,
                 aiPipelineReadyDto.getSequence(), aiPipelineReadyDto.getNickname(),
-                aiPipelineReadyDto.getPreviousQuestion());
+                aiPipelineReadyDto.getPreviousQuestion(), aiPipelineReadyDto.getIsFirstFinished());
 
         log.info("DB 락 해제 시도 및 응답 시도");
         // 3. 트랜잭션 O, AI 응답 -> DB에 저장 후 락 풀기 후 DTO로 조립하여 응답
