@@ -17,6 +17,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -126,6 +127,15 @@ public class MemberController {
         MemberInfoDTO memberInfoDTO = memberService.updateMemberInfo(user.getUsername(), request);
 
         return ApiResponse.onSuccess(memberInfoDTO);
+    }
+
+    // 회원탈퇴
+    @DeleteMapping("/me")
+    public ApiResponse<Void> deleteUserInfo(
+            @AuthenticationPrincipal User user
+    ) {
+        memberService.deleteMemberInfo(user.getUsername());
+        return ApiResponse.OK;
     }
 
     // JWT 토큰을 위한 쿠키 생성 헬퍼 메서드
