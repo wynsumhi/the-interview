@@ -32,6 +32,7 @@ services:
       - jenkins_home:/var/jenkins_home
     environment:
       - JENKINS_OPTS=--prefix=/infra/jenkins --httpPort=8989
+      - TZ=Asia/Seoul
     networks:
       - theinterview-net
     # ports:
