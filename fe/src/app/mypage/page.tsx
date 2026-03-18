@@ -87,10 +87,10 @@ export default function MyPage() {
             />
           </div>
           <div className={styles.btnGroup}>
+            <button className={styles.withdrawBtn}>회원탈퇴</button>
             <button className={styles.saveBtn} onClick={handleSave}>
               변경사항 저장
             </button>
-            <button className={styles.withdrawBtn}>회원탈퇴</button>
           </div>
         </section>
       ) : (
