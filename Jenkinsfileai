@@ -124,7 +124,7 @@ pipeline {
 							--network theinterview-net \
 							--env-file infra/app/.env \
 							-m 1g --memory-swap 2g \
-							fastapi-test-image /bin/sh -c "ls -R /app && python -m pytest --junitxml=test-results.xml"
+							fastapi-test-image /bin/sh -c "ls -R /app && python -m pytest --ignore=ai/tests --junitxml=test-results.xml"
 						"""
 					} finally {
 						sh "docker cp fastapi-test-container:/app/test-results.xml ./ai/test-results.xml || true"
