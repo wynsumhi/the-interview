@@ -13,6 +13,10 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistory;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetail;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.entity.Interview;
 import com.theinterview.domain.interview.entity.InterviewAnswer;
@@ -23,6 +27,7 @@ import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.repository.MemberRepository;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
+import com.theinterview.global.util.FileDeleteUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,6 +37,9 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,9 +55,13 @@ public class InterviewService {
     private final QuestionCandidateRepository questionCandidateRepository;
 
     private final AiUtils aiUtils;
+    private final FileDeleteUtils fileDeleteUtils;
 
     @Value("${file.audio.base-path}")
     private String answerAudioPath;
+
+    @Value("${file.audio.base-url}")
+    private String answerAudioUrl;
 
 
     // 웹소켓 연결 전, 클라이언트가 구독 할 인터뷰 pk를 발급하고, 첫 질문 텍스트를 TTS로 변환하여 전달함
@@ -244,7 +256,6 @@ public class InterviewService {
 
     /**
      * 음성 바이트 배열을 지정된 경로에 저장하는 유틸 메서드
-     *
      */
     private String saveAnswerFile(byte[] audioBytes, Integer memberId, Integer interviewId)
             throws IOException {
@@ -269,4 +280,97 @@ public class InterviewService {
         return filePath.toAbsolutePath().toString();
     }
 
+    // 인터뷰 히스토리 조회
+    public InterviewHistoryDTO getInterviewHistoryList(Integer memberId, Integer page) {
+        // 인터뷰의 상태가 FINISHED인 정보만 5개씩 가져옴
+        Pageable pageable = PageRequest.of(page, 5);
+        Slice<Interview> interviews = interviewRepository.findAllByMemberIdAndStatus(memberId,
+                InterviewStatus.FINISHED, pageable);
+
+        log.info("[InterviewService - getHistoryList] memberID : {} / Load Interviews Size : {}",
+                memberId, interviews.getNumberOfElements());
+
+        List<InterviewHistory> interviewHistories = interviews.getContent().stream()
+                .map(interview -> InterviewHistory.builder()
+                        .interviewId(interview.getId())
+                        .interviewTitle(interview.getTitle())
+                        .interviewDate(interview.getCreatedAt().toLocalDate())
+                        .build())
+                .toList();
+
+        return InterviewHistoryDTO.builder()
+                .interviews(interviewHistories)
+                .hasNext(interviews.hasNext())
+                .currentPage(page)
+                .build();
+    }
+
+    // 인터뷰 히스토리 상세조회
+    public InterviewHistoryDetailDTO getInterviewHistoryDetail(Integer interviewId,
+            Integer memberId) {
+        // 인터뷰 조회
+        Interview interview = interviewRepository.findById(interviewId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+
+        // 요청한 사용자와 인터뷰 진행한 사용자가 다른 경우
+        if (!interview.getMember().getId().equals(memberId)) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        // 인터뷰 질문 조회
+        List<InterviewQuestion> questions = interviewQuestionRepository.findAllByInterviewIdOrderBySequence(
+                interviewId);
+
+        // 질문에 맵핑되는 답변 조회
+        List<InterviewHistoryDetail> details = questions.stream()
+                .map(question -> {
+                    InterviewAnswer answer = interviewAnswerRepository
+                            .findByInterviewQuestionId(question.getId())
+                            .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
+
+                    return InterviewHistoryDetail.builder()
+                            .interviewQuestion(question.getQuestionText())
+                            .interviewText(answer.getAnswerText())
+                            .interviewVoice(
+                                    answerAudioUrl + "/" + memberId + "/" + interviewId + "/"
+                                            + answer.getAnswerAudioUrl())
+                            .build();
+                }).toList();
+
+        return InterviewHistoryDetailDTO.builder()
+                .interviewTitle(interview.getTitle())
+                .interviewDate(interview.getCreatedAt().toLocalDate())
+                .interview(details)
+                .build();
+    }
+
+    // 인터뷰 삭제
+    @Transactional
+    public void deleteInterview(Integer interviewId, Integer memberId) {
+        // 인터뷰 조회
+        Interview interview = interviewRepository.findById(interviewId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+
+        // 요청한 사용자와 인터뷰 진행한 사용자가 다른 경우
+        if (!interview.getMember().getId().equals(memberId)) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        // FK 제약조건으로 인해 자식 테이블부터 순서대로 삭제
+        // 답변 삭제
+        List<InterviewQuestion> questions = interviewQuestionRepository
+                .findAllByInterviewId(interviewId);
+        questions.forEach(question ->
+                interviewAnswerRepository.deleteAllByInterviewQuestionId(question.getId()));
+
+        // EC2 파일 삭제
+        String dirPath = answerAudioPath + "/" + memberId + "/" + interviewId;
+        fileDeleteUtils.deleteDirectory(dirPath);
+
+        // 2. 질문 삭제
+        interviewQuestionRepository.deleteAllByInterviewId(interviewId);
+
+        // 3. 인터뷰 삭제
+        interviewRepository.delete(interview);
+    }
 }

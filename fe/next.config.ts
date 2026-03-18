@@ -5,7 +5,11 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/v1/:path*",
-        destination: `${process.env.API_URL}/:path*`,
+        destination: `${process.env.API_URL}/api/v1/:path*`,
+      },
+      {
+        source: "/socket",
+        destination: `${process.env.API_URL}/ws-connect`,
       },
     ];
   },
