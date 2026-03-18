@@ -5,7 +5,9 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --user -r requirements.txt
+    && pip install --no-cache-dir --user -r requirements.txt \
+    && pip uninstall -y onnxruntime \
+    && pip install --no-cache-dir --user --force-reinstall onnxruntime-gpu==1.24.4
 
 COPY . .
 
@@ -22,7 +24,11 @@ COPY --from=builder /app /app
 ENV PATH=/root/.local/bin:$PATH
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV DEFAULT_TTS_PROVIDER=cuda
+ENV DEFAULT_TTS_AUTO_DOWNLOAD=true
+ENV DEFAULT_TTS_PRELOAD_ON_STARTUP=true
+ENV UVICORN_WORKERS=1
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS}"]
