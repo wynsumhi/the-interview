@@ -23,6 +23,10 @@ export function useStompInterview() {
       onMessage: (dto: FollowUpQuestionDTO) => void,
       onConnect?: () => void
     ) => {
+      // 최초 연결인지 재연결인지 구분하기 위한 플래그
+      // onConnect는 reconnect 시에도 재실행되므로, 최초 1회만 콜백을 호출해야 함
+      let isFirstConnect = true;
+
       const client = new Client({
         // SockJS로 핸드셰이크 후 STOMP 세션 수립
         webSocketFactory: () =>
@@ -33,7 +37,7 @@ export function useStompInterview() {
           interviewId: String(interviewId),
         },
         onConnect: () => {
-          // 내 방 채널 구독 - AI 꼬리질문을 여기서 수신
+          // 재연결 시에도 구독을 다시 등록해야 메시지를 수신할 수 있음
           client.subscribe(
             `/topic/interview/room/${interviewId}`,
             (message) => {
@@ -41,14 +45,16 @@ export function useStompInterview() {
               onMessage(dto);
             }
           );
-          onConnect?.();
+          // 최초 연결 시에만 onConnect 콜백 실행
+          // 재연결 시 실행하면 setStatus("AI_SPEAKING")가 재호출되어 인터뷰 흐름이 초기화됨
+          if (isFirstConnect) {
+            isFirstConnect = false;
+            onConnect?.();
+          }
         },
         onStompError: (frame) => {
           console.error("STOMP error", frame);
         },
-        // 자동 재연결 비활성화: 재연결 시 onConnect가 재실행되면
-        // 중복 구독 생성 + setStatus("AI_SPEAKING") 재호출로 소켓이 새로 연결되는 것처럼 보이는 문제 방지
-        reconnectDelay: 0,
       });
 
       client.activate();
