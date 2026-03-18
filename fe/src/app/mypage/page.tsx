@@ -24,15 +24,20 @@ export default function MyPage() {
   }, []);
 
   const handleSave = async () => {
-    if (!nickname.trim()) {
-      alert("닉네임을 입력해 주세요.");
+    const nicknameRegex = /^[a-zA-Z가-힣]{3,8}$/;
+    if (!nicknameRegex.test(nickname)) {
+      alert("닉네임은 3~8자의 영문 또는 한글만 가능합니다.");
       return;
     }
     try {
       await updateMe({ nickname });
       router.push("/archive");
-    } catch (error) {
-      alert("변경사항 저장에 실패했습니다. 다시 시도해 주세요.");
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message ??
+        "변경사항 저장에 실패했습니다. 다시 시도해 주세요.";
+      alert(message);
     }
   };
 
