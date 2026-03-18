@@ -1,17 +1,31 @@
 // src/app/mypage/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { MOCK_USER, MOCK_ARCHIVE_LIST } from "@/constants/mockData";
+import { MOCK_ARCHIVE_LIST } from "@/constants/mockData";
 import { logout } from "@/services/auth";
+import { getMe, updateMe } from "@/services/member";
 import styles from "./page.module.css";
 
 export default function MyPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"profile" | "bookmarks">(
     "profile",
   );
-  const user = MOCK_USER;
+  const [email, setEmail] = useState("");
+  const [nickname, setNickname] = useState("");
+
+  useEffect(() => {
+    getMe().then((data) => {
+      setEmail(data.email);
+      setNickname(data.nickname);
+    });
+  }, []);
+
+  const handleSave = async () => {
+    await updateMe({ nickname });
+  };
 
   return (
     <main className={styles.container}>
@@ -45,7 +59,7 @@ export default function MyPage() {
             <label>이메일 (아이디)</label>
             <input
               type="text"
-              value={user.email}
+              value={email}
               disabled
               className={styles.disabledInput}
             />
@@ -54,7 +68,8 @@ export default function MyPage() {
             <label>닉네임</label>
             <input
               type="text"
-              defaultValue={user.nickname}
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
               className={styles.input}
             />
           </div>
@@ -72,12 +87,15 @@ export default function MyPage() {
             />
           </div>
           <div className={styles.btnGroup}>
-            <button className={styles.saveBtn}>변경사항 저장</button>
+            <button className={styles.saveBtn} onClick={handleSave}>
+              변경사항 저장
+            </button>
             <button className={styles.withdrawBtn}>회원탈퇴</button>
           </div>
         </section>
       ) : (
         /* 2. 북마크 목록 섹션 (조회 및 삭제) */
+        // TODO: 실제 API 연동 후 MOCK_ARCHIVE_LIST 제거
         <section className={styles.bookmarkList}>
           {MOCK_ARCHIVE_LIST.length > 0 ? (
             MOCK_ARCHIVE_LIST.map((item) => (
