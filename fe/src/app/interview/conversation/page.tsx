@@ -275,6 +275,8 @@ function ConversationContent() {
       recorderRef.current.stop();
     }
     ttsAudioRef.current?.pause();
+    // WebSocket을 먼저 끊어 백엔드로부터 메시지 수신 차단
+    disconnect();
 
     const question = questionRef.current;
     try {
@@ -306,9 +308,14 @@ function ConversationContent() {
   const cleanup = () => {
     stopVad();
     recorderRef.current?.stop();
+    recorderRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    // ref를 null로 초기화하여 중복 호출 시 "Cannot close a closed AudioContext" 방지
     audioContextRef.current?.close();
+    audioContextRef.current = null;
     ttsAudioRef.current?.pause();
+    ttsAudioRef.current = null;
     disconnect();
   };
 
