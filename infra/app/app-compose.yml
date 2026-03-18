@@ -31,6 +31,8 @@ services:
       args:
         - API_URL=https://j14a307.p.ssafy.io
       dockerfile: Dockerfile
+    environment:
+      - API_URL=https://j14a307.p.ssafy.io
     image: theinterview-frontend:latest
     container_name: frontend
     restart: on-failure
