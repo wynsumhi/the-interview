@@ -66,5 +66,6 @@ public abstract class FastApiRequest {
         private Integer sequence; // 시퀀스
         private String nickname; // 사용자 닉네임
         private String previousQuestion; // 이전 대화 내역
+        private Boolean isFirstFinished;
     }
 }

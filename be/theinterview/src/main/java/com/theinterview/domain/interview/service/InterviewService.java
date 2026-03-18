@@ -74,10 +74,21 @@ public class InterviewService {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
+        String dbQuestion = null;
+
+        // 최초 사용자, 기존 사용자 분기처리
+        if (member.getIsFirstFinished()) {
+            // n + 1 문제 발생 지점 todo: 처리 필요
+            List<QuestionCandidate> questionCandidates = member.getQuestionCandidates();
+            QuestionCandidate questionCandidate = questionCandidates.get(0);
+            // 기존 사용자 처리
+            dbQuestion = questionCandidate.getQuestionText();
+        }
+
         // 시작 질문 및 TTS 변환 요청
         AiStartTtsResponse aiStartTtsResponse = aiUtils.callFastApiForStartTts(AiStartTtsRequest
                 .builder()
-                .dbQuestion(null)
+                .dbQuestion(dbQuestion)
                 .nickname(member.getNickname())
                 .isFirstFinished(member.getIsFirstFinished())
                 .build());
@@ -142,6 +153,7 @@ public class InterviewService {
                 .sequence(question.getSequence() + 1)
                 .nickname(member.getNickname())
                 .previousQuestion(question.getQuestionText())
+                .isFirstFinished(member.getIsFirstFinished())
                 .build();
     }
 
@@ -158,6 +170,8 @@ public class InterviewService {
 
         Interview interview = question.getInterview();
 
+        Member member = interview.getMember();
+
         log.info("사용자 답변 텍스트 DB에 저장");
         // InterviewAnswer 엔티티 생성 및 save(생성된 꼬리질문 + savedFilePath) 활용
         InterviewAnswer answer = interviewAnswerRepository.save(
@@ -169,7 +183,7 @@ public class InterviewService {
         );
 
         // 시퀀스가 6보다 크다면 다음 질문이 생성되지 않고 종료됨(최초 사용자 기준)
-        if (question.getSequence() >= 6) {
+        if (!member.getIsFirstFinished() && question.getSequence() >= 6) {
             question.interviewQuestionFinished();
             // 생성된 텍스트 및 오디오 파일 반환
             return FollowUpQuestionDTO.builder()
@@ -263,6 +277,10 @@ public class InterviewService {
 
         // 인터뷰 제목 업데이트
         interview.interviewFinished(aiTitleResponse.getTitle());
+
+        // 최초 사용자가 아님을 기록
+        member.completeFirstInterview();
+
         // 인터뷰 제목 반환
         return aiTitleResponse.getTitle();
     }
