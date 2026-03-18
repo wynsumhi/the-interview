@@ -16,6 +16,7 @@ import com.theinterview.global.response.status.ErrorStatus;
 import com.theinterview.global.security.config.jwt.JwtProvider;
 import java.time.Duration;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -139,16 +140,17 @@ public class MemberService {
     // 회원 정보 수정 메서드
     @Transactional
     public MemberInfoDTO updateMemberInfo(String email, MemberInfoUpdateRequest request) {
-
-        // 닉네임 중복 검사
-        if (!checkNickname(request.getNickname())) {
-            throw new GeneralException(ErrorStatus.MEMBER_ALREADY_EXISTS);
-        }
-
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
-        member.changeMemberInfo(request);
+        // 닉네임 중복 검사, 만약 자기 자신의 닉네임과 현재 닉네임이 같다면 패스
+        if (!Objects.equals(request.getNickname(), member.getNickname())
+                && !checkNickname(
+                request.getNickname())) {
+            throw new GeneralException(ErrorStatus.MEMBER_ALREADY_EXISTS);
+        }
+
+        member.changeMemberInfo(request, passwordEncoder);
         return new MemberInfoDTO(member);
 
     }

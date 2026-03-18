@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Slf4j
 @Entity
@@ -67,9 +68,10 @@ public class Member {
     }
 
     // 사용자 정보 수정 메서드
-    public void changeMemberInfo(MemberInfoUpdateRequest request) {
+    public void changeMemberInfo(MemberInfoUpdateRequest request, PasswordEncoder passwordEncoder) {
 
         String changeNickname = request.getNickname();
+        String changePassword = request.getPassword();
 
         System.out.println(changeNickname);
 
@@ -78,6 +80,10 @@ public class Member {
             this.nickname = changeNickname;
         } else {
             throw new GeneralException(ErrorStatus.NICKNAME_NOT_VALID);
+        }
+
+        if (changePassword != null && !changePassword.isBlank()) {
+            this.password = passwordEncoder.encode(changePassword);
         }
 
     }
