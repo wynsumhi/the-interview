@@ -6,6 +6,8 @@ import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageReques
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.service.AiUtils;
 import com.theinterview.domain.interview.service.InterviewService;
+import com.theinterview.global.response.exception.GeneralException;
+import com.theinterview.global.response.status.ErrorStatus;
 import java.io.IOException;
 import java.util.Base64;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,11 @@ public class InterviewFacade {
 
         // 클라이언트에서 보낸 Base64 데이터를 순수 바이트 배열로 변환
         byte[] audioBytes = Base64.getDecoder().decode(request.getAudioData());
+        // 만약 오디오 파일이 비어있다면
+        if (audioBytes == null || audioBytes.length == 0) {
+            throw new GeneralException(ErrorStatus.EMPTY_AUDIO_FILE);
+        }
+
         log.info("수신된 파일 크기: {} bytes", audioBytes.length);
 
         log.info("오디오 파일 저장 시작 및 DB 락 시도");
@@ -37,7 +44,7 @@ public class InterviewFacade {
         // 2. 트랜잭션 X, AI 서버 호출
         AiPipelineResponse aiPipelineResponse = aiUtils.callFastApiForNextQuestion(audioBytes,
                 aiPipelineReadyDto.getSequence(), aiPipelineReadyDto.getNickname(),
-                aiPipelineReadyDto.getPreviousQuestion());
+                aiPipelineReadyDto.getPreviousQuestion(), aiPipelineReadyDto.getIsFirstFinished());
 
         log.info("DB 락 해제 시도 및 응답 시도");
         // 3. 트랜잭션 O, AI 응답 -> DB에 저장 후 락 풀기 후 DTO로 조립하여 응답

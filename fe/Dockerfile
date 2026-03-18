@@ -10,7 +10,7 @@ WORKDIR /app
 ARG API_URL
 
 # FE 환경변수 ENV 등록
-ENV NEXT_PUBLIC_API_URL=$API_URL
+ENV API_URL=$API_URL
 
 # 종속성 파일 복사 (pnpm-lock.yaml이 핵심!)
 COPY package.json pnpm-lock.yaml ./

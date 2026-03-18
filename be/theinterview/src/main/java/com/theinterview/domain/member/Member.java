@@ -1,5 +1,6 @@
 package com.theinterview.domain.member;
 
+import com.theinterview.domain.interview.entity.QuestionCandidate;
 import com.theinterview.domain.member.dto.MemberRequest.MemberInfoUpdateRequest;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
@@ -9,8 +10,12 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -49,6 +54,10 @@ public class Member {
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @OneToMany(mappedBy = "member")
+    @OrderBy("createdAt DESC") // 일단 가장 최근의 다음 질문을 불러오도록 설정
+    private List<QuestionCandidate> questionCandidates = new ArrayList<>();
 
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)

@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from app.main import app
 from fastapi.testclient import TestClient
 
@@ -19,3 +21,16 @@ def test_health_check_returns_ok() -> None:
         "status": "ok",
         "service": "ai-fastapi",
     }
+
+
+def test_app_startup_preloads_tts_when_enabled() -> None:
+    with (
+        patch("app.main.DEFAULT_TTS_PRELOAD_ON_STARTUP", True),
+        patch(
+            "app.main.warm_up_speech_engine",
+        ) as warm_up_mock,
+    ):
+        with TestClient(app):
+            pass
+
+    warm_up_mock.assert_called_once_with()

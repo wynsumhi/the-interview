@@ -168,6 +168,32 @@
     0 0 25px rgba(255, 255, 255, 0.5);
 }
 
+/* 인터뷰 종료 버튼 - content 영역 우상단 절대 위치 */
+.exitBtn {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.exitBtn:hover:not(:disabled) {
+  border-color: rgba(255, 100, 100, 0.5);
+  color: rgba(255, 100, 100, 0.8);
+}
+
+.exitBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .errorText {
   font-size: 12px;
   letter-spacing: 0.05em;

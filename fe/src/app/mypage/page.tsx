@@ -24,7 +24,21 @@ export default function MyPage() {
   }, []);
 
   const handleSave = async () => {
-    await updateMe({ nickname });
+    const nicknameRegex = /^[a-zA-Z가-힣]{3,8}$/;
+    if (!nicknameRegex.test(nickname)) {
+      alert("닉네임은 3~8자의 영문 또는 한글만 가능합니다.");
+      return;
+    }
+    try {
+      await updateMe({ nickname });
+      router.push("/archive");
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message ??
+        "변경사항 저장에 실패했습니다. 다시 시도해 주세요.";
+      alert(message);
+    }
   };
 
   return (
@@ -87,10 +101,10 @@ export default function MyPage() {
             />
           </div>
           <div className={styles.btnGroup}>
+            <button className={styles.withdrawBtn}>회원탈퇴</button>
             <button className={styles.saveBtn} onClick={handleSave}>
               변경사항 저장
             </button>
-            <button className={styles.withdrawBtn}>회원탈퇴</button>
           </div>
         </section>
       ) : (
