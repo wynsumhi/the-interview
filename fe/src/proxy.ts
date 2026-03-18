@@ -1,5 +1,12 @@
-// src/middleware.ts
-// Next.js 미들웨어 - 모든 요청이 페이지에 도달하기 전에 실행되는 서버 코드
+// src/proxy.ts
+// Next.js 16+에서 도입된 proxy 파일 컨벤션
+// 이전의 middleware.ts를 대체하며, 요청이 페이지에 도달하기 전에 서버에서 실행됨
+//
+// [middleware.ts → proxy.ts 마이그레이션 이유]
+// - Next.js 16부터 "middleware" 파일 컨벤션이 deprecated됨
+// - "proxy"라는 이름이 네트워크 경계에서 실행된다는 개념을 더 명확하게 표현
+// - next.config.ts의 rewrites()와 middleware.ts가 공존할 때 충돌 감지로 경고 발생
+// - 참고: https://nextjs.org/docs/messages/middleware-to-proxy
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
@@ -10,7 +17,8 @@ const protectedRoutes = ["/archive", "/mypage", "/emotion", "/explore", "/interv
 // 로그인 상태에서 접근 불가능한 경로 (이미 로그인한 사용자는 필요 없는 페이지)
 const authOnlyRoutes = ["/login", "/signup"];
 
-export function middleware(request: NextRequest) {
+// middleware() → proxy()로 함수 이름 변경 (Next.js 16 컨벤션)
+export function proxy(request: NextRequest) {
   const token = request.cookies.get("accessToken")?.value;
   const { pathname } = request.nextUrl;
 
@@ -35,5 +43,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next|api|favicon.ico).*)"],
+  // next.config.ts의 rewrites()가 처리하는 경로(/api/v1/*, /socket)와 겹치지 않도록 제외
+  // _next: Next.js 내부 파일, api: API 라우트, socket: WebSocket 프록시, favicon.ico: 정적 파일
+  matcher: ["/((?!_next|api|socket|favicon.ico).*)"],
 };
