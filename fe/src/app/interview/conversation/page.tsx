@@ -312,11 +312,13 @@ function ConversationContent() {
 
       {status !== "CONNECTING" && (
         <section className={styles.content}>
-          {/* 인터뷰 종료 버튼 - 우상단 고정, 어떤 상태에서도 누를 수 있음 */}
+          {/* 인터뷰 종료 버튼 - 우상단 고정
+               WAITING_AI: 음성 전송 후 백엔드 처리 중 → 도중에 종료 시 데이터 유실 위험
+               isExiting: 종료 API 호출 중 → 중복 클릭 방지 */}
           <button
             className={styles.exitBtn}
             onClick={handleExit}
-            disabled={isExiting}
+            disabled={isExiting || status === "WAITING_AI"}
           >
             {isExiting ? "종료 중..." : "인터뷰 종료"}
           </button>
