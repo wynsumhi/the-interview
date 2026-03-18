@@ -71,18 +71,33 @@ function ConversationContent() {
   }, [status]);
 
   useEffect(() => {
-    initInterview();
-    return () => cleanup();
+    // cancelled 플래그: React StrictMode의 이중 실행 방지
+    // StrictMode는 개발 환경에서 mount → cleanup → remount 순서로 effect를 두 번 실행함
+    // async인 initInterview는 cleanup이 호출돼도 실행이 취소되지 않으므로
+    // Promise.all 완료 후 cancelled를 확인해 connect() 중복 호출을 막음
+    let cancelled = false;
+
+    initInterview(() => cancelled);
+    return () => {
+      cancelled = true;
+      cleanup();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const initInterview = async () => {
+  const initInterview = async (isCancelled: () => boolean) => {
     try {
       const [data, stream, { apiUrl }] = await Promise.all([
         createInterview(mode === "AUTO"),
         navigator.mediaDevices.getUserMedia({ audio: true }),
         fetch("/api/ws-url").then((r) => r.json()),
       ]);
+
+      // async 작업 완료 후 컴포넌트가 이미 cleanup된 경우 연결하지 않음
+      if (isCancelled()) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
 
       questionRef.current = {
         interviewId: data.interviewId,
@@ -120,8 +135,10 @@ function ConversationContent() {
         () => setStatus("AI_SPEAKING"),
       );
     } catch (err) {
-      console.error("인터뷰 초기화 실패:", err);
-      setErrorMsg("인터뷰를 시작할 수 없습니다. 마이크 권한을 확인해 주세요.");
+      if (!isCancelled()) {
+        console.error("인터뷰 초기화 실패:", err);
+        setErrorMsg("인터뷰를 시작할 수 없습니다. 마이크 권한을 확인해 주세요.");
+      }
     }
   };
 
@@ -250,8 +267,13 @@ function ConversationContent() {
     if (isExiting) return; // 중복 클릭 방지
     setIsExiting(true);
 
-    // 녹음 중이었다면 먼저 중단
-    recorderRef.current?.stop();
+    // 녹음 중이었다면 onstop 핸들러를 먼저 제거 후 중단
+    // onstop을 그대로 두면 stop() 호출 시 sendAudio + setStatus("WAITING_AI")가
+    // 실행되어 종료 중에 불필요한 상태 전환과 백엔드 요청이 발생함
+    if (recorderRef.current) {
+      recorderRef.current.onstop = null;
+      recorderRef.current.stop();
+    }
     ttsAudioRef.current?.pause();
 
     const question = questionRef.current;

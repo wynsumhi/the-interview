@@ -46,6 +46,9 @@ export function useStompInterview() {
         onStompError: (frame) => {
           console.error("STOMP error", frame);
         },
+        // 자동 재연결 비활성화: 재연결 시 onConnect가 재실행되면
+        // 중복 구독 생성 + setStatus("AI_SPEAKING") 재호출로 소켓이 새로 연결되는 것처럼 보이는 문제 방지
+        reconnectDelay: 0,
       });
 
       client.activate();
