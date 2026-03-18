@@ -118,7 +118,7 @@ pipeline {
 				script {
 					sh "docker rm -f fe-test-container || true"
 					try {
-						sh "docker build --memory=1g --memory-swap=2g --target builder -t fe-test-image ./fe --build-arg API_URL=https://j14a307.p.ssafy.io/api/v1"
+						sh "docker build --memory=1g --memory-swap=2g --target builder -t fe-test-image ./fe --build-arg API_URL=https://j14a307.p.ssafy.io"
 						sh 'docker run --name fe-test-container -m 1g --memory-swap 2g fe-test-image pnpm test --watchAll=false'
 					} finally {
 						sh "docker rm -f fe-test-container || true"
