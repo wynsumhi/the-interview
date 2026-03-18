@@ -10,7 +10,7 @@ export interface MemberResponse {
   nickname: string;
 }
 
-// 회원 정보 수정 요청 시 서버에 전달할 데이터 형태
+// 회원 정보 수정 요청 시 서버에 전달할 데이터 형태 정의
 export interface UpdateMemberRequest {
   nickname: string;
 }
