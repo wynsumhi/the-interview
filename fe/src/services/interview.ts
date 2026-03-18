@@ -24,3 +24,14 @@ export async function createInterview(
   const res = await instance.post("/interview", { isPrevAffected });
   return res.data.result;
 }
+
+// POST /api/v1/interview/exit - 인터뷰 강제 종료
+// 서버가 현재까지의 대화를 바탕으로 AI 요약 제목을 생성해 반환
+export async function exitInterview(
+  interviewId: number,
+  questionId: number,
+): Promise<string> {
+  const res = await instance.post("/interview/exit", { interviewId, questionId });
+  // 응답 구조: { result: "AI가 생성한 인터뷰 제목" }
+  return res.data.result;
+}
