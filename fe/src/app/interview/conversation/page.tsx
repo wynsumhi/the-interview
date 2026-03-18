@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useStompInterview } from "@/hooks/useStompInterview";
-import { createInterview } from "@/services/interview";
+import { createInterview, exitInterview } from "@/services/interview";
 import type { FollowUpQuestionDTO } from "@/services/interview";
 import styles from "./page.module.css";
 
@@ -43,12 +43,14 @@ export default function InterviewConversationPage() {
 
 function ConversationContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const mode = searchParams.get("mode") ?? "AUTO";
 
   const [status, setStatus] = useState<InterviewStatus>("CONNECTING");
   const [displayText, setDisplayText] = useState("");
   const [waveHeights, setWaveHeights] = useState<number[]>(DEFAULT_HEIGHTS);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isExiting, setIsExiting] = useState(false);
 
   const questionRef = useRef<CurrentQuestion | null>(null);
   const statusRef = useRef<InterviewStatus>("CONNECTING");
@@ -242,6 +244,31 @@ function ConversationContent() {
     recorderRef.current?.stop();
   };
 
+  // 인터뷰 종료 버튼 핸들러
+  // 1) 진행 중인 녹음/오디오 정리 → 2) POST /interview/exit 호출 → 3) 리소스 cleanup → 4) /archive로 이동
+  const handleExit = async () => {
+    if (isExiting) return; // 중복 클릭 방지
+    setIsExiting(true);
+
+    // 녹음 중이었다면 먼저 중단
+    recorderRef.current?.stop();
+    ttsAudioRef.current?.pause();
+
+    const question = questionRef.current;
+    try {
+      if (question) {
+        // 서버에 종료 신호 전송 → AI가 요약 제목 생성해 반환 (현재는 사용하지 않고 archive로 이동)
+        await exitInterview(question.interviewId, question.questionId);
+      }
+    } catch (err) {
+      // 종료 API 실패해도 로컬 cleanup 후 이동
+      console.error("인터뷰 종료 요청 실패:", err);
+    } finally {
+      cleanup();
+      router.push("/archive");
+    }
+  };
+
   const stopVad = () => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -285,6 +312,14 @@ function ConversationContent() {
 
       {status !== "CONNECTING" && (
         <section className={styles.content}>
+          {/* 인터뷰 종료 버튼 - 우상단 고정, 어떤 상태에서도 누를 수 있음 */}
+          <button
+            className={styles.exitBtn}
+            onClick={handleExit}
+            disabled={isExiting}
+          >
+            {isExiting ? "종료 중..." : "인터뷰 종료"}
+          </button>
           <div className={styles.questionBox}>
             <h2 className={styles.questionText}>
               {displayText}
