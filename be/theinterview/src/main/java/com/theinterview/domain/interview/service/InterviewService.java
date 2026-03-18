@@ -389,20 +389,14 @@ public class InterviewService {
         }
 
         // FK 제약조건으로 인해 자식 테이블부터 순서대로 삭제
-        // 답변 삭제
-        List<InterviewQuestion> questions = interviewQuestionRepository
-                .findAllByInterviewId(interviewId);
-        questions.forEach(question ->
-                interviewAnswerRepository.deleteAllByInterviewQuestionId(question.getId()));
-
         // EC2 파일 삭제
         String dirPath = answerAudioPath + "/" + memberId + "/" + interviewId;
         fileDeleteUtils.deleteDirectory(dirPath);
 
-        // 2. 질문 삭제
+        // 1. 질문 삭제
         interviewQuestionRepository.deleteAllByInterviewId(interviewId);
 
-        // 3. 인터뷰 삭제
+        // 2. 인터뷰 삭제
         interviewRepository.delete(interview);
     }
 }
