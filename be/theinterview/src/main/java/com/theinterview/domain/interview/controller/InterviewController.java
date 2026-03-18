@@ -1,5 +1,6 @@
 package com.theinterview.domain.interview.controller;
 
+import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewStartRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
@@ -43,6 +44,17 @@ public class InterviewController {
         return ApiResponse.onSuccess(interviewService.issueWebSocketId(email));
     }
 
+
+    @PostMapping("/exit")
+    public ApiResponse<String> exitInterview(
+            @RequestBody InterviewExitRequest request,
+            @AuthenticationPrincipal User user
+    ) {
+        String email = user.getUsername();
+        // 서비스 레이어 호출
+        return ApiResponse.onSuccess(interviewService.exitInterview(request, email));
+    }
+
     // 인터뷰 목록 조회
     @GetMapping
     public ApiResponse<InterviewHistoryDTO> getInterviewsHistory(
@@ -83,5 +95,6 @@ public class InterviewController {
         interviewService.deleteInterview(interviewId, member.getId());
 
         return ApiResponse.OK;
+
     }
 }

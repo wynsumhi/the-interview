@@ -19,6 +19,9 @@ public abstract class FastApiResponse {
 
         @JsonProperty("tts_audio_mime_type")
         private String ttsAudioMimeType;
+
+        @JsonProperty("stt_text")
+        private String sttText;
     }
 
     @Getter
@@ -34,4 +37,22 @@ public abstract class FastApiResponse {
         @JsonProperty("tts_audio_mime_type")
         private String ttsAudioMimeType;
     }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    public static class AiTitleResponse {
+
+        private String title;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class AiNextOpeningResponse {
+
+        // DB에 저장될 시작 질문 텍스트
+        @JsonProperty("db_question")
+        private String dbQuestion;
+    }
+
+
 }

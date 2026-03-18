@@ -3,10 +3,15 @@ package com.theinterview.domain.interview.service;
 import com.theinterview.domain.interview.Repository.InterviewAnswerRepository;
 import com.theinterview.domain.interview.Repository.InterviewQuestionRepository;
 import com.theinterview.domain.interview.Repository.InterviewRepository;
+import com.theinterview.domain.interview.Repository.QuestionCandidateRepository;
+import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
+import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
+import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistory;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
@@ -16,6 +21,7 @@ import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectR
 import com.theinterview.domain.interview.entity.Interview;
 import com.theinterview.domain.interview.entity.InterviewAnswer;
 import com.theinterview.domain.interview.entity.InterviewQuestion;
+import com.theinterview.domain.interview.entity.QuestionCandidate;
 import com.theinterview.domain.interview.enums.InterviewStatus;
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.repository.MemberRepository;
@@ -26,7 +32,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +52,8 @@ public class InterviewService {
     private final InterviewRepository interviewRepository;
     private final InterviewQuestionRepository interviewQuestionRepository;
     private final InterviewAnswerRepository interviewAnswerRepository;
+    private final QuestionCandidateRepository questionCandidateRepository;
+
     private final AiUtils aiUtils;
     private final FileDeleteUtils fileDeleteUtils;
 
@@ -56,60 +63,9 @@ public class InterviewService {
     @Value("${file.audio.base-url}")
     private String answerAudioUrl;
 
-    @Transactional
-    public FollowUpQuestionDTO oneQnAInterviewFlow(AudioMessageRequest request)
-            throws IOException {
-
-        // 필요 도메인 엔티티 조회
-        Interview interview = interviewRepository.findById(request.getInterviewId())
-                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
-        Member member = interview.getMember();
-
-        // 현재 클라이언트가 구독중인 방 번호(interviewId)
-        Integer interviewId = request.getInterviewId();
-
-        // 클라이언트에서 보낸 Base64 데이터를 순수 바이트 배열로 변환
-        byte[] audioBytes = Base64.getDecoder().decode(request.getAudioData());
-        log.info("수신된 파일 크기: {} bytes", audioBytes.length);
-
-        // 파일 저장 유틸 메서드 호출
-        String savedFilePath = saveAnswerFile(audioBytes, member.getId(), interviewId);
-
-        // ai 서버 호출
-        AiPipelineResponse aiPipelineResponse = aiUtils.callFastApiForNextQuestion(audioBytes);
-
-        // 현재 사용자가 답변한 질문
-        InterviewQuestion question = interviewQuestionRepository.findById(request.getQuestionId())
-                .orElseThrow(() -> new GeneralException(ErrorStatus.QUESTION_NOT_FOUND));
-
-        // 사용자의 답변 저장
-        InterviewAnswer answer =
-                interviewAnswerRepository.save(InterviewAnswer.builder()
-                        .interviewQuestion(question)
-                        .answerAudioUrl(savedFilePath)
-                        .answerText("아직 텍스트를 반환하는 로직이 구현되지 않아 임시 텍스트를 반환합니다.")
-                        .build());
-
-        // 생성된 질문 저장
-        InterviewQuestion generatedQuestion = interviewQuestionRepository.save(
-                InterviewQuestion.builder()
-                        .questionText(aiPipelineResponse.getQuestionText())
-                        .sequence(question.getSequence() + 1)
-                        .interview(interview)
-                        .build());
-
-        // 생성된 텍스트 및 오디오 파일 반환
-        return FollowUpQuestionDTO.builder()
-                .interviewId(interviewId)
-                .sttResult("현재 텍스트 제공 x")
-                .followUpQuestion(aiPipelineResponse.getQuestionText())
-                .ttsAudioBase64(aiPipelineResponse.getTtsAudioBase64()) // 임시 원본 데이터 반환
-                .questionId(generatedQuestion.getId())
-                .build();
-    }
-
 
     // 웹소켓 연결 전, 클라이언트가 구독 할 인터뷰 pk를 발급하고, 첫 질문 텍스트를 TTS로 변환하여 전달함
+    // todo: facade 패턴 도입을 통해 메서드 분리 필요(커넥션 풀 고갈 문제 고려)
     @Transactional
     public WebSocketConnectResponse issueWebSocketId(String email) {
 
@@ -133,6 +89,9 @@ public class InterviewService {
                 .build());
         log.info("인터뷰 세션 생성 성공 interviewId: {}", interview.getId());
 
+        // 인터뷰 시작 처리
+        interview.interviewInProgress();
+
         // 생성된 질문 DB에 삽입
         InterviewQuestion question = interviewQuestionRepository.save(InterviewQuestion.builder()
                 .interview(interview)
@@ -147,6 +106,153 @@ public class InterviewService {
                 .ttsAudioBase64(aiStartTtsResponse.getTtsAudioBase64())
                 .build();
     }
+
+    /**
+     * 상태제어를 통한 DB 락, 오디오 파일을 서버에 저장함(퍼사드에서 호출됨)
+     */
+    @Transactional
+    public AiPipelineReadyDto lockQuestionAndSaveAudio(AudioMessageRequest request,
+            byte[] audioBytes)
+            throws IOException {
+
+        // 현재 사용자가 답변한 질문 조회
+        InterviewQuestion question = interviewQuestionRepository.findById(request.getQuestionId())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.QUESTION_NOT_FOUND));
+
+        Interview interview = question.getInterview();
+
+        Member member = interview.getMember();
+
+        // 만약 저장중이라면 409 예외 발생
+        if (question.getStatus() == InterviewStatus.IN_PROGRESS) {
+            throw new GeneralException(ErrorStatus.QUESTION_NOT_SAVED);
+        }
+
+        // 저장 시작 -> DB 락
+        question.interviewQuestionInProgress();
+
+        // 파일 저장 후 저장한 경로를 반환
+        // 파일 저장 유틸 메서드 호출
+        String savedFilePath = saveAnswerFile(audioBytes, member.getId(), interview.getId());
+
+        return AiPipelineReadyDto.builder()
+                .savedFilePath(savedFilePath)
+                .sequence(question.getSequence() + 1)
+                .nickname(member.getNickname())
+                .previousQuestion(question.getQuestionText())
+                .build();
+    }
+
+    /**
+     * AI 서버와의 성공적인 통신 이후 관련 반환값들을 DB에 반영하고 DB 락을 해제함 퍼사드에서 호출됨
+     */
+    @Transactional
+    public FollowUpQuestionDTO saveAiResultAndUnlock(AudioMessageRequest request,
+            AiPipelineResponse aiPipelineResponse,
+            String savedFilePath) {
+
+        InterviewQuestion question = interviewQuestionRepository.findById(request.getQuestionId())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.QUESTION_NOT_FOUND));
+
+        Interview interview = question.getInterview();
+
+        log.info("사용자 답변 텍스트 DB에 저장");
+        // InterviewAnswer 엔티티 생성 및 save(생성된 꼬리질문 + savedFilePath) 활용
+        InterviewAnswer answer = interviewAnswerRepository.save(
+                InterviewAnswer.builder()
+                        .interviewQuestion(question)
+                        .answerText(aiPipelineResponse.getSttText())
+                        .answerAudioUrl(savedFilePath)
+                        .build()
+        );
+
+        // 다음 인터뷰 질문 엔티티 생성 및 저장
+        InterviewQuestion generatedQuestion = interviewQuestionRepository.save(
+                InterviewQuestion.builder()
+                        .interview(interview)
+                        .sequence(question.getSequence() + 1)
+                        .questionText(aiPipelineResponse.getQuestionText())
+                        .build()
+        );
+
+        // 저장 완료 후 락 해제
+        question.interviewQuestionFinished();
+
+        // 생성된 텍스트 및 오디오 파일 반환
+        return FollowUpQuestionDTO.builder()
+                .interviewId(interview.getId())
+                .sttResult(aiPipelineResponse.getSttText())
+                .followUpQuestion(aiPipelineResponse.getQuestionText())
+                .ttsAudioBase64(aiPipelineResponse.getTtsAudioBase64())
+                .questionId(generatedQuestion.getId())
+                .build();
+    }
+
+
+    // 인터뷰 종료 메서드
+    // todo: facade 패턴 도입을 통해 메서드 분리 필요(커넥션 풀 고갈 문제 고려)
+    @Transactional
+    public String exitInterview(InterviewExitRequest request, String email) {
+        // 필요한 인자 -> 사용자, 지금 인터뷰 객체, 지금 질문 객체
+
+        // 필요 도메인 엔티티
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+        Interview interview = interviewRepository.findById(request.getInterviewId())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+        InterviewQuestion question = interviewQuestionRepository.findById(request.getQuestionId())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.QUESTION_NOT_FOUND));
+
+        // 현재 저장을 진행중인 질문이 있다면 예외를 발생시킴
+        if (question.getStatus() == InterviewStatus.IN_PROGRESS) {
+            throw new GeneralException(ErrorStatus.QUESTION_NOT_SAVED);
+        }
+
+        // 저장 진행중인 질문이 없다면 아래 로직을 실행함
+        // 인터뷰의 모든 질문과 답변을 불러와서 조립
+        String aiRequest = "";
+        int counting = 1;
+
+        List<InterviewQuestion> interviewQuestions = interview.getInterviewQuestions();
+        for (InterviewQuestion interviewQuestion : interviewQuestions) {
+            InterviewAnswer interviewAnswer = interviewQuestion.getInterviewAnswer();
+            // 사용자가 마지막에 답변하지 않고 인터뷰를 종료 했을 경우
+            if (interviewAnswer == null) {
+                // 해당 질문은 DB에서 삭제함
+                interviewQuestionRepository.delete(interviewQuestion);
+                continue;
+            }
+            aiRequest =
+                    aiRequest + "Q" + counting + interviewQuestion.getQuestionText() + "\n" + "A"
+                            + counting + interviewAnswer.getAnswerText()
+                            + "\n"
+                            + "\n";
+
+            counting += 1;
+
+        }
+
+        log.info("다음 질문 생성 AI 호출");
+        AiNextOpeningResponse aiNextOpeningResponse = aiUtils.callFastApiForNextOpening(
+                AiNextOpeningRequest.builder().interviewContext(aiRequest).nickname(
+                        member.getNickname()).build());
+        // todo: AI 제목 생성 로직 merge 되면 사용
+//        log.info("이번 인터뷰 제목 요약 AI 호출");
+//        AiTitleResponse aiTitleResponse = aiUtils.callFastApiForInterviewTitle(
+//                AiTitleRequest.builder().interviewContext(aiRequest).build());
+
+        // 다음 질문 저장
+        questionCandidateRepository.save(QuestionCandidate.builder()
+                .questionText(aiNextOpeningResponse.getDbQuestion())
+                .member(member)
+                .build());
+
+        // 인터뷰 제목 업데이트
+        interview.interviewFinished("AI 제목 생성 로직 merge 되기 이전이므로 임시 텍스트를 반환합니다.");
+        // 인터뷰 제목 반환
+        return "AI 제목 생성 로직 merge 되기 이전이므로 임시 텍스트를 반환합니다.";
+    }
+
 
     /**
      * 음성 바이트 배열을 지정된 경로에 저장하는 유틸 메서드
