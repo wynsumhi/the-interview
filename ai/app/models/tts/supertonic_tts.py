@@ -17,6 +17,7 @@ from app.core.settings import (
     DEFAULT_TTS_SPEED,
     DEFAULT_TTS_STEPS,
     DEFAULT_TTS_VOICE,
+    DEFAULT_TTS_WARMUP_TEXT,
 )
 
 
@@ -98,3 +99,26 @@ def synthesize_speech(
     """
     sf.write(buffer, wav.squeeze(), engine.sample_rate, format="WAV")
     return buffer.getvalue()
+
+
+def warm_up_speech_engine() -> None:
+    """서버 startup 시점에 기본 TTS 경로를 한 번 실행해 첫 요청 지연을 줄인다.
+
+    모델 인스턴스만 메모리에 올려 두면 실제 첫 합성 시점에 voice style 조회와 ONNX 세션
+    준비 비용이 남을 수 있으므로, 기본 설정으로 서비스 입력과 비슷한 길이의 문장을
+    한 번 합성해 warm 상태를 만든다.
+    """
+
+    _get_tts_engine()
+    _get_voice_style(DEFAULT_TTS_VOICE)
+
+    """실제 요청과 같은 synthesize_speech 경로 전체를 startup 단계에서 한 번 태워 두면,
+    첫 HTTP 요청에서만 크게 튀던 초기 응답 시간을 서버 기동 시간으로 옮길 수 있다.
+    """
+    synthesize_speech(
+        DEFAULT_TTS_WARMUP_TEXT,
+        voice=DEFAULT_TTS_VOICE,
+        lang=DEFAULT_TTS_LANGUAGE,
+        steps=DEFAULT_TTS_STEPS,
+        speed=DEFAULT_TTS_SPEED,
+    )
