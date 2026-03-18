@@ -54,6 +54,11 @@ def run_interview_pipeline(
     # is_first_finished=False이면 최초 인터뷰, True이면 일반 인터뷰 프롬프트를 사용한다.
     stt_text = speech_to_text(audio_file_path)
 
+    # 최초 인터뷰에서 sequence가 6 이상이면 5번째 질문에 대한 마지막 답변이므로
+    # STT 결과만 반환하고 LLM과 TTS는 실행하지 않는다.
+    if not is_first_finished and (sequence or 1) >= 6:
+        return InterviewPipelineResult(stt_text=stt_text, llm_text="", tts_audio=b"")
+
     if not is_first_finished:
         system = FIRST_INTERVIEW_SYSTEM_PROMPT
         messages = _build_first_interview_messages(
