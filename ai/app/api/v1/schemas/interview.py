@@ -38,7 +38,7 @@ class InterviewPipelineResponse(BaseModel):
     Attributes:
         stt_text: 업로드된 답변 음성을 STT로 변환한 텍스트.
         question_text: 후속 질문 생성 결과로 TTS 입력에도 사용되는 질문 텍스트.
-        tts_audio_base64: `question_text`를 TTS로 변환한 mp3 바이트를 base64로 인코딩한 값.
+        tts_audio_base64: `question_text`를 TTS로 변환한 wav 바이트를 base64로 인코딩한 값.
         tts_audio_mime_type: base64 오디오의 MIME 타입.
     """
 
@@ -48,8 +48,8 @@ class InterviewPipelineResponse(BaseModel):
     question_text: str
     # 바이너리 오디오를 JSON 응답으로 전달하기 위해 base64 문자열로 직렬화한다.
     tts_audio_base64: str
-    # 현재 TTS 출력 포맷은 mp3이므로 MIME 타입 기본값은 audio/mpeg로 둔다.
-    tts_audio_mime_type: str = "audio/mpeg"
+    # 현재 TTS 출력 포맷은 wav이므로 MIME 타입 기본값은 audio/wav로 둔다.
+    tts_audio_mime_type: str = "audio/wav"
 
 
 class MagazineTitleRequest(BaseModel):
@@ -99,7 +99,7 @@ class InterviewStartTTSResponse(BaseModel):
 
     Attributes:
         question_text: 신규 여부 분기 후 실제로 TTS에 사용된 최종 질문 텍스트.
-        tts_audio_base64: `question_text`를 TTS로 변환한 mp3 바이트를 base64 문자열로 인코딩한 값.
+        tts_audio_base64: `question_text`를 TTS로 변환한 wav 바이트를 base64 문자열로 인코딩한 값.
         tts_audio_mime_type: base64 오디오의 MIME 타입.
     """
 
@@ -107,5 +107,5 @@ class InterviewStartTTSResponse(BaseModel):
     question_text: str
     # 바이너리 오디오를 JSON 응답에 담기 위해 base64 문자열로 직렬화한다.
     tts_audio_base64: str
-    # 현재 TTS provider가 mp3 바이트를 반환하므로 기본 MIME 타입은 audio/mpeg로 고정한다.
-    tts_audio_mime_type: str = "audio/mpeg"
+    # 현재 TTS provider가 wav 바이트를 반환하므로 기본 MIME 타입은 audio/wav로 고정한다.
+    tts_audio_mime_type: str = "audio/wav"

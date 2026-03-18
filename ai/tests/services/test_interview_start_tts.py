@@ -60,6 +60,6 @@ def test_generate_interview_start_tts_returns_base64_audio() -> None:
     assert result == {
         "question_text": "DB에 저장된 시작 질문입니다.",
         "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
-        "tts_audio_mime_type": "audio/mpeg",
+        "tts_audio_mime_type": "audio/wav",
     }
     tts_mock.assert_called_once_with("DB에 저장된 시작 질문입니다.")

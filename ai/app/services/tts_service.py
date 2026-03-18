@@ -1,4 +1,4 @@
-from app.models.tts.openai_tts import synthesize_speech
+from app.models.tts.supertonic_tts import synthesize_speech
 
 
 def text_to_speech(question_text: str) -> bytes:
