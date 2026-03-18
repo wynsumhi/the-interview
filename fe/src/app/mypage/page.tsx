@@ -24,9 +24,16 @@ export default function MyPage() {
   }, []);
 
   const handleSave = async () => {
-    await updateMe({ nickname });
-    // 변경사항 저장 후 아카이브 페이지로 이동
-    router.push("/archive");
+    if (!nickname.trim()) {
+      alert("닉네임을 입력해 주세요.");
+      return;
+    }
+    try {
+      await updateMe({ nickname });
+      router.push("/archive");
+    } catch (error) {
+      alert("변경사항 저장에 실패했습니다. 다시 시도해 주세요.");
+    }
   };
 
   return (
