@@ -5,7 +5,7 @@ class NextOpeningRequest(BaseModel):
     """다음 회차 첫 질문 생성 요청 본문.
 
     Attributes:
-        previous_context: 직전 인터뷰 내용을 백엔드가 텍스트로 조합해 전달한 값.
+        interview_context: 직전 인터뷰 내용을 백엔드가 텍스트로 조합해 전달한 값.
             어떤 내용을 포함할지는 백엔드가 interview_id 기반으로 판단한다.
             - 2회차 생성 시: 1회차의 5번째 Q&A만 포함.
             - 3회차+ 생성 시: 직전 인터뷰 전체 Q&A 포함.
@@ -17,7 +17,7 @@ class NextOpeningRequest(BaseModel):
         nickname: 사용자 닉네임. 환영 인사에 자연스러운 경우 사용한다.
     """
 
-    previous_context: str
+    interview_context: str
     nickname: str | None = None
 
 
@@ -50,6 +50,31 @@ class InterviewPipelineResponse(BaseModel):
     tts_audio_base64: str
     # 현재 TTS 출력 포맷은 mp3이므로 MIME 타입 기본값은 audio/mpeg로 둔다.
     tts_audio_mime_type: str = "audio/mpeg"
+
+
+class MagazineTitleRequest(BaseModel):
+    """매거진 타이틀 생성 요청 본문.
+
+    Attributes:
+        interview_context: 인터뷰 전체 Q&A 내용을 백엔드가 텍스트로 조합해 전달한 값.
+            포맷은 아래 형식을 따른다 (Q&A 번호 필수):
+                Q1. [질문 텍스트]
+                A1. [사용자 답변 텍스트]
+                Q2. [질문 텍스트]
+                A2. [사용자 답변 텍스트]
+    """
+
+    interview_context: str
+
+
+class MagazineTitleResponse(BaseModel):
+    """매거진 타이틀 생성 응답 본문.
+
+    Attributes:
+        title: LLM이 생성한 매거진 스타일 타이틀 텍스트.
+    """
+
+    title: str
 
 
 class InterviewStartTTSRequest(BaseModel):
