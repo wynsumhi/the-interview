@@ -32,6 +32,7 @@ class TestInterviewPipeline(unittest.TestCase):
             ):
                 result = run_interview_pipeline(
                     str(audio_file),
+                    is_first_finished=True,
                     max_tokens=256,
                 )
 

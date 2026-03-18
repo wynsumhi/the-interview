@@ -1,3 +1,3 @@
-from app.models.tts.openai_tts import synthesize_speech
+from app.models.tts.supertonic_tts import synthesize_speech
 
 __all__ = ["synthesize_speech"]

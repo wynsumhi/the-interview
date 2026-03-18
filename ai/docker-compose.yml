@@ -6,6 +6,17 @@ services:
     container_name: ai-fastapi
     env_file:
       - .env
+    environment:
+      DEFAULT_TTS_PROVIDER: cuda
+      DEFAULT_TTS_AUTO_DOWNLOAD: "true"
+      DEFAULT_TTS_PRELOAD_ON_STARTUP: "true"
+      UVICORN_WORKERS: "1"
+    gpus: all
     ports:
       - "8000:8000"
+    volumes:
+      - supertonic-cache:/root/.cache
     restart: unless-stopped
+
+volumes:
+  supertonic-cache:

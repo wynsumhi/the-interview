@@ -15,7 +15,7 @@ from app.services.tts_service import text_to_speech
 # 현재 인터뷰 답변 업로드 API는 webm 파일만 받도록 제한한다.
 ALLOWED_AUDIO_EXTENSIONS = {".webm"}
 # JSON 응답에서 사용하는 기본 오디오 MIME 타입이다.
-DEFAULT_AUDIO_MIME_TYPE = "audio/mpeg"
+DEFAULT_AUDIO_MIME_TYPE = "audio/wav"
 # 신규 유저의 첫 인터뷰 시작에서만 사용하는 하드코딩 질문 템플릿이다.
 NEW_USER_START_QUESTION_TEMPLATE = (
     "안녕하세요. {nickname}님. 오늘 시간 내주셔서 감사해요. 요즘 어떻게 지내고 계시나요?"
