@@ -187,6 +187,21 @@ div:hover > .folderItem {
   opacity: 0.5;
 }
 
+/* ── 무한 스크롤 ── */
+
+/* sentinel: 높이가 없으면 Observer가 감지하지 못하므로 최소 높이 설정 */
+.sentinel {
+  height: 1px;
+  width: 100%;
+}
+
+.statusText {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  padding: 12px 0;
+}
+
 /* ── 반응형 ── */
 @media (max-width: 1024px) {
   .container {
