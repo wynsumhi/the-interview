@@ -16,6 +16,11 @@ services:
       - '--web.route-prefix=/'
     networks:
       - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     #ports:
     #  - "9090:9090"
 
@@ -33,6 +38,11 @@ services:
     command:
       - '--path.rootfs=/host'
     network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     #ports:
     #  - "9100:9100"
 
@@ -55,6 +65,11 @@ services:
       - /dev/kmsg
     networks:
       - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     #ports:
     #  - "8080:8080"
     # port가 BE 스프링이랑 겹치기 때문에 오픈시 주의필요
@@ -76,6 +91,11 @@ services:
       - GF_AUTH_ROLE_VIEWER_CAN_EXPLORE=true
     networks:
       - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     #ports:
     #  - "3001:3000"
     # port가 FE이랑 겹치기 때문에 오픈시 주의필요
@@ -88,10 +108,18 @@ services:
       resources:
         limits:
           memory: 1G
+    volumes:
+      # Loki 로그 저장 경로
+      - /home/ubuntu/monitoring/data/loki-data:/loki
     command:
       - '--config.file=/etc/loki/local-config.yaml'
     networks:
       - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     #ports:
     #  - "3100:3100"
 
@@ -111,10 +139,17 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       # 설정 파일
       - ./promtail-config.yml:/etc/promtail/config.yml
+      # 로그 파일 경로
+      - /home/ubuntu/monitoring/data/promtail:/tmp
     command:
       - '--config.file=/etc/promtail/config.yml'
     networks:
       - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   theinterview-net:
