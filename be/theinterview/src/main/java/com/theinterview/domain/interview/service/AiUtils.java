@@ -7,6 +7,8 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningRespon
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
+import com.theinterview.domain.interview.dto.InterviewRequest.AudioChuckRequest;
+import com.theinterview.domain.interview.dto.InterviewResponse.SttChunkResponse;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,45 @@ import reactor.core.publisher.Mono;
 public class AiUtils {
 
     private final WebClient webClient;
+
+    // 클라이언트에서 청킹해서 보내는 audio 조각을 STT로 변환만을 담당하는 메서드
+    public Mono<SttChunkResponse> callFastApiForSttChunk(AudioChuckRequest request) {
+
+        // multipart/form-data 생성을 위한 빌더
+        MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
+
+        // 오디오 파일 세팅(.webm)
+        ByteArrayResource audioResource = new ByteArrayResource(request.getAudioData()) {
+            @Override
+            public String getFilename() {
+                return "answer.webm";
+            }
+        };
+        bodyBuilder.part("audio_file", audioResource)
+                .contentType(MediaType.parseMediaType("audio/webm"));
+
+        log.info("청킹된 오디오 파일 STT 변환을 위한 통신 시작");
+
+        // WebFlux 비동기 체인 시작
+        return webClient.post()
+                .uri("api/v1/ai/stt")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
+                .retrieve() // 요청을 비동기적으로 쓴다는 선언
+                // 비동기 환경에서는 try-catch가 작동하지 않음, 체인 내부에서 예외를 잡아 처리함
+                .onStatus(status -> status.is4xxClientError(), clientResponse -> {
+                    log.error("FastAPI 4xx 에러 발생");
+                    // Mono.error를 통해 비동기 스트림에 에러 발생 신호를 보냄
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                .onStatus(status -> status.is5xxServerError(), clientResponse -> {
+                    log.error("FastAPI 5xx 에러 발생");
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                // Json 응답을 DTO로 변환하겠다는 약속만 넘기고 메서드를 즉시 종료함
+                .bodyToMono(SttChunkResponse.class);
+
+    }
 
     // fast api를 호출하여 꼬리질문 관련 파이프라인을 거치는 헬퍼 메서드
     public AiPipelineResponse callFastApiForNextQuestion(
