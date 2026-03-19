@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { MOCK_ARCHIVE_LIST } from "@/constants/mockData";
 import { logout } from "@/services/auth";
-import { getMe, updateMe } from "@/services/member";
+import { getMe, updateMe, deleteMe } from "@/services/member";
 import styles from "./page.module.css";
 
 export default function MyPage() {
@@ -101,7 +101,26 @@ export default function MyPage() {
             />
           </div>
           <div className={styles.btnGroup}>
-            <button className={styles.withdrawBtn}>회원탈퇴</button>
+            <button
+              className={styles.withdrawBtn}
+              onClick={async () => {
+                if (confirm("정말로 회원 탈퇴를 진행하시겠습니까?")) {
+                  try {
+                    await deleteMe();
+                    await logout();
+                    router.push("/login");
+                  } catch (error: unknown) {
+                    const message =
+                      (error as { response?: { data?: { message?: string } } })
+                        ?.response?.data?.message ??
+                      "회원 탈퇴에 실패했습니다. 다시 시도해 주세요.";
+                    alert(message);
+                  }
+                }
+              }}
+            >
+              회원탈퇴
+            </button>
             <button className={styles.saveBtn} onClick={handleSave}>
               변경사항 저장
             </button>
