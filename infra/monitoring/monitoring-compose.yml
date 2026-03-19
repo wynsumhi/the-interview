@@ -29,7 +29,7 @@ services:
         limits:
           memory: 256M
     volumes:
-      - '/:/host:ro'
+      - /:/host:ro
     command:
       - '--path.rootfs=/host'
     network_mode: "host"
@@ -66,17 +66,55 @@ services:
     deploy:
       resources:
         limits:
-          memory: 300M
+          memory: 512M
     volumes:
       - grafana-storage:/var/lib/grafana
     environment:
       - GF_SERVER_ROOT_URL=https://j14a307.p.ssafy.io/infra/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_USERS_VIEWERS_CAN_EDIT=false
+      - GF_AUTH_ROLE_VIEWER_CAN_EXPLORE=true
     networks:
       - theinterview-net
     #ports:
     #  - "3001:3000"
     # port가 FE이랑 겹치기 때문에 오픈시 주의필요
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    command:
+      - '--config.file=/etc/loki/local-config.yaml'
+    networks:
+      - theinterview-net
+    #ports:
+    #  - "3100:3100"
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    user: root
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    volumes:
+      # Docker 소켓 직접 연결
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Docker 로그 경로
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # 설정 파일
+      - ./promtail-config.yml:/etc/promtail/config.yml
+    command:
+      - '--config.file=/etc/promtail/config.yml'
+    networks:
+      - theinterview-net
 
 networks:
   theinterview-net:
