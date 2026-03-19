@@ -1,0 +1,20 @@
+global:
+  # 10초마다 데이터 수집
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      # 단일 EC2의 데이터를 수집해서 localhost
+      - targets: [ 'prometheus:9090' ]
+
+    # 서버의 내부 자원 모니터링
+  - job_name: 'node-exporter'
+    static_configs:
+      # networks-mode가 host로 EC2 내부로 접근
+      - targets: [ '172.19.0.1:9100' ]
+
+    # 도커의 각 컨테이너의 내부 자원 모니터링
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: [ 'cadvisor:8080' ]
