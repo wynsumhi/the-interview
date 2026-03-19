@@ -94,38 +94,30 @@
   flex-direction: column;
 }
 
-/* ── 탭 스택: 모든 폴더의 탭이 겹쳐 쌓임 ── */
-.tabStack {
-  position: relative;
-  width: 100%;
-  flex-shrink: 0;
-  /* 전체 탭 높이 = n × TAB_HEIGHT */
-  height: calc(var(--n) * var(--tab-h));
+/* ── 폴더 영역: flex 컬럼 컨테이너 ── */
+.folderArea {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-/* 각 탭 아이템: absolute로 정확히 겹쳐 쌓기 */
+/* ── 비활성 탭 아이템: flex 흐름 안에서 자연 배치 ── */
 .tabItem {
-  position: absolute;
-  left: 0;
-  width: 100%;
+  flex-shrink: 0;
   cursor: pointer;
-  /* 비활성 탭은 약간 투명하게 */
-  opacity: 0.65;
-  transition: opacity 0.2s;
 }
 
-/* 활성 탭: 완전 불투명 + 살짝 올라온 느낌 */
-.activeTab {
-  opacity: 1;
-}
-
-.activeTab .folderTab {
-  box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.1);
-}
-
-/* 비활성 탭 호버 */
-.tabItem:not(.activeTab):hover {
+.tabItem:hover {
   opacity: 0.85;
+}
+
+/* ── 활성 폴더: folderTab + folderBody를 직접 연결한 단일 flex 컨테이너 ── */
+.activeFolder {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── 폴더 탭 ── */
@@ -175,31 +167,36 @@
 
 /* ── 색상 테마 ── */
 .sage .folderTab,
-.sage .folderBody {
+.sage .folderBody,
+.sage.tabItem {
   background: var(--sage);
   color: var(--fg);
 }
 
 .lavender .folderTab,
-.lavender .folderBody {
+.lavender .folderBody,
+.lavender.tabItem {
   background: var(--lavender);
   color: var(--fg);
 }
 
 .blush .folderTab,
-.blush .folderBody {
+.blush .folderBody,
+.blush.tabItem {
   background: var(--blush);
   color: var(--fg);
 }
 
 .charcoal .folderTab,
-.charcoal .folderBody {
+.charcoal .folderBody,
+.charcoal.tabItem {
   background: var(--charcoal);
   color: var(--bg);
 }
 
 .warm .folderTab,
-.warm .folderBody {
+.warm .folderBody,
+.warm.tabItem {
   background: var(--warm);
   color: var(--fg);
 }
@@ -251,9 +248,9 @@
     width: 100%;
   }
 
-  /* 모바일: rightSection 고정 높이 부여 (탭 + body) */
+  /* 모바일: flex column이므로 height는 tabStack(motion)과 body(flex:1)가 결정 */
   .rightSection {
-    height: calc(var(--n, 5) * 42px + 320px);
+    height: 500px; /* 최소 높이 보장 */
   }
 
   .bodyInner {
