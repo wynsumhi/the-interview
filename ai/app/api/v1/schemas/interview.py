@@ -1,6 +1,12 @@
 from pydantic import BaseModel
 
 
+class SpeechToTextResponse(BaseModel):
+    """STT-only API response payload."""
+
+    stt_text: str
+
+
 class NextOpeningRequest(BaseModel):
     """다음 회차 첫 질문 생성 요청 본문.
 
