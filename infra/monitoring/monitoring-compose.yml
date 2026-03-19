@@ -57,8 +57,30 @@ services:
       - theinterview-net
     #ports:
     #  - "8080:8080"
-  # port가 BE 스프링이랑 겹치기 때문에 오픈시 주의필요
+    # port가 BE 스프링이랑 겹치기 때문에 오픈시 주의필요
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    environment:
+      - GF_SERVER_ROOT_URL=https://j14a307.p.ssafy.io/infra/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    networks:
+      - theinterview-net
+    #ports:
+    #  - "3001:3000"
+    # port가 FE이랑 겹치기 때문에 오픈시 주의필요
 
 networks:
   theinterview-net:
     external: true
+
+volumes:
+  grafana-storage:
