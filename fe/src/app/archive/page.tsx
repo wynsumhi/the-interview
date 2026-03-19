@@ -48,10 +48,30 @@ export default function ArchivePage() {
     useInterviewHistory();
 
   const interviews = data?.pages.flatMap((p) => p.interviews) ?? [];
+  console.log(
+    "[ArchivePage] interviews 누적 →",
+    interviews.length,
+    "개 / pages 수 =",
+    data?.pages.length ?? 0,
+    "/ hasNextPage =",
+    hasNextPage,
+  );
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [direction, setDirection] = useState(1);
   const isAnimating = useRef(false);
+
+  // activeIndex 변화 추적
+  useEffect(() => {
+    console.log(
+      "[ArchivePage] activeIndex =",
+      activeIndex,
+      "/ interviews.length =",
+      interviews.length,
+      "/ fetchNextPage 트리거 조건 =",
+      activeIndex + VISIBLE >= interviews.length && hasNextPage,
+    );
+  }, [activeIndex, interviews.length, hasNextPage]);
   const didPrefetch = useRef(false);
 
   // 데이터 범위 보정
@@ -98,12 +118,20 @@ export default function ArchivePage() {
       }, 500);
 
       // 윈도우 끝(activeIndex + VISIBLE)이 로드된 데이터 끝에 가까워지면 프리페치
+      console.log(
+        "[navigate] next =", next,
+        "/ interviews.length =", interviews.length,
+        "/ hasNextPage =", hasNextPage,
+        "/ isFetchingNextPage =", isFetchingNextPage,
+        "/ 트리거 여부 =", delta > 0 && next + VISIBLE >= interviews.length && hasNextPage && !isFetchingNextPage,
+      );
       if (
         delta > 0 &&
         next + VISIBLE >= interviews.length &&
         hasNextPage &&
         !isFetchingNextPage
       ) {
+        console.log("[navigate] fetchNextPage() 호출");
         fetchNextPage();
       }
     },
