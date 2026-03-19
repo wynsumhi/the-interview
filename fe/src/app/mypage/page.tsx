@@ -23,6 +23,8 @@ export default function MyPage() {
     });
   }, []);
 
+  // 회원 정보 변경 저장 처리 함수
+  // 닉네임 유효성 검사: 3~8자의 영문 또는 한글만 허용
   const handleSave = async () => {
     const nicknameRegex = /^[a-zA-Z가-힣]{3,8}$/;
     if (!nicknameRegex.test(nickname)) {
@@ -38,6 +40,26 @@ export default function MyPage() {
           ?.data?.message ??
         "변경사항 저장에 실패했습니다. 다시 시도해 주세요.";
       alert(message);
+    }
+  };
+
+  // 회원 탈퇴 처리 함수
+  const handleWithdraw = async () => {
+    if (confirm("정말로 회원탈퇴 하시겠습니까?")) {
+      try {
+        await deleteMe();
+        await logout();
+        // 토큰 제거
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        document.cookie = "accessToken=; path=/; max-age=0";
+        router.push("/");
+      } catch (error: unknown) {
+        const message =
+          (error as { response?: { data?: { message?: string } } })?.response
+            ?.data?.message ?? "회원탈퇴에 실패했습니다. 다시 시도해 주세요.";
+        alert(message);
+      }
     }
   };
 
@@ -101,24 +123,7 @@ export default function MyPage() {
             />
           </div>
           <div className={styles.btnGroup}>
-            <button
-              className={styles.withdrawBtn}
-              onClick={async () => {
-                if (confirm("정말로 회원 탈퇴를 진행하시겠습니까?")) {
-                  try {
-                    await deleteMe();
-                    await logout();
-                    router.push("/login");
-                  } catch (error: unknown) {
-                    const message =
-                      (error as { response?: { data?: { message?: string } } })
-                        ?.response?.data?.message ??
-                      "회원 탈퇴에 실패했습니다. 다시 시도해 주세요.";
-                    alert(message);
-                  }
-                }
-              }}
-            >
+            <button className={styles.withdrawBtn} onClick={handleWithdraw}>
               회원탈퇴
             </button>
             <button className={styles.saveBtn} onClick={handleSave}>
