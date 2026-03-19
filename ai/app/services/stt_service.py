@@ -1,9 +1,23 @@
 import logging
+import shutil
+import tempfile
 import time
+from pathlib import Path
+
+from fastapi import UploadFile
 
 from app.models.stt.openai_stt import transcribe_audio_file
 
 logger = logging.getLogger("uvicorn.error")
+ALLOWED_AUDIO_EXTENSIONS = {".webm"}
+
+
+def validate_audio_upload(audio_file: UploadFile) -> None:
+    """Reject unsupported upload extensions before invoking the STT provider."""
+
+    suffix = Path(audio_file.filename or "").suffix.lower()
+    if suffix not in ALLOWED_AUDIO_EXTENSIONS:
+        raise ValueError("Only .webm audio uploads are supported.")
 
 
 def speech_to_text(audio_file_path: str) -> str:
@@ -24,3 +38,23 @@ def speech_to_text(audio_file_path: str) -> str:
         stt_text,
     )
     return stt_text
+
+
+def speech_to_text_from_upload(audio_file: UploadFile) -> dict[str, str]:
+    """Persist an uploaded file temporarily and return its transcription."""
+
+    validate_audio_upload(audio_file)
+
+    suffix = Path(audio_file.filename or "audio.webm").suffix.lower() or ".webm"
+    temp_file_path: Path | None = None
+
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            shutil.copyfileobj(audio_file.file, temp_file)
+            temp_file_path = Path(temp_file.name)
+
+        return {"stt_text": speech_to_text(str(temp_file_path))}
+    finally:
+        audio_file.file.close()
+        if temp_file_path is not None and temp_file_path.exists():
+            temp_file_path.unlink()

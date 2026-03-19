@@ -54,7 +54,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .setSendTimeLimit(10 * 1000);
     }
 
-    // 톰캣 서버 버퍼 용량 제한 해제
+    // 톰캣 서버 버퍼 용량 제한 해제 todo: 최적의 용량 제한을 걸어야 함
     @Bean
     public ServletServerContainerFactoryBean createWebSocketContainer() {
         ServletServerContainerFactoryBean container = new ServletServerContainerFactoryBean();
