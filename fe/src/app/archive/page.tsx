@@ -1,19 +1,49 @@
 "use client";
 
-import { MOCK_ARCHIVE_LIST } from "@/constants/mockData";
+import { useCallback } from "react";
+import { useInterviewHistory } from "@/hooks/useInterviewHistory";
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import styles from "./page.module.css";
 import Link from "next/link";
 
-const TAB_HEIGHT = 42; // folderTab 실제 높이 (padding 포함) — 렌더 결과에 따라 조정
+const TAB_HEIGHT = 42;
+const COLORS = [
+  styles.sage,
+  styles.lavender,
+  styles.blush,
+  styles.charcoal,
+  styles.warm,
+];
 
 export default function ArchivePage() {
-  const dataCount = MOCK_ARCHIVE_LIST.length;
-  // 최신 데이터가 가장 위(탭만 보이는 쪽)에 오도록 정렬
-  const interviews = [...MOCK_ARCHIVE_LIST].reverse();
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isError,
+  } = useInterviewHistory();
 
-  // 최소 5개의 슬롯
-  const displayItems = Array.from({ length: Math.max(5, dataCount) });
-  const totalItems = displayItems.length;
+  // 모든 페이지의 인터뷰를 하나의 배열로 펼치기
+  const interviews = data?.pages.flatMap((page) => page.interviews) ?? [];
+
+  // useEffect 의존성 안정화를 위해 메모이제이션
+  const handleIntersect = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  // sentinel이 뷰포트에 진입하면 handleIntersect 호출
+  // 다음 페이지가 없거나 로딩 중이면 Observer를 비활성화
+  const sentinelRef = useIntersectionObserver(handleIntersect, {
+    enabled: hasNextPage && !isFetchingNextPage,
+  });
+
+  // 최소 5개의 슬롯을 유지 (빈 폴더로 채움)
+  const totalItems = Math.max(5, interviews.length);
+  const displayItems = Array.from({ length: totalItems });
 
   return (
     <main className={styles.container}>
@@ -35,6 +65,14 @@ export default function ArchivePage() {
 
         {/* 오른쪽 섹션: 폴더 스택 — 스크롤 없이 고정 위치에 겹쳐 쌓임 */}
         <section className={styles.rightSection}>
+          {isLoading && (
+            <p className={styles.statusText}>불러오는 중...</p>
+          )}
+          {isError && (
+            <p className={styles.statusText}>
+              데이터를 불러올 수 없습니다.
+            </p>
+          )}
           <div
             className={styles.folderStack}
             style={
@@ -47,17 +85,9 @@ export default function ArchivePage() {
             {displayItems.map((_, idx) => {
               const item = interviews[idx];
               const isPlaceholder = !item;
-
-              const colors = [
-                styles.sage,
-                styles.lavender,
-                styles.blush,
-                styles.charcoal,
-                styles.warm,
-              ];
               const colorClass = isPlaceholder
                 ? styles.emptyFolder
-                : colors[idx % colors.length];
+                : COLORS[idx % COLORS.length];
 
               const folderContent = (
                 <div
@@ -65,7 +95,6 @@ export default function ArchivePage() {
                   style={{
                     // idx=0이 맨 아래(전체 보임), idx=마지막이 맨 위(탭만 보임)
                     top: `${(totalItems - 1 - idx) * TAB_HEIGHT}px`,
-                    // 아래쪽 폴더(idx=0)가 z-index 최상위 → body가 가장 앞에 보임
                     zIndex: totalItems - idx,
                   }}
                 >
@@ -74,7 +103,9 @@ export default function ArchivePage() {
                       CODE_{String(idx + 1).padStart(3, "0")} //
                     </span>
                     <span className={styles.tabTitle}>
-                      {isPlaceholder ? "EMPTY LOG" : item.title.split(":")[0]}
+                      {isPlaceholder
+                        ? "EMPTY LOG"
+                        : item.interviewTitle.split(":")[0]}
                     </span>
                   </div>
                   <div className={styles.folderBody}>
@@ -82,12 +113,13 @@ export default function ArchivePage() {
                       {!isPlaceholder && (
                         <>
                           <span className={styles.verticalDate}>
-                            {new Date(item.created_at).toLocaleDateString()}
+                            {new Date(item.interviewDate).toLocaleDateString(
+                              "ko-KR",
+                            )}
                           </span>
-                          <h2 className={styles.cardTitle}>{item.title}</h2>
-                          <span className={styles.verticalCount}>
-                            Q&A {item.qna_list.length}
-                          </span>
+                          <h2 className={styles.cardTitle}>
+                            {item.interviewTitle}
+                          </h2>
                         </>
                       )}
                     </div>
@@ -99,14 +131,20 @@ export default function ArchivePage() {
                 <div key={`empty-${idx}`}>{folderContent}</div>
               ) : (
                 <Link
-                  key={item.interview_id}
-                  href={`/magazine/${item.interview_id}`}
+                  key={item.interviewId}
+                  href={`/magazine/${item.interviewId}`}
                 >
                   {folderContent}
                 </Link>
               );
             })}
           </div>
+
+          {/* sentinel: 이 요소가 화면에 들어오면 다음 페이지 로드 */}
+          <div ref={sentinelRef} className={styles.sentinel} />
+          {isFetchingNextPage && (
+            <p className={styles.statusText}>더 불러오는 중...</p>
+          )}
         </section>
       </div>
     </main>
