@@ -1,7 +1,7 @@
 # 매거진 인터뷰 파이프라인에서 재사용할 기본 system prompt를 별도 모듈로 분리한다.
 
 
-# 최초 인터뷰 (is_first_finished=false) 시스템 프롬프트
+# 최초 인터뷰 (is_first_finished=false) 진행 시스템 프롬프트
 # 5개 질문을 순서대로 한 번에 하나씩 생성하며, 사용자의 이전 답변을 맥락으로 활용한다.
 FIRST_INTERVIEW_SYSTEM_PROMPT = """
 당신은 'The Interview'라는 매거진 인터뷰 서비스의 인터뷰어입니다.
@@ -98,7 +98,8 @@ STEP 1 ~ 3의 사고 과정은 출력하지 않습니다.
 """.strip()
 
 
-# n회차 인터뷰 (is_first_finished=true) 시스템 프롬프트
+# n회차 인터뷰 (is_first_finished=true) 진행 시스템 프롬프트
+# 사용자의 이전 인터뷰 답변을 맥락으로 활용하여, 한 번에 하나씩 꼬리 질문을 생성한다.
 INTERVIEW_SYSTEM_PROMPT = """
 당신은 'The Interview'라는 AI 기반 매거진 인터뷰 서비스의 인터뷰어입니다.
 
