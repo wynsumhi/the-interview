@@ -6,8 +6,8 @@ import { useInterviewHistory } from "@/hooks/useInterviewHistory";
 import styles from "./page.module.css";
 import Link from "next/link";
 
-const TAB_HEIGHT = 42;
-const VISIBLE = 5; // 슬라이딩 윈도우 크기
+const VISIBLE = 5;    // 슬라이딩 윈도우 크기
+const TAB_HEIGHT = 42; // 비활성 탭 고정 높이(px)
 const COLORS = [
   styles.sage,
   styles.lavender,
@@ -20,7 +20,7 @@ const COLORS = [
 const slideVariants: Variants = {
   enter: (dir: number) => ({
     opacity: 0,
-    y: dir > 0 ? 60 : -60,
+    y: dir > 0 ? -10 : 10,  // 앞으로: 위에서 아래로, 뒤로: 아래서 위로
   }),
   center: {
     opacity: 1,
@@ -30,11 +30,10 @@ const slideVariants: Variants = {
       ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number],
     },
   },
-  exit: (dir: number) => ({
+  exit: {
     opacity: 0,
-    y: dir > 0 ? -30 : 30,
     transition: { duration: 0.25, ease: "easeIn" },
-  }),
+  },
 };
 
 // 탭·높이 변화에 공통으로 적용할 트랜지션
@@ -99,10 +98,17 @@ export default function ArchivePage() {
   const windowStart = activeIndex;
   const visibleItems = interviews.slice(windowStart, windowStart + VISIBLE);
 
-  // 비활성 탭 목록 (activeIndex 제외)
+  // 비활성 탭 목록 (activeIndex 제외, 내림차순: 5→4→3→2)
   const inactiveItems = visibleItems
     .map((item, wi) => ({ item, windowIdx: wi, globalIdx: windowStart + wi }))
-    .filter(({ globalIdx }) => globalIdx !== activeIndex);
+    .filter(({ globalIdx }) => globalIdx !== activeIndex)
+    .reverse();
+
+  // 항상 VISIBLE-1개를 유지하도록 부족한 슬롯을 플레이스홀더로 채움
+  const placeholderCount = Math.max(0, VISIBLE - 1 - inactiveItems.length);
+  const placeholders = Array.from({ length: placeholderCount }, (_, i) => ({
+    key: `placeholder-${i}`,
+  }));
 
   const navigate = useCallback(
     (delta: number) => {
@@ -211,16 +217,25 @@ export default function ArchivePage() {
            */}
           <div className={styles.folderArea}>
 
-            {/* 비활성 탭: flex 흐름 상단에 쌓임, layout으로 위치 변화 애니메이션 */}
-            <AnimatePresence custom={direction}>
-              {inactiveItems.map(({ item, globalIdx }) => (
+            {/* 플레이스홀더: 고정 슬롯, top 인라인으로 위치 고정 */}
+            {placeholders.map(({ key }, i) => (
+              <div
+                key={key}
+                style={{ top: i * TAB_HEIGHT, height: TAB_HEIGHT }}
+                className={`${styles.tabItem} ${styles.emptyFolder}`}
+              />
+            ))}
+
+            {/* 비활성 탭: 각자 고정 top 좌표, opacity만 전환 */}
+            <AnimatePresence>
+              {inactiveItems.map(({ item, globalIdx }, i) => (
                 <motion.div
-                  layout
                   key={item.interviewId}
+                  style={{ top: (placeholders.length + i) * TAB_HEIGHT }}
                   className={`${styles.tabItem} ${COLORS[globalIdx % COLORS.length]}`}
-                  initial={{ opacity: 0, y: direction > 0 ? -TAB_HEIGHT : TAB_HEIGHT }}
-                  animate={{ opacity: 0.6, y: 0 }}
-                  exit={{ opacity: 0, y: direction > 0 ? -TAB_HEIGHT : TAB_HEIGHT }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0.6 }}
+                  exit={{ opacity: 0 }}
                   transition={SLIDE_TRANSITION}
                   onClick={() => {
                     if (!isAnimating.current) {
@@ -241,8 +256,8 @@ export default function ArchivePage() {
               ))}
             </AnimatePresence>
 
-            {/* 활성 폴더: folderTab + folderBody 직접 연결, 단일 슬라이드 단위 */}
-            <AnimatePresence custom={direction}>
+            {/* 활성 폴더: top/bottom 고정, y+opacity만 애니메이션 */}
+            <AnimatePresence custom={direction} initial={false}>
               {isLoading ? (
                 <motion.div
                   key="loading"

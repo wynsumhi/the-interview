@@ -94,17 +94,20 @@
   flex-direction: column;
 }
 
-/* ── 폴더 영역: flex 컬럼 컨테이너 ── */
+/* ── 폴더 영역: 절대 배치 컨테이너, 요소 간 레이아웃 간섭 없음 ── */
 .folderArea {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  position: relative;
 }
 
-/* ── 비활성 탭 아이템: flex 흐름 안에서 자연 배치 ── */
+/* ── 비활성 탭: 절대 배치, top은 인라인 스타일로 주입 ── */
 .tabItem {
-  flex-shrink: 0;
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 42px;
+  overflow: hidden;
   cursor: pointer;
 }
 
@@ -112,10 +115,13 @@
   opacity: 0.85;
 }
 
-/* ── 활성 폴더: folderTab + folderBody를 직접 연결한 단일 flex 컨테이너 ── */
+/* ── 활성 폴더: 절대 배치, top = (VISIBLE-1)*TAB_HEIGHT = 168px ── */
 .activeFolder {
-  flex: 1;
-  min-height: 0;
+  position: absolute;
+  top: 168px; /* (VISIBLE-1) * TAB_HEIGHT = 4 * 42 */
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
 }
