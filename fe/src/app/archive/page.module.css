@@ -1,6 +1,6 @@
 .container {
   height: 100vh;
-  overflow: hidden;
+  overflow: hidden; /* 바깥 페이지 스크롤 완전 차단 */
   padding: 0 var(--px);
   background-color: var(--bg);
   display: flex;
@@ -9,7 +9,7 @@
 
 .contentWrapper {
   flex: 1;
-  min-height: 0;
+  min-height: 0; /* flex 자식이 100vh를 초과하지 않도록 */
   display: flex;
   gap: 80px;
   max-width: var(--max-w);
@@ -19,7 +19,7 @@
   align-items: stretch;
 }
 
-/* 왼쪽 섹션 */
+/* ── 왼쪽 섹션 ── */
 .leftSection {
   flex: 0 0 240px;
   align-self: flex-start;
@@ -63,35 +63,69 @@
   color: var(--blush);
 }
 
-/* 오른쪽 섹션 */
+/* 현재 폴더 위치 카운터 */
+.navCounter {
+  margin-top: 40px;
+  font-family: var(--font-playfair);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.navCounter span {
+  font-size: 16px;
+  font-weight: 400;
+  opacity: 0.4;
+}
+
+.statusText {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── 오른쪽 섹션 ── */
 .rightSection {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden; /* 커스텀 휠 네비게이션, 내부 스크롤 없음 */
+  display: flex;
+  flex-direction: column;
 }
 
-/* 뷰포트 높이를 채우는 폴더 스택 */
-.folderStack {
+/* ── 탭 스택: 모든 폴더의 탭이 겹쳐 쌓임 ── */
+.tabStack {
   position: relative;
   width: 100%;
-  height: 100%;
+  flex-shrink: 0;
+  /* 전체 탭 높이 = n × TAB_HEIGHT */
+  height: calc(var(--n) * var(--tab-h));
 }
 
-/* 폴더 아이템: absolute로 겹쳐 쌓기 */
-.folderItem {
+/* 각 탭 아이템: absolute로 정확히 겹쳐 쌓기 */
+.tabItem {
   position: absolute;
-  width: 100%;
   left: 0;
-  height: 100%;
-  transition:
-    transform 0.25s ease,
-    filter 0.25s ease;
+  width: 100%;
+  cursor: pointer;
+  /* 비활성 탭은 약간 투명하게 */
+  opacity: 0.65;
+  transition: opacity 0.2s;
 }
 
-/* 호버 시 살짝 들어올리기 */
-a:hover > .folderItem,
-div:hover > .folderItem {
-  transform: translateY(-8px);
-  filter: brightness(1.03);
+/* 활성 탭: 완전 불투명 + 살짝 올라온 느낌 */
+.activeTab {
+  opacity: 1;
+}
+
+.activeTab .folderTab {
+  box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* 비활성 탭 호버 */
+.tabItem:not(.activeTab):hover {
+  opacity: 0.85;
 }
 
 /* ── 폴더 탭 ── */
@@ -115,11 +149,20 @@ div:hover > .folderItem {
   letter-spacing: 0.05em;
 }
 
-/* ── 폴더 바디: 전체 높이에서 탭 n개를 뺀 나머지 ── */
+/* ── 폴더 바디: 탭 아래 나머지 공간 전체를 채움 ── */
 .folderBody {
-  height: calc(100% - var(--n) * var(--tab-h));
+  flex: 1;
+  min-height: 0;
   border-radius: 4px;
   box-shadow: 0 -15px 30px rgba(0, 0, 0, 0.08);
+}
+
+/* 바디를 Link로 감쌀 때 전체 영역을 클릭 가능하게 */
+.bodyLink {
+  display: block;
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
 }
 
 .bodyInner {
@@ -178,28 +221,12 @@ div:hover > .folderItem {
   word-break: keep-all;
 }
 
-.verticalDate,
-.verticalCount {
+.verticalDate {
   writing-mode: vertical-rl;
   transform: rotate(180deg);
   font-size: 13px;
   font-weight: 600;
   opacity: 0.5;
-}
-
-/* ── 무한 스크롤 ── */
-
-/* sentinel: 높이가 없으면 Observer가 감지하지 못하므로 최소 높이 설정 */
-.sentinel {
-  height: 1px;
-  width: 100%;
-}
-
-.statusText {
-  font-size: 13px;
-  color: var(--muted);
-  text-align: center;
-  padding: 12px 0;
 }
 
 /* ── 반응형 ── */
@@ -212,7 +239,7 @@ div:hover > .folderItem {
   .contentWrapper {
     flex-direction: column;
     flex: none;
-    height: auto;
+    min-height: 0;
     gap: 48px;
     padding-bottom: 60px;
   }
@@ -224,16 +251,9 @@ div:hover > .folderItem {
     width: 100%;
   }
 
+  /* 모바일: rightSection 고정 높이 부여 (탭 + body) */
   .rightSection {
-    height: calc(var(--n, 5) * var(--tab-h, 42px) + 280px);
-  }
-
-  .folderStack {
-    height: 100%;
-  }
-
-  .folderItem {
-    height: 100%;
+    height: calc(var(--n, 5) * 42px + 320px);
   }
 
   .bodyInner {

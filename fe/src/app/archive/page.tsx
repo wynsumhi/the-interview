@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useInterviewHistory } from "@/hooks/useInterviewHistory";
-import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import styles from "./page.module.css";
 import Link from "next/link";
 
@@ -15,6 +15,24 @@ const COLORS = [
   styles.warm,
 ];
 
+// 스크롤 방향(direction)에 따라 body가 아래→위(down) 또는 위→아래(up)로 슬라이드
+const bodyVariants: Variants = {
+  enter: (dir: number) => ({
+    opacity: 0,
+    y: dir > 0 ? 60 : -60, // 아래 스크롤이면 아래서 올라옴, 위 스크롤이면 위서 내려옴
+  }),
+  center: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
+  },
+  exit: (dir: number) => ({
+    opacity: 0,
+    y: dir > 0 ? -30 : 30, // enter의 반대 방향으로 퇴장
+    transition: { duration: 0.25, ease: "easeIn" },
+  }),
+};
+
 export default function ArchivePage() {
   const {
     data,
@@ -22,33 +40,71 @@ export default function ArchivePage() {
     hasNextPage,
     isFetchingNextPage,
     isLoading,
-    isError,
   } = useInterviewHistory();
 
-  // 모든 페이지의 인터뷰를 하나의 배열로 펼치기
-  const interviews = data?.pages.flatMap((page) => page.interviews) ?? [];
+  // 모든 페이지의 인터뷰를 단일 배열로 펼치기
+  const interviews = data?.pages.flatMap((p) => p.interviews) ?? [];
 
-  // useEffect 의존성 안정화를 위해 메모이제이션
-  const handleIntersect = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [direction, setDirection] = useState(1); // 1=아래, -1=위
+
+  // 애니메이션 중 휠 이벤트를 무시하기 위한 잠금 플래그
+  const isAnimating = useRef(false);
+
+  // 데이터 로드 후 activeIndex가 범위를 벗어나면 마지막 항목으로 보정
+  useEffect(() => {
+    if (interviews.length > 0 && activeIndex >= interviews.length) {
+      setActiveIndex(interviews.length - 1);
     }
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+  }, [interviews.length, activeIndex]);
 
-  // sentinel이 뷰포트에 진입하면 handleIntersect 호출
-  // 다음 페이지가 없거나 로딩 중이면 Observer를 비활성화
-  const sentinelRef = useIntersectionObserver(handleIntersect, {
-    enabled: hasNextPage && !isFetchingNextPage,
-  });
+  // 인덱스 이동 공통 함수
+  const navigate = useCallback(
+    (delta: number) => {
+      if (isAnimating.current) return;
+      const next = activeIndex + delta;
+      // 실제 데이터 범위 내에서만 이동
+      if (next < 0 || next >= interviews.length) return;
 
-  // 최소 5개의 슬롯을 유지 (빈 폴더로 채움)
+      isAnimating.current = true;
+      setDirection(delta);
+      setActiveIndex(next);
+      // 애니메이션 duration(450ms)보다 조금 길게 잠금 유지
+      setTimeout(() => {
+        isAnimating.current = false;
+      }, 500);
+    },
+    [activeIndex, interviews.length],
+  );
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      if (e.deltaY > 0) {
+        // 아래로 스크롤 → 다음 폴더
+        navigate(1);
+        // 끝에서 2개 남으면 다음 페이지 선로딩
+        if (
+          activeIndex >= interviews.length - 2 &&
+          hasNextPage &&
+          !isFetchingNextPage
+        ) {
+          fetchNextPage();
+        }
+      } else if (e.deltaY < 0) {
+        // 위로 스크롤 → 이전 폴더
+        navigate(-1);
+      }
+    },
+    [navigate, activeIndex, interviews.length, hasNextPage, isFetchingNextPage, fetchNextPage],
+  );
+
   const totalItems = Math.max(5, interviews.length);
-  const displayItems = Array.from({ length: totalItems });
+  const activeItem = interviews[activeIndex];
 
   return (
     <main className={styles.container}>
       <div className={styles.contentWrapper}>
-        {/* 왼쪽 섹션: 타이틀 및 인터뷰 시작 가이드 */}
+        {/* 왼쪽 섹션: 타이틀 & 가이드 */}
         <section className={styles.leftSection}>
           <h1 className={styles.mainTitle}>ARCHIVE</h1>
           <div className={styles.guideBox}>
@@ -61,41 +117,53 @@ export default function ArchivePage() {
               인터뷰 시작하기 <span>→</span>
             </Link>
           </div>
-        </section>
 
-        {/* 오른쪽 섹션: 폴더 스택 — 스크롤 없이 고정 위치에 겹쳐 쌓임 */}
-        <section className={styles.rightSection}>
-          {isLoading && (
-            <p className={styles.statusText}>불러오는 중...</p>
-          )}
-          {isError && (
-            <p className={styles.statusText}>
-              데이터를 불러올 수 없습니다.
+          {/* 현재 폴더 위치 카운터 */}
+          {interviews.length > 0 && (
+            <p className={styles.navCounter}>
+              {String(activeIndex + 1).padStart(2, "0")}
+              <span> / {String(interviews.length).padStart(2, "0")}</span>
             </p>
           )}
+          {isFetchingNextPage && (
+            <p className={styles.statusText}>불러오는 중...</p>
+          )}
+        </section>
+
+        {/* 오른쪽 섹션: 커스텀 휠 네비게이션 */}
+        <section className={styles.rightSection} onWheel={handleWheel}>
+          {/* ── 탭 스택: 모든 폴더의 탭이 겹쳐 쌓임 ── */}
           <div
-            className={styles.folderStack}
-            style={
-              {
-                "--n": totalItems,
-                "--tab-h": `${TAB_HEIGHT}px`,
-              } as React.CSSProperties
-            }
+            className={styles.tabStack}
+            style={{
+              "--n": totalItems,
+              "--tab-h": `${TAB_HEIGHT}px`,
+            } as React.CSSProperties}
           >
-            {displayItems.map((_, idx) => {
+            {Array.from({ length: totalItems }).map((_, idx) => {
               const item = interviews[idx];
               const isPlaceholder = !item;
+              const isActive = idx === activeIndex;
               const colorClass = isPlaceholder
                 ? styles.emptyFolder
                 : COLORS[idx % COLORS.length];
 
-              const folderContent = (
+              return (
                 <div
-                  className={`${styles.folderItem} ${colorClass}`}
+                  key={item?.interviewId ?? `empty-${idx}`}
+                  className={`${styles.tabItem} ${colorClass} ${isActive ? styles.activeTab : ""}`}
                   style={{
-                    // idx=0이 맨 아래(전체 보임), idx=마지막이 맨 위(탭만 보임)
+                    // idx=0이 가장 아래, idx=n-1이 가장 위
                     top: `${(totalItems - 1 - idx) * TAB_HEIGHT}px`,
-                    zIndex: totalItems - idx,
+                    // 활성 탭이 가장 앞으로
+                    zIndex: isActive ? totalItems + 1 : totalItems - idx,
+                  }}
+                  onClick={() => {
+                    // 실제 데이터가 있는 탭만 클릭 이동 가능
+                    if (!isPlaceholder && idx !== activeIndex) {
+                      setDirection(idx > activeIndex ? 1 : -1);
+                      setActiveIndex(idx);
+                    }
                   }}
                 >
                   <div className={styles.folderTab}>
@@ -108,43 +176,67 @@ export default function ArchivePage() {
                         : item.interviewTitle.split(":")[0]}
                     </span>
                   </div>
-                  <div className={styles.folderBody}>
-                    <div className={styles.bodyInner}>
-                      {!isPlaceholder && (
-                        <>
-                          <span className={styles.verticalDate}>
-                            {new Date(item.interviewDate).toLocaleDateString(
-                              "ko-KR",
-                            )}
-                          </span>
-                          <h2 className={styles.cardTitle}>
-                            {item.interviewTitle}
-                          </h2>
-                        </>
-                      )}
-                    </div>
-                  </div>
                 </div>
-              );
-
-              return isPlaceholder ? (
-                <div key={`empty-${idx}`}>{folderContent}</div>
-              ) : (
-                <Link
-                  key={item.interviewId}
-                  href={`/magazine/${item.interviewId}`}
-                >
-                  {folderContent}
-                </Link>
               );
             })}
           </div>
 
-          {/* sentinel: 이 요소가 화면에 들어오면 다음 페이지 로드 */}
-          <div ref={sentinelRef} className={styles.sentinel} />
-          {isFetchingNextPage && (
-            <p className={styles.statusText}>더 불러오는 중...</p>
-          )}
+          {/* ── 활성 폴더 바디: 방향에 따라 슬라이드 인/아웃 ── */}
+          <AnimatePresence mode="wait" custom={direction}>
+            {isLoading ? (
+              // 첫 로딩 중 스켈레톤
+              <motion.div
+                key="loading"
+                className={`${styles.folderBody} ${styles.emptyFolder}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <div className={styles.bodyInner} />
+              </motion.div>
+            ) : activeItem ? (
+              // 실제 데이터 바디
+              <motion.div
+                key={activeItem.interviewId}
+                className={`${styles.folderBody} ${COLORS[activeIndex % COLORS.length]}`}
+                custom={direction}
+                variants={bodyVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+              >
+                <Link
+                  href={`/magazine/${activeItem.interviewId}`}
+                  className={styles.bodyLink}
+                >
+                  <div className={styles.bodyInner}>
+                    <span className={styles.verticalDate}>
+                      {new Date(activeItem.interviewDate).toLocaleDateString(
+                        "ko-KR",
+                      )}
+                    </span>
+                    <h2 className={styles.cardTitle}>
+                      {activeItem.interviewTitle}
+                    </h2>
+                    <span className={styles.verticalDate}>
+                      {String(activeIndex + 1).padStart(2, "0")}
+                    </span>
+                  </div>
+                </Link>
+              </motion.div>
+            ) : (
+              // 빈 슬롯 바디
+              <motion.div
+                key={`empty-body-${activeIndex}`}
+                className={`${styles.folderBody} ${styles.emptyFolder}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <div className={styles.bodyInner} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </section>
       </div>
     </main>
