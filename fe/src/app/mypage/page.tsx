@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { MOCK_ARCHIVE_LIST } from "@/constants/mockData";
 import { logout } from "@/services/auth";
-import { getMe, updateMe } from "@/services/member";
+import { getMe, updateMe, deleteMe } from "@/services/member";
 import styles from "./page.module.css";
 
 export default function MyPage() {
@@ -23,6 +23,8 @@ export default function MyPage() {
     });
   }, []);
 
+  // 회원 정보 변경 저장 처리 함수
+  // 닉네임 유효성 검사: 3~8자의 영문 또는 한글만 허용
   const handleSave = async () => {
     const nicknameRegex = /^[a-zA-Z가-힣]{3,8}$/;
     if (!nicknameRegex.test(nickname)) {
@@ -38,6 +40,27 @@ export default function MyPage() {
           ?.data?.message ??
         "변경사항 저장에 실패했습니다. 다시 시도해 주세요.";
       alert(message);
+    }
+  };
+
+  // 회원 탈퇴 처리 함수
+  const handleWithdraw = async () => {
+    if (confirm("정말로 회원탈퇴 하시겠습니까?")) {
+      try {
+        // 회원 탈퇴 API 호출 후 로그아웃 처리
+        await deleteMe();
+        await logout();
+        // 토큰 제거
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        document.cookie = "accessToken=; path=/; max-age=0";
+        router.push("/");
+      } catch (error: unknown) {
+        const message =
+          (error as { response?: { data?: { message?: string } } })?.response
+            ?.data?.message ?? "회원탈퇴에 실패했습니다. 다시 시도해 주세요.";
+        alert(message);
+      }
     }
   };
 
@@ -101,7 +124,9 @@ export default function MyPage() {
             />
           </div>
           <div className={styles.btnGroup}>
-            <button className={styles.withdrawBtn}>회원탈퇴</button>
+            <button className={styles.withdrawBtn} onClick={handleWithdraw}>
+              회원탈퇴
+            </button>
             <button className={styles.saveBtn} onClick={handleSave}>
               변경사항 저장
             </button>
