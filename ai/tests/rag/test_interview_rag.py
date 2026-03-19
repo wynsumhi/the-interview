@@ -25,15 +25,29 @@ class StubQwen3EmbeddingClient:
         return [self._embed_single_text(text) for text in texts]
 
     def _embed_single_text(self, text: str) -> list[float]:
-        """기술 주제별 키워드를 세어 유사도 비교 가능한 벡터로 바꾼다."""
+        """매거진 인터뷰의 주제 축을 흉내 낸 간단한 벡터를 만든다."""
 
         normalized_text = text.lower()
         return [
-            float("rag" in normalized_text or "검색" in normalized_text),
-            float("vector" in normalized_text or "벡터" in normalized_text),
-            float("backend" in normalized_text or "백엔드" in normalized_text),
-            float("python" in normalized_text or "파이썬" in normalized_text),
-            float("qdrant" in normalized_text),
+            float(
+                "앨범" in normalized_text or "album" in normalized_text or "음악" in normalized_text
+            ),
+            float(
+                "무대" in normalized_text or "stage" in normalized_text or "공연" in normalized_text
+            ),
+            float(
+                "협업" in normalized_text
+                or "함께" in normalized_text
+                or "collaboration" in normalized_text
+            ),
+            float(
+                "루틴" in normalized_text
+                or "아침" in normalized_text
+                or "routine" in normalized_text
+            ),
+            float(
+                "밤" in normalized_text or "night" in normalized_text or "조용" in normalized_text
+            ),
         ]
 
 
@@ -64,16 +78,16 @@ def test_build_turn_document_contains_question_and_answer() -> None:
 
     turn = InterviewTurn(
         session_id="session-a",
-        question="RAG를 프로젝트에 어떻게 적용했나요?",
-        answer="벡터 검색을 이용해 유사한 문서를 참고했습니다.",
+        question="새 앨범의 첫 문장은 어디에서 시작됐나요?",
+        answer="늦은 밤 메모장에 적어 둔 문장에서 시작됐습니다.",
         turn_index=2,
         metadata={"category": "project"},
     )
 
     document = build_turn_document(turn)
 
-    assert "질문: RAG를 프로젝트에 어떻게 적용했나요?" in document
-    assert "답변: 벡터 검색을 이용해 유사한 문서를 참고했습니다." in document
+    assert "질문: 새 앨범의 첫 문장은 어디에서 시작됐나요?" in document
+    assert "답변: 늦은 밤 메모장에 적어 둔 문장에서 시작됐습니다." in document
 
 
 def test_interview_rag_index_returns_most_similar_previous_turns() -> None:
@@ -84,36 +98,36 @@ def test_interview_rag_index_returns_most_similar_previous_turns() -> None:
         [
             InterviewTurn(
                 session_id="session-a",
-                question="RAG를 적용한 경험이 있나요?",
-                answer="벡터 검색과 파이썬 백엔드로 구현했습니다.",
+                question="이번 앨범에서 가장 오래 남기고 싶었던 감정은 무엇이었나요?",
+                answer="밤의 공기와 고요를 오래 붙잡아 두고 싶었습니다.",
                 turn_index=1,
-                metadata={"topic": "rag"},
+                metadata={"topic": "album"},
             ),
             InterviewTurn(
                 session_id="session-b",
-                question="협업 중 갈등을 어떻게 해결했나요?",
-                answer="일정을 조율하고 책임 범위를 다시 정리했습니다.",
+                question="함께 작업하는 사람과 리듬이 맞는 순간은 언제인가요?",
+                answer="설명이 길지 않아도 같은 밤의 장면을 보고 있다는 느낌이 들 때입니다.",
                 turn_index=4,
-                metadata={"topic": "soft-skill"},
+                metadata={"topic": "collaboration"},
             ),
             InterviewTurn(
                 session_id="session-c",
-                question="백엔드 성능을 개선한 경험이 있나요?",
-                answer="파이썬 API 병목을 분석하고 캐시를 도입했습니다.",
+                question="무대에 오르기 전 가장 또렷하게 떠오르는 감각은 무엇인가요?",
+                answer="첫 박자가 오기 전의 긴장과 조명 냄새를 먼저 떠올립니다.",
                 turn_index=3,
-                metadata={"topic": "backend"},
+                metadata={"topic": "stage"},
             ),
         ]
     )
 
     retrieved_turns = index.retrieve_similar_turns(
-        current_question="이전 프로젝트에서 어떤 검색 시스템을 만들었나요?",
-        current_answer="RAG 기반 벡터 검색을 파이썬 백엔드에 연결했습니다.",
+        current_question="이번 작업에서 가장 오래 붙들었던 감정은 무엇이었나요?",
+        current_answer="밤의 고요와 혼자 남겨진 시간을 앨범 안에 오래 남기고 싶었습니다.",
     )
 
     assert len(retrieved_turns) == 2
     assert retrieved_turns[0].turn.session_id == "session-a"
-    assert retrieved_turns[1].turn.session_id == "session-c"
+    assert retrieved_turns[1].turn.session_id == "session-b"
     assert retrieved_turns[0].point_id == "session-a-1"
     assert retrieved_turns[0].similarity >= retrieved_turns[1].similarity
 
@@ -126,37 +140,39 @@ def test_format_retrieved_turns_for_llm_creates_readable_context() -> None:
         [
             InterviewTurn(
                 session_id="session-a",
-                question="RAG 구축 경험을 설명해주세요.",
-                answer="검색 품질을 위해 벡터 인덱스를 운영했습니다.",
+                question="무대 위의 긴장을 다루는 자신만의 방식이 있나요?",
+                answer="첫 박자가 시작되기 전 숨을 길게 고르며 몸의 속도를 맞춥니다.",
                 turn_index=1,
-                metadata={"topic": "rag", "difficulty": "high"},
+                metadata={"topic": "stage", "difficulty": "high"},
             )
         ]
     )
 
     retrieved_turns = index.retrieve_similar_turns(
-        current_question="비슷한 검색 시스템 경험이 있나요?",
-        current_answer="벡터 검색과 RAG를 직접 구현했습니다.",
+        current_question="공연 전에 긴장을 어떻게 다스리나요?",
+        current_answer="무대에 오르기 전에는 숨을 길게 고르며 리듬을 맞춥니다.",
     )
     prompt_context = format_retrieved_turns_for_llm(retrieved_turns)
 
     assert "[유사도 " in prompt_context
     assert "포인트 ID: session-a-1" in prompt_context
-    assert "이전 질문: RAG 구축 경험을 설명해주세요." in prompt_context
-    assert "이전 답변: 검색 품질을 위해 벡터 인덱스를 운영했습니다." in prompt_context
-    assert "메타데이터: difficulty=high, topic=rag" in prompt_context
+    assert "이전 질문: 무대 위의 긴장을 다루는 자신만의 방식이 있나요?" in prompt_context
+    assert (
+        "이전 답변: 첫 박자가 시작되기 전 숨을 길게 고르며 몸의 속도를 맞춥니다." in prompt_context
+    )
+    assert "메타데이터: difficulty=high, topic=stage" in prompt_context
 
 
 def test_build_query_text_keeps_current_question_and_answer_together() -> None:
     """현재 질문과 답변이 하나의 질의 문자열로 합쳐지는지 검증한다."""
 
     query_text = build_query_text(
-        current_question="벡터 검색을 왜 사용했나요?",
-        current_answer="유사한 인터뷰 답변을 찾아 꼬리질문 품질을 높이기 위해서입니다.",
+        current_question="하루를 시작할 때 꼭 지키는 루틴이 있나요?",
+        current_answer="아침 산책을 한 뒤 노트를 펼치며 문장을 천천히 꺼냅니다.",
     )
 
-    assert "현재 질문: 벡터 검색을 왜 사용했나요?" in query_text
-    assert "현재 답변: 유사한 인터뷰 답변을 찾아 꼬리질문 품질을 높이기 위해서입니다." in query_text
+    assert "현재 질문: 하루를 시작할 때 꼭 지키는 루틴이 있나요?" in query_text
+    assert "현재 답변: 아침 산책을 한 뒤 노트를 펼치며 문장을 천천히 꺼냅니다." in query_text
 
 
 def test_qdrant_shaped_rag_flow_with_sample_data() -> None:
@@ -167,21 +183,16 @@ def test_qdrant_shaped_rag_flow_with_sample_data() -> None:
 
     index.add_turns(sample_turns)
     retrieved_turns = index.retrieve_similar_turns(
-        current_question="검색 품질을 높이기 위해 어떤 retrieval 전략을 썼나요?",
-        current_answer=(
-            "Qdrant 기반 RAG에서 질문과 답변을 함께 임베딩하고 score threshold를 조절했습니다."
-        ),
+        current_question="무대에 오르기 직전, 이번 앨범의 감정은 어떻게 다시 살아났나요?",
+        current_answer="밤의 공기와 첫 박자의 떨림이 올라오면서 무대의 감정이 또렷해졌습니다.",
     )
     prompt_context = format_retrieved_turns_for_llm(retrieved_turns)
 
     assert index.count() == 4
     assert len(retrieved_turns) == 2
-    assert retrieved_turns[0].turn.session_id == "session-rag-002"
-    assert retrieved_turns[1].turn.session_id == "session-rag-001"
-    assert (
-        "Qdrant 기반 벡터 검색과 파이썬 백엔드를 연결해 꼬리질문 품질을 높였습니다."
-        in prompt_context
-    )
+    assert retrieved_turns[0].turn.session_id == "session-album-001"
+    assert retrieved_turns[1].turn.session_id == "session-stage-001"
+    assert "이번 앨범은 밤의 공기와 혼자 남겨진 시간을 오래 바라보며 만들었어요." in prompt_context
 
 
 def test_rag_config_disables_chunking_and_rerank_for_interview_turns() -> None:
