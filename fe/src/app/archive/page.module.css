@@ -129,11 +129,13 @@
 /* ── 폴더 탭 ── */
 .folderTab {
   width: fit-content;
-  padding: 10px 32px;
+  height: 42px; /* TAB_HEIGHT와 동일 — 비활성 탭과 활성 탭 높이 동기화 */
+  box-sizing: border-box;
+  padding: 0 32px;
   border-radius: 12px 24px 0 0;
   font-size: 12px;
   font-weight: 700;
-  margin-left: 20px;
+  /* margin-left: 20px; */
   display: flex;
   align-items: center;
   gap: 6px;
@@ -151,7 +153,7 @@
 .folderBody {
   flex: 1;
   min-height: 0;
-  border-radius: 4px;
+  border-radius: 0 0 4px 4px; /* 상단 모서리 제거 — folderTab 하단과 완전히 밀착 */
   box-shadow: 0 -15px 30px rgba(0, 0, 0, 0.08);
 }
 
@@ -171,43 +173,54 @@
   align-items: center;
 }
 
-/* ── 색상 테마 ── */
+/* ── 비활성 탭 내부 folderTab: 원래 탭 모양 복원 ── */
+.tabItem .folderTab {
+  width: fit-content;
+  /* margin-left: 20px; */
+  border-radius: 12px 24px 0 0;
+}
+
+/* ── 색상 테마: tabItem 컨테이너 자체도 칠해 빈틈 제거 ── */
+.sage.tabItem,
 .sage .folderTab,
 .sage .folderBody {
   background: var(--sage);
   color: var(--fg);
 }
 
+.lavender.tabItem,
 .lavender .folderTab,
 .lavender .folderBody {
   background: var(--lavender);
   color: var(--fg);
 }
 
+.blush.tabItem,
 .blush .folderTab,
 .blush .folderBody {
   background: var(--blush);
   color: var(--fg);
 }
 
+.charcoal.tabItem,
 .charcoal .folderTab,
 .charcoal .folderBody {
   background: var(--charcoal);
   color: var(--bg);
 }
 
+.warm.tabItem,
 .warm .folderTab,
 .warm .folderBody {
   background: var(--warm);
   color: var(--fg);
 }
 
-/* ── 빈 슬롯 ── */
+/* ── 빈 슬롯: 완전 투명 ── */
+.emptyFolder.tabItem,
 .emptyFolder .folderTab,
 .emptyFolder .folderBody {
-  background: #f0f0f0;
-  color: #bbb;
-  border: 1px dashed #ddd;
+  background: transparent;
 }
 
 /* ── 텍스트 디테일 ── */

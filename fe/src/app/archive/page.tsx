@@ -15,6 +15,15 @@ const COLORS = [
   styles.charcoal,
   styles.warm,
 ];
+// 색상 스태킹용 배경: 비활성 탭의 opacity(0.6)와 동일한 투명도를 배경색에도 적용
+// color-mix로 CSS 변수를 직접 읽어 60% 불투명도 버전을 생성 (하드코딩 없이 변수 변경에 자동 대응)
+const COLOR_VARS = [
+  "color-mix(in srgb, var(--sage) 60%, transparent)",
+  "color-mix(in srgb, var(--lavender) 60%, transparent)",
+  "color-mix(in srgb, var(--blush) 60%, transparent)",
+  "color-mix(in srgb, var(--charcoal) 60%, transparent)",
+  "color-mix(in srgb, var(--warm) 60%, transparent)",
+];
 
 // 활성 탭과 바디가 공유하는 방향성 슬라이드 variants
 const slideVariants: Variants = {
@@ -228,10 +237,17 @@ export default function ArchivePage() {
 
             {/* 비활성 탭: 각자 고정 top 좌표, opacity만 전환 */}
             <AnimatePresence>
-              {inactiveItems.map(({ item, globalIdx }, i) => (
+              {inactiveItems.map(({ item, globalIdx }, i) => {
+                // 이 탭 스트립의 배경 = 바로 위 폴더의 색상 (색상 스태킹 효과)
+                // i===0 이면 위에 플레이스홀더(회색)가 있을 수 있으므로 그 색을 사용
+                const precedingBg =
+                  i === 0
+                    ? "transparent"
+                    : COLOR_VARS[inactiveItems[i - 1].globalIdx % COLOR_VARS.length];
+                return (
                 <motion.div
                   key={item.interviewId}
-                  style={{ top: (placeholders.length + i) * TAB_HEIGHT }}
+                  style={{ top: (placeholders.length + i) * TAB_HEIGHT, background: precedingBg }}
                   className={`${styles.tabItem} ${COLORS[globalIdx % COLORS.length]}`}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 0.6 }}
@@ -253,7 +269,8 @@ export default function ArchivePage() {
                     </span>
                   </div>
                 </motion.div>
-              ))}
+                );
+              })}
             </AnimatePresence>
 
             {/* 활성 폴더: top/bottom 고정, y+opacity만 애니메이션 */}
@@ -273,6 +290,14 @@ export default function ArchivePage() {
                 <motion.div
                   key={activeItem.interviewId}
                   className={`${styles.activeFolder} ${COLORS[activeIndex % COLORS.length]}`}
+                  style={{
+                    // 활성 폴더 컨테이너 배경 = 다음 폴더(index+1)의 색상
+                    // folderTab의 둥근 모서리와 여백 뒤에 이 색이 채워져 자연스러운 스태킹 효과 생성
+                    background:
+                      interviews[activeIndex + 1]
+                        ? COLOR_VARS[(activeIndex + 1) % COLOR_VARS.length]
+                        : "transparent",
+                  }}
                   custom={direction}
                   variants={slideVariants}
                   initial="enter"
