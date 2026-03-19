@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@stomp/stompjs": "^7.3.0",
+    "@tanstack/react-query": "^5.91.0",
     "axios": "^1.13.6",
     "next": "16.1.6",
     "react": "19.2.3",
