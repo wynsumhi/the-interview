@@ -2,6 +2,7 @@ package com.theinterview.domain.interview.entity;
 
 
 import com.theinterview.domain.interview.enums.InterviewStatus;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -51,7 +52,7 @@ public class InterviewQuestion {
     @Column(name = "status", nullable = false)
     private InterviewStatus status;
 
-    @OneToOne(mappedBy = "interviewQuestion")
+    @OneToOne(mappedBy = "interviewQuestion", cascade = CascadeType.ALL, orphanRemoval = true)
     private InterviewAnswer interviewAnswer;
 
     @Builder

@@ -54,6 +54,10 @@ public abstract class MemberRequest {
         @Pattern(regexp = "^[a-zA-Z가-힣]{3,8}$",
                 message = "닉네임은 3~8자의 영문 혹은 한글만 가능합니다.")
         private String nickname;
+        // 정규표현식 활용, 비밀번호 값 검증
+        @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[!@#$%])[A-Za-z\\d!@#$%]{8,12}$",
+                message = "비밀번호는 영어, 숫자, 특수기호(!,@,#,$,%)를 포함하여 8~12글자여야 합니다.")
+        private String password;
     }
 
 }

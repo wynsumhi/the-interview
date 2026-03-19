@@ -1,5 +1,8 @@
 package com.theinterview.domain.member.service;
 
+import com.theinterview.domain.interview.Repository.InterviewRepository;
+import com.theinterview.domain.interview.entity.Interview;
+import com.theinterview.domain.interview.service.InterviewService;
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.dto.MemberRequest.LoginRequestDTO;
 import com.theinterview.domain.member.dto.MemberRequest.MemberInfoUpdateRequest;
@@ -12,6 +15,8 @@ import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
 import com.theinterview.global.security.config.jwt.JwtProvider;
 import java.time.Duration;
+import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberService {
 
     private final MemberRepository memberRepository;
+    private final InterviewRepository interviewRepository;
+    private final InterviewService interviewService;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final JwtProvider jwtProvider;
@@ -133,18 +140,41 @@ public class MemberService {
     // 회원 정보 수정 메서드
     @Transactional
     public MemberInfoDTO updateMemberInfo(String email, MemberInfoUpdateRequest request) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
-        // 닉네임 중복 검사
-        if (!checkNickname(request.getNickname())) {
+        // 닉네임 중복 검사, 만약 자기 자신의 닉네임과 현재 닉네임이 같다면 패스
+        if (!Objects.equals(request.getNickname(), member.getNickname())
+                && !checkNickname(
+                request.getNickname())) {
             throw new GeneralException(ErrorStatus.MEMBER_ALREADY_EXISTS);
         }
+
+        member.changeMemberInfo(request, passwordEncoder);
+        return new MemberInfoDTO(member);
+
+    }
+
+    // 회원탈퇴
+    public void deleteMemberInfo(String email) {
 
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
-        member.changeMemberInfo(request);
-        return new MemberInfoDTO(member);
+        // FK 제약조건으로 인하여 자식부터 삭제하기 위해서 모든 인터뷰 내역을 가져옴
+        List<Interview> interviews = interviewRepository.findAllByMemberId(member.getId());
 
+        log.info("[MemberService - deleteMemberInfo] memberID : {} / Load Interviews Size : {}",
+                member.getId(), interviews.size());
+
+        // 만약 인터뷰 이력이 있다면 모든 인터뷰 데이터 삭제
+        if (!interviews.isEmpty()) {
+            interviews.forEach(interview ->
+                    // interviewService의 사용자 인터뷰 삭제 로직 동작
+                    interviewService.deleteInterview(interview.getId(), member.getId()));
+        }
+
+        memberRepository.deleteById(member.getId());
     }
 
     // 이메일 중복 체크 헬퍼 메서드
