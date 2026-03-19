@@ -22,4 +22,12 @@ public abstract class InterviewRequest {
 
         private boolean isPrevAffected;
     }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    public static class InterviewExitRequest {
+
+        private Integer interviewId; // 웹소켓 방 번호 구독을 위해 클라이언트 측에서 가지고 있는 interviewId
+        private Integer questionId; // 이전에 받은 questionId
+    }
 }

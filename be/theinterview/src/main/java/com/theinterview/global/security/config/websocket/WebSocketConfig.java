@@ -1,6 +1,7 @@
 package com.theinterview.global.security.config.websocket;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -8,6 +9,7 @@ import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBr
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
+import org.springframework.web.socket.server.standard.ServletServerContainerFactoryBean;
 
 @Configuration
 @EnableWebSocketMessageBroker // 내장된 STOMP 브로커 가동
@@ -50,5 +52,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .setMessageSizeLimit(50 * 1024 * 1024)
                 .setSendBufferSizeLimit(50 * 1024 * 1024)
                 .setSendTimeLimit(10 * 1000);
+    }
+
+    // 톰캣 서버 버퍼 용량 제한 해제
+    @Bean
+    public ServletServerContainerFactoryBean createWebSocketContainer() {
+        ServletServerContainerFactoryBean container = new ServletServerContainerFactoryBean();
+        // 텍스트(Base64) 메시지 버퍼 50MB
+        container.setMaxTextMessageBufferSize(50 * 1024 * 1024);
+        // 혹시 모를 바이너리 데이터 버퍼 50MB
+        container.setMaxBinaryMessageBufferSize(50 * 1024 * 1024);
+        // 세션 타임아웃 5분 (300000ms) - 녹음 시간 확보
+        container.setMaxSessionIdleTimeout(300000L);
+        return container;
     }
 }

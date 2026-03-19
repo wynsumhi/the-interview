@@ -18,5 +18,20 @@ LLM_MODEL_NAME = "claude-sonnet-4-5-20250929"
 DEFAULT_LLM_MAX_TOKENS = 1024
 ANTHROPIC_VERSION = "2023-06-01"
 
-DEFAULT_TTS_MODEL = "gpt-4o-mini-tts"
-DEFAULT_TTS_VOICE = "alloy"
+DEFAULT_TTS_MODEL = os.getenv("DEFAULT_TTS_MODEL", "supertonic-2")
+DEFAULT_TTS_VOICE = os.getenv("DEFAULT_TTS_VOICE", "F3")
+DEFAULT_TTS_LANGUAGE = os.getenv("DEFAULT_TTS_LANGUAGE", "ko")
+DEFAULT_TTS_PROVIDER = os.getenv("DEFAULT_TTS_PROVIDER", "cuda")
+DEFAULT_TTS_STEPS = int(os.getenv("DEFAULT_TTS_STEPS", "5"))
+DEFAULT_TTS_SPEED = float(os.getenv("DEFAULT_TTS_SPEED", "1.05"))
+DEFAULT_TTS_AUTO_DOWNLOAD = os.getenv("DEFAULT_TTS_AUTO_DOWNLOAD", "false").lower() == "true"
+DEFAULT_TTS_PRELOAD_ON_STARTUP = (
+    os.getenv("DEFAULT_TTS_PRELOAD_ON_STARTUP", "false").lower() == "true"
+)
+DEFAULT_TTS_WARMUP_TEXT = os.getenv(
+    "DEFAULT_TTS_WARMUP_TEXT",
+    (
+        "지금의 당신을 가장 선명하게 보여주는 한 장면이 있다면 무엇인가요? "
+        "그 순간이 만들어낸 감정과, 시간이 지난 지금까지 마음에 남아 있는 이유를 들려주세요."
+    ),
+)

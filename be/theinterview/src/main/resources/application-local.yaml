@@ -11,7 +11,7 @@ spring:
       password: ssafy1234!
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
     show-sql: true
     properties:
       hibernate:
@@ -30,3 +30,14 @@ jwt:
   # 토큰 만료 시간 (초 단위) 개발 편의 상 모두 14일로 설정
   access-token-validity-in-seconds: 1209600
   refresh-token-validity-in-seconds: 1209600
+
+# 사용자 답변 음성 파일 저장 경로(배포)
+file:
+  audio:
+    base-url: "http://localhost:8080/theInterview/history"
+    base-path: "C:/Users/SSAFY/Desktop" # 윈도우 - 바탕화면에 저장
+    # base-path: "/Users/사용자명/Desktop" # Mac 예시
+
+# fastAPI 호출 경로
+fastapi:
+  base-path: "http://localhost:8000"

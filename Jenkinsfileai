@@ -1,0 +1,236 @@
+def shouldSkip = false
+def isSelfBuild = false
+def aiTestStatus = 'success'
+def aiBuildStatus = 'success'
+def aiDeployStatus = 'success'
+pipeline {
+	agent any
+
+	options {
+		gitLabConnection('GitLab_Codelian_AccessToken')
+	}
+
+	stages {
+		// AI 파일 변동여부 체크
+		stage('Check AI Changes') {
+			steps {
+				script {
+					echo "--- 디버깅용 출력 ---"
+					echo "gitlabSourceBranch: ${env.gitlabSourceBranch}"
+					echo "gitlabActionType: ${env.gitlabActionType}"
+					echo "gitlabMergeRequestState: ${env.gitlabMergeRequestState}"
+					echo "gitlabMergeRequestIid : ${env.gitlabMergeRequestIid}"
+
+					['AI-Test', 'AI-build', 'AI-deploy'].each { statusName ->
+						updateGitlabCommitStatus name: statusName, state: 'pending'
+					}
+					isSelfBuild = currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause').size() > 0
+					if(isSelfBuild) {
+						echo "------- 💡 수동 빌드를 시작합니다. -------"
+						shouldSkip = false
+					} else {
+						def targetBranch = env.gitlabTargetBranch ?: "develop"
+
+						withCredentials([usernamePassword(credentialsId: 'gitlab-auth', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+							sh "git fetch https://${GIT_USERNAME}:${GIT_PASSWORD}@lab.ssafy.com/s14-ai-speech-sub1/S14P21A307.git ${targetBranch}"
+						}
+
+						def changedFiles = ""
+						if(env.gitlabMergeRequestState == 'opened') {
+							changedFiles = sh(
+								script: "git diff --name-only FETCH_HEAD...HEAD",
+								returnStdout: true
+							).trim()
+						} else {
+							withCredentials([usernamePassword(credentialsId: 'gitlab-auth', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+								sh """
+								git fetch https://${GIT_USERNAME}:${GIT_PASSWORD}@lab.ssafy.com/s14-ai-speech-sub1/S14P21A307.git ${targetBranch}
+								git checkout ${targetBranch}
+								git reset --hard FETCH_HEAD
+							"""
+							}
+							changedFiles = sh(
+								script: """
+								MERGE_BASE=\$(git merge-base HEAD^1 HEAD^2)
+								git diff --name-only \$MERGE_BASE HEAD^2 || git show --name-only --pretty=format:'' HEAD
+							""",
+								returnStdout: true
+							).trim()
+						}
+
+						echo "--- 변경된 파일 목록 ---"
+						echo changedFiles
+
+						// AI 파일에 변동여부 체크
+						def isAiChanged = changedFiles.split('\n').any {
+							it.startsWith('ai/')
+						}
+
+						// 변동이 없으면 종료
+						if (!isAiChanged) {
+							echo "↩️ AI 변경사항 없음. 빌드를 종료합니다."
+							shouldSkip = true
+							aiTestStatus = 'success'
+							aiBuildStatus = 'success'
+							aiDeployStatus = 'success'
+						} else {
+							echo "⏩ AI 변경 감지됨. 빌드 절차를 계속합니다."
+							if(env.gitlabMergeRequestState == 'merged') {
+								aiTestStatus = 'success'
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// 환경변수
+		stage('Prepare Env') {
+			when {
+				expression {
+					return !shouldSkip
+				}
+			}
+			steps {
+				// Jenkins Credentials에서 .env 파일을 app에 복사시킴
+				withCredentials([
+					file(credentialsId: 'ENV_FILE', variable: 'ENV'),
+				]) {
+					sh 'cp $ENV infra/app/.env'
+				}
+			}
+		}
+
+		stage('AI Unit Test') {
+			when {
+				allOf {
+					expression {
+						return !shouldSkip
+					}
+					expression {
+						env.gitlabMergeRequestState == 'opened' || isSelfBuild
+					}
+				}
+			}
+			steps {
+				script {
+					aiTestStatus = 'success'
+				}
+			}
+		}
+
+		// AI 컨테이너 CI/CD
+		stage('AI Continuous Integration (CI)') {
+			when {
+				allOf {
+					expression {
+						!shouldSkip
+					}
+					expression {
+						env.gitlabMergeRequestState == 'merged' || isSelfBuild
+					}
+				}
+			}
+			steps {
+				updateGitlabCommitStatus name: 'AI-build', state: 'running'
+				echo "------- 🔅 AI 이미지 빌드 시작 -------"
+				sh """
+				export COMPOSE_PROJECT_NAME=theinterview
+				docker compose -f infra/app/app-compose.yml build fastapi
+				"""
+			}
+			post {
+				success {
+					script {
+						aiBuildStatus = 'success'
+					}
+				}
+				failure {
+					script {
+						aiBuildStatus = 'failed'
+					}
+				}
+			}
+		}
+		stage('AI Continuous Deployment (CD)') {
+			when {
+				allOf {
+					expression {
+						!shouldSkip
+					}
+					expression {
+						env.gitlabMergeRequestState == 'merged' || isSelfBuild
+					}
+				}
+			}
+			steps {
+				updateGitlabCommitStatus name: 'AI-deploy', state: 'running'
+				echo "------- 🔅 AI 컨테이너 배포 시작 -------"
+				echo "------- ⤵️ Start AI container down... -------"
+				sh """
+					echo "------- 🔍 이미지 SHA 확인 -------"
+					CONTAINER_IMAGE=\$(docker inspect fastapi --format='{{.Image}}' 2>/dev/null || echo "컨테이너 없음")
+					LATEST_IMAGE=\$(docker inspect theinterview-fastapi:latest --format='{{.Id}}' 2>/dev/null || echo "이미지 없음")
+					echo "현재 컨테이너 사용 이미지 SHA : \$CONTAINER_IMAGE"
+					echo "현재 latest 이미지 SHA       : \$LATEST_IMAGE"
+					if [ "\$CONTAINER_IMAGE" = "\$LATEST_IMAGE" ]; then
+						echo "✅ 이미지 SHA 일치"
+					else
+						echo "⚠️ 이미지 SHA 불일치 - 컨테이너 재생성 필요"
+					fi
+				"""
+				sh """
+				docker ps -a --format "{{.Names}}" | grep "fastapi" | xargs -r docker rm -f
+				"""
+				echo "------- ⤴️ Start AI container up... -------"
+				sh """
+				docker compose -f infra/app/app-compose.yml up -d --no-deps --force-recreate fastapi
+				"""
+				sh """
+					echo "------- 🔍 배포 후 이미지 SHA 재확인 -------"
+					CONTAINER_IMAGE=\$(docker inspect fastapi --format='{{.Image}}')
+					LATEST_IMAGE=\$(docker inspect theinterview-fastapi:latest --format='{{.Id}}')
+					echo "현재 컨테이너 사용 이미지 SHA : \$CONTAINER_IMAGE"
+					echo "현재 latest 이미지 SHA       : \$LATEST_IMAGE"
+					if [ "\$CONTAINER_IMAGE" = "\$LATEST_IMAGE" ]; then
+						echo "✅ 이미지 동기화 완료"
+					else
+						echo "❌ 이미지 동기화 실패"
+						exit 1
+					fi
+				"""
+			}
+			post {
+				success {
+					script {
+						aiDeployStatus = 'success'
+					}
+				}
+				failure {
+					script {
+						aiDeployStatus = 'failed'
+					}
+				}
+			}
+		}
+	}
+
+	post {
+		always {
+			script {
+				updateGitlabCommitStatus name: 'AI-Test', state: aiTestStatus
+				updateGitlabCommitStatus name: 'AI-build', state: aiBuildStatus
+				updateGitlabCommitStatus name: 'AI-deploy', state: aiDeployStatus
+			}
+			echo '🚧 Cleaning up dangling images...'
+			sh "docker image prune -f || true"
+			sh "docker builder prune -f --keep-storage=5gb || true"
+		}
+		success {
+			echo '✅ Deployment finished successfully!'
+		}
+		failure {
+			echo '⚠️ Deployment failed. Check the logs.'
+		}
+	}
+}

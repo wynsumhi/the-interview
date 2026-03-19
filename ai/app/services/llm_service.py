@@ -1,4 +1,9 @@
+import logging
+import time
+
 from app.models.llm.claude_client import create_claude_message
+
+logger = logging.getLogger("uvicorn.error")
 
 
 def create_message(
@@ -6,5 +11,20 @@ def create_message(
     system: str | None = None,
     max_tokens: int = 1024,
 ) -> str:
-    # 현재는 Claude 구현을 사용하지만, 상위 레이어는 이 서비스 함수만 보도록 유지한다.
-    return create_claude_message(messages=messages, system=system, max_tokens=max_tokens)
+    """LLM 호출 시간과 생성된 응답 텍스트를 서비스 로그로 남긴다.
+
+    다음 질문 생성 결과와 응답 지연을 같은 위치에서 확인할 수 있도록
+    모델이 반환한 최종 텍스트를 로그에 기록한다.
+    """
+
+    started = time.perf_counter()
+    llm_text = create_claude_message(messages=messages, system=system, max_tokens=max_tokens)
+    elapsed = time.perf_counter() - started
+
+    logger.info(
+        "LLM completed in %.3fs. max_tokens=%s text=%s",
+        elapsed,
+        max_tokens,
+        llm_text,
+    )
+    return llm_text

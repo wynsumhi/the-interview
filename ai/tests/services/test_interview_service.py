@@ -21,7 +21,7 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
         "stt_text": "candidate answer",
         "question_text": "follow up",
         "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
-        "tts_audio_mime_type": "audio/mpeg",
+        "tts_audio_mime_type": "audio/wav",
     }
     pipeline_mock.assert_called_once()
 

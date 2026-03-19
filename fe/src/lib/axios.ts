@@ -1,24 +1,24 @@
-import axios from 'axios'
+import axios from "axios";
 
 const instance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: "/api/v1",
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
-})
+});
 
 // 요청 인터셉터
 instance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken')
+    const token = localStorage.getItem("accessToken");
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    return config
+    return config;
   },
-  (error) => Promise.reject(error)
-)
+  (error) => Promise.reject(error),
+);
 
 // 응답 인터셉터
 instance.interceptors.response.use(
@@ -26,11 +26,11 @@ instance.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // 토큰 만료 처리 (로그아웃, 토큰 갱신 등)
-      localStorage.removeItem('accessToken')
-      window.location.href = '/login'
+      localStorage.removeItem("accessToken");
+      window.location.href = "/login";
     }
-    return Promise.reject(error)
-  }
-)
+    return Promise.reject(error);
+  },
+);
 
-export default instance
+export default instance;

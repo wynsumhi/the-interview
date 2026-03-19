@@ -3,6 +3,7 @@ services:
     build:
       context: ../../be/theinterview
       dockerfile: Dockerfile
+    image: theinterview-backend:latest
     container_name: backend
     restart: on-failure
     env_file:
@@ -16,11 +17,23 @@ services:
       resources:
         limits:
           memory: 2G
+    volumes:
+      - /home/ubuntu/theInterview/history:/app/data/theInterview/history
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   frontend:
     build:
       context: ../../fe
+      args:
+        - API_URL=https://j14a307.p.ssafy.io
       dockerfile: Dockerfile
+    environment:
+      - API_URL=https://j14a307.p.ssafy.io
+    image: theinterview-frontend:latest
     container_name: frontend
     restart: on-failure
     networks:
@@ -29,6 +42,32 @@ services:
       resources:
         limits:
           memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  fastapi:
+    build:
+      context: ../../ai
+      dockerfile: Dockerfile
+    image: theinterview-fastapi:latest
+    container_name: fastapi
+    restart: on-failure
+    env_file:
+      - .env
+    networks:
+      - theinterview-net
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   theinterview-net:

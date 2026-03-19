@@ -42,23 +42,6 @@ public abstract class MemberResponse {
         @JsonIgnore
         private long accessTokenValidityTime;
     }
+    
 
-    /**
-     * 로그인 응답 테스트 DTO
-     */
-    @Getter
-    @NoArgsConstructor(access = AccessLevel.PROTECTED)
-    @AllArgsConstructor
-    public static class LoginTestDTO {
-
-        private Integer memberId;
-        private String email;
-        private String nickname;
-
-        public LoginTestDTO(Member member) {
-            this.memberId = member.getId();
-            this.email = member.getEmail();
-            this.nickname = member.getNickname();
-        }
-    }
 }
