@@ -47,6 +47,7 @@ export default function MyPage() {
   const handleWithdraw = async () => {
     if (confirm("정말로 회원탈퇴 하시겠습니까?")) {
       try {
+        // 회원 탈퇴 API 호출 후 로그아웃 처리
         await deleteMe();
         await logout();
         // 토큰 제거
