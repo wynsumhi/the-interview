@@ -360,12 +360,15 @@ public class InterviewService {
                             .findByInterviewQuestionId(question.getId())
                             .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
 
+                    String dbUrlConverter = answer.getAnswerAudioUrl()
+                            .substring(answer.getAnswerAudioUrl().lastIndexOf("/") + 1);
+
                     return InterviewHistoryDetail.builder()
                             .interviewQuestion(question.getQuestionText())
                             .interviewText(answer.getAnswerText())
                             .interviewVoice(
                                     answerAudioUrl + "/" + memberId + "/" + interviewId + "/"
-                                            + answer.getAnswerAudioUrl())
+                                            + dbUrlConverter)
                             .build();
                 }).toList();
 
