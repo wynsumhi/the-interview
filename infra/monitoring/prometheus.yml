@@ -18,3 +18,9 @@ scrape_configs:
   - job_name: 'cadvisor'
     static_configs:
       - targets: [ 'cadvisor:8080' ]
+
+    # 젠킨슨 로그 모니터링
+  - job_name: 'jenkins'
+    metrics_path: '/infra/jenkins/prometheus'
+    static_configs:
+      - targets: [ 'jenkins:8989' ]
