@@ -6,6 +6,7 @@ from app.api.v1.schemas.interview import (
     MagazineTitleResponse,
     NextOpeningRequest,
     NextOpeningResponse,
+    SpeechToTextResponse,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "MagazineTitleResponse",
     "NextOpeningRequest",
     "NextOpeningResponse",
+    "SpeechToTextResponse",
 ]
