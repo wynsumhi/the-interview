@@ -167,36 +167,31 @@
 
 /* ── 색상 테마 ── */
 .sage .folderTab,
-.sage .folderBody,
-.sage.tabItem {
+.sage .folderBody {
   background: var(--sage);
   color: var(--fg);
 }
 
 .lavender .folderTab,
-.lavender .folderBody,
-.lavender.tabItem {
+.lavender .folderBody {
   background: var(--lavender);
   color: var(--fg);
 }
 
 .blush .folderTab,
-.blush .folderBody,
-.blush.tabItem {
+.blush .folderBody {
   background: var(--blush);
   color: var(--fg);
 }
 
 .charcoal .folderTab,
-.charcoal .folderBody,
-.charcoal.tabItem {
+.charcoal .folderBody {
   background: var(--charcoal);
   color: var(--bg);
 }
 
 .warm .folderTab,
-.warm .folderBody,
-.warm.tabItem {
+.warm .folderBody {
   background: var(--warm);
   color: var(--fg);
 }
