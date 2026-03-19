@@ -17,6 +17,11 @@ services:
       - /home/ubuntu/theInterview/history:/var/www/html/history:ro
     networks:
       - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   jenkins:
     image: jenkins/jenkins:lts
@@ -37,6 +42,11 @@ services:
       - TZ=Asia/Seoul
     networks:
       - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     # ports:
     #   - "8989:8989"
     #   - "50000:50000"
@@ -57,6 +67,11 @@ services:
           memory: 64M
     environment:
       - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     #ports:
     # - 9123:9123
 
