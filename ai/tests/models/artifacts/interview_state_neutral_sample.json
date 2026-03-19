@@ -1,0 +1,42 @@
+{
+  "transcript": "프로젝트를 진행하며 바쁘게 지내고 있어요",
+  "audio_features": {
+    "duration_sec": 4.14,
+    "rms_mean": 0.048692,
+    "rms_std": 0.045836,
+    "zcr_mean": 0.12024,
+    "silence_ratio": 0.201456,
+    "voiced_ratio": 0.798544,
+    "speech_rate_proxy": 0.192885,
+    "pitch_mean_hz": 158.769264,
+    "pitch_std_hz": 54.023779
+  },
+  "text_signal": {
+    "scores": {
+      "calm": 0.666667,
+      "tense": 0.333333
+    },
+    "top_state": "calm",
+    "top_score": 0.666667,
+    "reason": "텍스트에서 `tense` 관련 표현이 상대적으로 많이 감지됨."
+  },
+  "voice_signal": {
+    "scores": {
+      "anxious": 0.588235,
+      "calm": 0.411765
+    },
+    "top_state": "anxious",
+    "top_score": 0.588235,
+    "reason": "피치 평균 또는 변동폭이 커 긴장 신호가 있음."
+  },
+  "fused_signal": {
+    "scores": {
+      "calm": 0.577451,
+      "tense": 0.216666,
+      "anxious": 0.205882
+    },
+    "top_state": "calm",
+    "top_score": 0.577451,
+    "reason": "텍스트는 `calm`, 음성은 `anxious`로 해석됨. 텍스트 의미를 주 신호로 두고 prosody를 보정 신호로 반영함."
+  }
+}

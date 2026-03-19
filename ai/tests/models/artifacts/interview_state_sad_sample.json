@@ -1,0 +1,44 @@
+{
+  "transcript": "그냥 모든 행동이 신경 쓰이는 사람이 있어요. 내가 하는 행동이든, 그 사람이 하는 행동이든.",
+  "audio_features": {
+    "duration_sec": 8.440317,
+    "rms_mean": 0.056416,
+    "rms_std": 0.049906,
+    "zcr_mean": 0.076464,
+    "silence_ratio": 0.275534,
+    "voiced_ratio": 0.724466,
+    "speech_rate_proxy": 0.085834,
+    "pitch_mean_hz": 217.072144,
+    "pitch_std_hz": 37.187051
+  },
+  "text_signal": {
+    "scores": {
+      "anxious": 0.454545,
+      "calm": 0.318182,
+      "tense": 0.227273
+    },
+    "top_state": "anxious",
+    "top_score": 0.454545,
+    "reason": "텍스트에서 `anxious` 관련 표현이 상대적으로 많이 감지됨."
+  },
+  "voice_signal": {
+    "scores": {
+      "anxious": 0.434783,
+      "calm": 0.304348,
+      "tense": 0.26087
+    },
+    "top_state": "anxious",
+    "top_score": 0.434783,
+    "reason": "피치 평균 또는 변동폭이 커 긴장 신호가 있음."
+  },
+  "fused_signal": {
+    "scores": {
+      "anxious": 0.488545,
+      "calm": 0.29013,
+      "tense": 0.221326
+    },
+    "top_state": "anxious",
+    "top_score": 0.488545,
+    "reason": "텍스트는 `anxious`, 음성은 `anxious`로 해석됨. 텍스트 의미를 주 신호로 두고 prosody를 보정 신호로 반영함."
+  }
+}
