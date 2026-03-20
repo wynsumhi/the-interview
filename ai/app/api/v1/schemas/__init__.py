@@ -13,10 +13,26 @@ from app.api.v1.schemas.interview import (
     NextOpeningResponse,
     SpeechToTextResponse,
 )
+from app.api.v1.schemas.rag import (
+    InterviewRAGDeleteRequest,
+    InterviewRAGDeleteResponse,
+    InterviewRAGReindexRequest,
+    InterviewRAGReindexResponse,
+    InterviewRAGTurnRequest,
+    InterviewRAGUpsertRequest,
+    InterviewRAGUpsertResponse,
+)
 
 __all__ = [
     "AudioFeaturesResponse",
     "InterviewPipelineResponse",
+    "InterviewRAGDeleteRequest",
+    "InterviewRAGDeleteResponse",
+    "InterviewRAGReindexRequest",
+    "InterviewRAGReindexResponse",
+    "InterviewRAGTurnRequest",
+    "InterviewRAGUpsertRequest",
+    "InterviewRAGUpsertResponse",
     "InterviewStateDbPayloadResponse",
     "InterviewStatePromptResponse",
     "InterviewStateSaveRequest",

@@ -18,3 +18,4 @@ soundfile==0.13.1
 supertonic==1.1.2
 uvicorn[standard]==0.35.0
 pytest==8.3.4
+qdrant-client==1.15.1
