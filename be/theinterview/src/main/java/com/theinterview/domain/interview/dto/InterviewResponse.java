@@ -1,6 +1,7 @@
 package com.theinterview.domain.interview.dto;
 
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.AccessLevel;
@@ -82,5 +83,15 @@ public abstract class InterviewResponse {
         private String interviewQuestion; // 인터뷰 질문
         private String interviewText; // 인터뷰 답변
         private String interviewVoice; // 인터뷰 음성파일 UUID
+    }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    @Builder
+    public static class SttChunkResponse {
+
+        @JsonProperty("stt_text")
+        private String chunkText;
     }
 }
