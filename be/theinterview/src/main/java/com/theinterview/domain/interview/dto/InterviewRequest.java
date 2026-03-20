@@ -33,11 +33,21 @@ public abstract class InterviewRequest {
 
     @Getter
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
-    public static class AudioChuckRequest {
+    public static class AudioChunkRequest {
 
         private Integer interviewId; // 어떤 인터뷰인지(인터뷰 pk)
         private Integer questionId; // 사용자가 어떤 질문에 대해 답변했는지
         private Integer chuckIndex; // 청킹된 오디오의 순서 보장을 위한 순번
         private byte[] audioData; // Base64로 인코딩된 오디오 조각 배열
+    }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    public static class TotalChunkRequest {
+
+        private Integer interviewId; // 어떤 인터뷰인지(인터뷰 pk)
+        private Integer questionId; // 사용자가 어떤 질문에 대해 답변했는지
+        private Integer chuckIndex; // 청킹된 오디오의 순서 보장을 위한 순번
+        private String totalChunk;
     }
 }

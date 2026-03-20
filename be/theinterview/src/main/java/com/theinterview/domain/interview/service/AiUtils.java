@@ -7,7 +7,7 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningRespon
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
-import com.theinterview.domain.interview.dto.InterviewRequest.AudioChuckRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.SttChunkResponse;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
@@ -29,7 +29,7 @@ public class AiUtils {
     private final WebClient webClient;
 
     // 클라이언트에서 청킹해서 보내는 audio 조각을 STT로 변환만을 담당하는 메서드
-    public Mono<SttChunkResponse> callFastApiForSttChunk(AudioChuckRequest request) {
+    public Mono<SttChunkResponse> callFastApiForSttChunk(AudioChunkRequest request) {
 
         // multipart/form-data 생성을 위한 빌더
         MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();

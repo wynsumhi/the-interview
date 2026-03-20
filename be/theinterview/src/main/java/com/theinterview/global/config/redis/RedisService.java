@@ -93,5 +93,20 @@ public class RedisService {
         // 문자열을 하나로 이어붙여 반환함
         return String.join(" ", orderedChunks);
     }
+
+    // redis에 저장되어 있는 청크 수를 확인하는 메서드
+    public Long savedChunkCount(String key) {
+
+        return redisTemplate.opsForZSet().size(key);
+    }
+
+    // 사용자가 다음 버튼을 눌러서 이벤트를 발생시키면 총 저장되어야 하는 청크 수를 저장하는 메서드
+    public void saveAllChuckCount(String key, int totalChunks) {
+
+        ValueOperations<String, String> values = redisTemplate.opsForValue();
+
+        values.set(key, String.valueOf(totalChunks));
+    }
+
 }
 
