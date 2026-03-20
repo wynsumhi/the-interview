@@ -62,5 +62,6 @@ export const checkEmailExists = async (email: string): Promise<boolean> => {
     params: { email },
   });
   // 백엔드 응답: { isSuccess, code, message, result: boolean }
-  return response.data.result;
+  // result가 true면 이메일이 중복되지 않는다는 뜻 (사용 가능)
+  return !response.data.result;
 };
