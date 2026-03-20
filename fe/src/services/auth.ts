@@ -65,3 +65,16 @@ export const checkEmailExists = async (email: string): Promise<boolean> => {
   // result가 true면 이메일이 중복되지 않는다는 뜻 (사용 가능)
   return !response.data.result;
 };
+
+// 닉네임 중복 확인 API 호출 함수
+// GET /auth/exists/nickname?nickname={nickname}
+export const checkNicknameExists = async (
+  nickname: string,
+): Promise<boolean> => {
+  const response = await instance.get("/auth/exists/nickname", {
+    params: { nickname },
+  });
+  // 백엔드 응답: { isSuccess, code, message, result: boolean }
+  // result가 true면 닉네임이 중복되지 않는다는 뜻 (사용 가능)
+  return !response.data.result;
+};

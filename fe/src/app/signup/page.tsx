@@ -5,7 +5,7 @@ import { useState } from "react"; // 컴포넌트 안에서 변하는 값을 관
 import Link from "next/link";
 import { useRouter } from "next/navigation"; // 페이지 이동을 위한 Next.js 훅
 import styles from "./page.module.css";
-import { signup, checkEmailExists } from "@/services/auth"; // 회원가입, 이메일 중복 검사 API 함수
+import { signup, checkEmailExists, checkNicknameExists } from "@/services/auth"; // 회원가입, 이메일 중복 검사 API 함수
 
 // 비밀번호 유효성 검사 정규식
 // (?=.*[a-zA-Z]) : 영문 포함 필수
@@ -82,16 +82,26 @@ export default function SignupPage() {
     } catch (error: any) {
       // 400 에러 시 이메일/닉네임 중복 여부를 구분해서 표시
       if (error.response?.status === 400) {
-        const emailExists = await checkEmailExists(email);
+        const [emailExists, nicknameExists] = await Promise.all([
+          checkEmailExists(email),
+          checkNicknameExists(nickname),
+        ]);
         if (emailExists) {
           setErrors((prev) => ({
             ...prev,
             email: "이미 사용 중인 이메일입니다.",
           }));
-        } else {
+        }
+        if (nicknameExists) {
           setErrors((prev) => ({
             ...prev,
             general: "이미 사용 중인 닉네임입니다.",
+          }));
+        }
+        if (!emailExists && !nicknameExists) {
+          setErrors((prev) => ({
+            ...prev,
+            general: "회원가입에 실패했습니다. 다시 시도해주세요.",
           }));
         }
       } else {
