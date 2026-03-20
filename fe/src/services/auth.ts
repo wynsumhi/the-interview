@@ -61,5 +61,6 @@ export const checkEmailExists = async (email: string): Promise<boolean> => {
   const response = await instance.get("/auth/exists/email", {
     params: { email },
   });
-  return response.data.result.exists;
+  // 백엔드 응답: { isSuccess, code, message, result: boolean }
+  return response.data.result;
 };
