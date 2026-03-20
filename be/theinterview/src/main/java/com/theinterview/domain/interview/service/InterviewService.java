@@ -172,7 +172,7 @@ public class InterviewService {
 
         InterviewQuestion question = domainFindUtils.getInterviewQuestionById(questionId);
         Interview interview = domainFindUtils.getInterviewById(interviewId);
-        
+
         // DB에 사용자 답변과 오디오 경로 저장
         interviewAnswerRepository.save(InterviewAnswer.builder()
                 .interviewQuestion(question)
@@ -463,6 +463,8 @@ public class InterviewService {
                 int totalChunks = Integer.parseInt(
                         redisService.getValues(redisKey + "totalChunks"));
                 // 만약 같다면 종료 처리 가능
+                log.info("총 청크 개수{}", totalChunks);
+                log.info("저장된 청크 개수: {}", redisService.savedChunkCount(redisKey + "chunks"));
                 if (totalChunks == redisService.savedChunkCount(redisKey + "chunks")) {
                     return true;
                 }
