@@ -74,26 +74,32 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      const exists = await checkEmailExists(email);
-      if (exists) {
-        setErrors((prev) => ({
-          ...prev,
-          email: "이미 사용 중인 이메일입니다.",
-        }));
-        return;
-      }
-
       // confirmPassword는 서버에 보내지 않음 (클라이언트 전용 확인 필드)
       await signup({ email, password, nickname });
 
       // 성공 시 로그인 페이지로 이동
       router.push("/login");
     } catch (error: any) {
-      // error.response?.data?.message : 서버가 보내준 에러 메시지 (없으면 기본 메시지)
-      const message =
-        error.response?.data?.message ||
-        "회원가입에 실패했습니다. 다시 시도해주세요.";
-      setErrors((prev) => ({ ...prev, general: message }));
+      // 400 에러 시 이메일/닉네임 중복 여부를 구분해서 표시
+      if (error.response?.status === 400) {
+        const emailExists = await checkEmailExists(email);
+        if (emailExists) {
+          setErrors((prev) => ({
+            ...prev,
+            email: "이미 사용 중인 이메일입니다.",
+          }));
+        } else {
+          setErrors((prev) => ({
+            ...prev,
+            general: "이미 사용 중인 닉네임입니다.",
+          }));
+        }
+      } else {
+        setErrors((prev) => ({
+          ...prev,
+          general: "회원가입에 실패했습니다. 다시 시도해주세요.",
+        }));
+      }
     } finally {
       // try/catch 결과와 상관없이 항상 실행 → 로딩 상태 해제
       setIsLoading(false);
