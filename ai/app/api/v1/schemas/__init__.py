@@ -1,7 +1,12 @@
 from app.api.v1.schemas.interview import (
+    AudioFeaturesResponse,
     InterviewPipelineResponse,
     InterviewStartTTSRequest,
     InterviewStartTTSResponse,
+    InterviewStateDbPayloadResponse,
+    InterviewStatePromptResponse,
+    InterviewStateSaveRequest,
+    InterviewStateSaveResponse,
     MagazineTitleRequest,
     MagazineTitleResponse,
     NextOpeningRequest,
@@ -10,7 +15,12 @@ from app.api.v1.schemas.interview import (
 )
 
 __all__ = [
+    "AudioFeaturesResponse",
     "InterviewPipelineResponse",
+    "InterviewStateDbPayloadResponse",
+    "InterviewStatePromptResponse",
+    "InterviewStateSaveRequest",
+    "InterviewStateSaveResponse",
     "InterviewStartTTSRequest",
     "InterviewStartTTSResponse",
     "MagazineTitleRequest",
