@@ -131,6 +131,11 @@
   display: block;
 }
 
+/* submitGroup 내에서 발생하는 에러는 margin-top 제거 */
+.submitGroup .error {
+  margin: 0 0 15px 3px;
+}
+
 /* 버튼 비활성화 상태 (API 요청 중) */
 .submitBtn:disabled {
   opacity: 0.6;
