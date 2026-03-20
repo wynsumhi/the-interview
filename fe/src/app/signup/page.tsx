@@ -5,14 +5,15 @@ import { useState } from "react"; // 컴포넌트 안에서 변하는 값을 관
 import Link from "next/link";
 import { useRouter } from "next/navigation"; // 페이지 이동을 위한 Next.js 훅
 import styles from "./page.module.css";
-import { signup } from "@/services/auth"; // 회원가입 API 함수
+import { signup, checkEmailExists } from "@/services/auth"; // 회원가입, 이메일 중복 검사 API 함수
 
 // 비밀번호 유효성 검사 정규식
 // (?=.*[a-zA-Z]) : 영문 포함 필수
 // (?=.*\d)       : 숫자 포함 필수
 // (?=.*[!@#$%])  : 특수문자(!@#$%) 포함 필수
 // {8,12}         : 전체 길이 8~12자
-const PASSWORD_REGEX = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%])[a-zA-Z\d!@#$%]{8,12}$/;
+const PASSWORD_REGEX =
+  /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%])[a-zA-Z\d!@#$%]{8,12}$/;
 
 export default function SignupPage() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function SignupPage() {
 
   // 에러 메시지 상태 (각 필드별 + 서버 에러)
   const [errors, setErrors] = useState({
+    email: "",
     password: "",
     confirmPassword: "",
     general: "", // 서버에서 온 에러 메시지
@@ -37,12 +39,18 @@ export default function SignupPage() {
 
   // 폼 제출 전 입력값이 올바른지 확인하는 함수
   const validate = (): boolean => {
-    const newErrors = { password: "", confirmPassword: "", general: "" };
+    const newErrors = {
+      email: "",
+      password: "",
+      confirmPassword: "",
+      general: "",
+    };
     let isValid = true;
 
     // 비밀번호 형식 검사
     if (!PASSWORD_REGEX.test(password)) {
-      newErrors.password = "영문, 숫자, 특수문자(!@#$%) 포함 8~12자여야 합니다.";
+      newErrors.password =
+        "영문, 숫자, 특수문자(!@#$%) 포함 8~12자여야 합니다.";
       isValid = false;
     }
 
@@ -72,10 +80,26 @@ export default function SignupPage() {
       // 성공 시 로그인 페이지로 이동
       router.push("/login");
     } catch (error: any) {
-      // error.response?.data?.message : 서버가 보내준 에러 메시지 (없으면 기본 메시지)
-      const message =
-        error.response?.data?.message || "회원가입에 실패했습니다. 다시 시도해주세요.";
-      setErrors((prev) => ({ ...prev, general: message }));
+      // 400 에러 시 이메일/닉네임 중복 여부를 구분해서 표시
+      if (error.response?.status === 400) {
+        const emailExists = await checkEmailExists(email);
+        if (emailExists) {
+          setErrors((prev) => ({
+            ...prev,
+            email: "이미 사용 중인 이메일입니다.",
+          }));
+        } else {
+          setErrors((prev) => ({
+            ...prev,
+            general: "이미 사용 중인 닉네임입니다.",
+          }));
+        }
+      } else {
+        setErrors((prev) => ({
+          ...prev,
+          general: "회원가입에 실패했습니다. 다시 시도해주세요.",
+        }));
+      }
     } finally {
       // try/catch 결과와 상관없이 항상 실행 → 로딩 상태 해제
       setIsLoading(false);
@@ -103,6 +127,9 @@ export default function SignupPage() {
               onChange={(e) => setEmail(e.target.value)} // 입력할 때마다 state 업데이트
               required
             />
+            {errors.email && (
+              <span className={styles.error}>{errors.email}</span>
+            )}
           </div>
 
           <div className={styles.inputGroup}>
@@ -151,15 +178,21 @@ export default function SignupPage() {
             />
           </div>
 
-          {/* 서버에서 온 에러 메시지 (이메일 중복 등) */}
-          {errors.general && (
-            <span className={styles.error}>{errors.general}</span>
-          )}
+          <div className={styles.submitGroup}>
+            {/* 서버에서 온 에러 메시지 (이메일 중복 등) */}
+            {errors.general && (
+              <span className={styles.error}>{errors.general}</span>
+            )}
 
-          {/* disabled: isLoading이 true면 버튼 비활성화 */}
-          <button type="submit" className={styles.submitBtn} disabled={isLoading}>
-            {isLoading ? "가입 중..." : "회원가입 하기"}
-          </button>
+            {/* disabled: isLoading이 true면 버튼 비활성화 */}
+            <button
+              type="submit"
+              className={styles.submitBtn}
+              disabled={isLoading}
+            >
+              {isLoading ? "가입 중..." : "회원가입 하기"}
+            </button>
+          </div>
         </form>
 
         <p className={styles.switchAuth}>
