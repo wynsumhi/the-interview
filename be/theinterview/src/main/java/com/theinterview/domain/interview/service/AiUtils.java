@@ -67,6 +67,64 @@ public class AiUtils {
 
     }
 
+    // fast api를 호출하여 꼬리질문 관련 파이프라인을 거치는 헬퍼 메서드 -> STT 청크 로직에서 사용됨
+    // todo: 지금은 감정을 받지 않도록 설계됨. 감정 로직이 확실해지면 추가
+    public Mono<AiPipelineResponse> callFastApiForNextQuestionV2(
+            byte[] audioBytes,
+            int sequence,
+            String nickname,
+            String previousQuestion,
+            Boolean isFirstFinished,
+            String sttText) {
+
+        // multipart/form-data 생성을 위한 빌더
+        MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
+
+        // 1. 오디오 파일 셋팅 (.webm 강제 주입)
+        ByteArrayResource audioResource = new ByteArrayResource(audioBytes) {
+            @Override
+            public String getFilename() {
+                return "answer.webm";
+            }
+        };
+        bodyBuilder.part("audio_file", audioResource)
+                .contentType(MediaType.parseMediaType("audio/webm"));
+
+        // 2. MVP 기준 필수 파라미터 세팅 (항상 false)
+        bodyBuilder.part("is_first_finished", isFirstFinished);
+
+        // 3. is_first_finished=false 일 때 권장/필수 파라미터 세팅
+        bodyBuilder.part("sequence", sequence);
+        bodyBuilder.part("nickname", nickname);
+
+        // 4. sequence >= 2 일 경우 이전 질문 텍스트 세팅
+        if (sequence >= 2 && previousQuestion != null) {
+            bodyBuilder.part("previous_question", previousQuestion);
+        }
+
+        // 5. 조립된 사용자 답변 텍스트 세팅
+        bodyBuilder.part("stt_text", sttText);
+
+        log.info("AI 서버와 통신 시작 요청 URI: {}", "/api/v1/ai/interview/pipeline/after-stt");
+
+        // 비동기 webclient를 이용한 post 요청
+        return webClient.post()
+                .uri("/api/v1/ai/interview/pipeline/after-stt")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
+                .retrieve()
+                // 명세서에 명시된 400 Bad Request (잘못된 파일 형식 등) 방어 로직 추가
+                .onStatus(status -> status.is4xxClientError(), clientResponse -> {
+                    log.error("FastAPI 클라이언트 에러 발생 (4xx): {}", clientResponse.statusCode());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                .onStatus(status -> status.is5xxServerError(), clientResponse -> {
+                    log.error("FastAPI 서버 에러 발생 (5xx): {}", clientResponse.statusCode());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                .bodyToMono(AiPipelineResponse.class);
+    }
+
     // fast api를 호출하여 꼬리질문 관련 파이프라인을 거치는 헬퍼 메서드
     public AiPipelineResponse callFastApiForNextQuestion(
             byte[] audioBytes,

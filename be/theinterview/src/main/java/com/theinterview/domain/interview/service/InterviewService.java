@@ -71,6 +71,7 @@ public class InterviewService {
     @Value("${file.audio.base-url}")
     private String answerAudioUrl;
 
+    // interview 진행 관련 메서드 ----------------------------------------------------------------------------------------------------------------
 
     // 웹소켓 연결 전, 클라이언트가 구독 할 인터뷰 pk를 발급하고, 첫 질문 텍스트를 TTS로 변환하여 전달함
     // todo: facade 패턴 도입을 통해 메서드 분리 필요(커넥션 풀 고갈 문제 고려)

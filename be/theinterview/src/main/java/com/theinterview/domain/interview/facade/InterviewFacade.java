@@ -86,6 +86,7 @@ public class InterviewFacade {
 
         log.info("AI 파이프라인 호출 시작");
         // 3. AI 파이프라인 호출(여기서 비동기 호출 사용)
+        aiUtils.callFastApiForNextQuestionV2()
         // 아직 AI 파이프라인 만들어지지 않음
 
         // 4. DB 저장 로직(트랜잭션) -> DB에 저장하는 로직 자체는 어렵지 않음 subscribe 체인 안에서 해결하면 될 듯
