@@ -18,7 +18,7 @@ def text_to_speech(question_text: str) -> bytes:
     elapsed = time.perf_counter() - started
 
     logger.info(
-        "TTS completed in %.3fs. chars=%s bytes=%s",
+        "[TTS] completed in %.3fs chars=%s bytes=%s",
         elapsed,
         len(question_text),
         len(audio_bytes),
