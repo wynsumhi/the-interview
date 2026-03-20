@@ -58,6 +58,12 @@
   letter-spacing: 0.04em;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
 .count {
   font-size: 11px;
   font-weight: 700;
@@ -65,6 +71,115 @@
   text-transform: uppercase;
   color: var(--muted);
   opacity: 0.55;
+}
+
+.deleteBtn {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.4;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.deleteBtn:hover {
+  opacity: 1;
+  color: var(--charcoal);
+}
+
+/* ── 삭제 확인 모달 ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  background: var(--bg);
+  padding: 48px 52px;
+  max-width: 420px;
+  width: calc(100% - 48px);
+  border-top: 2px solid var(--fg);
+}
+
+.modalTitle {
+  font-family: var(--font-playfair);
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.modalDesc {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+.modalError {
+  font-size: 13px;
+  color: #c0392b;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: rgba(192, 57, 43, 0.07);
+  border-left: 2px solid #c0392b;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancelBtn {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 10px 24px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.cancelBtn:hover:not(:disabled) {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+.confirmBtn {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 10px 24px;
+  background: var(--charcoal);
+  color: var(--bg);
+  border: 1px solid var(--charcoal);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.confirmBtn:hover:not(:disabled) {
+  opacity: 0.75;
+}
+
+.cancelBtn:disabled,
+.confirmBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ── 스태거드 2단 그리드 ── */

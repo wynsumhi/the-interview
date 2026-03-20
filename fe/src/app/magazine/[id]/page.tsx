@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useInterviewDetail } from "@/hooks/useInterviewDetail";
+import { deleteInterview } from "@/services/interview";
 import type { InterviewDetailEntry } from "@/types/interview";
 import styles from "./page.module.css";
 
@@ -98,11 +99,74 @@ function QnaModule({
   );
 }
 
+// ── 삭제 확인 모달 ────────────────────────────────────────────
+function DeleteModal({
+  onConfirm,
+  onCancel,
+  isDeleting,
+  deleteError,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+  isDeleting: boolean;
+  deleteError: string | null;
+}) {
+  return (
+    <div className={styles.overlay} onClick={onCancel}>
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <p className={styles.modalTitle}>이 인터뷰를 삭제할까요?</p>
+        <p className={styles.modalDesc}>삭제된 기록은 복구할 수 없습니다.</p>
+        {deleteError && (
+          <p className={styles.modalError}>{deleteError}</p>
+        )}
+        <div className={styles.modalActions}>
+          <button
+            className={styles.cancelBtn}
+            onClick={onCancel}
+            disabled={isDeleting}
+          >
+            취소
+          </button>
+          <button
+            className={styles.confirmBtn}
+            onClick={onConfirm}
+            disabled={isDeleting}
+          >
+            {isDeleting ? "삭제 중…" : "삭제"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 메인 페이지 ───────────────────────────────────────────────
 export default function MagazinePage() {
   const params = useParams();
+  const router = useRouter();
   const interviewId = Number(params.id);
   const { data, isLoading, error } = useInterviewDetail(interviewId);
+
+  const [showModal, setShowModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteInterview(interviewId);
+      router.push("/archive");
+    } catch (err) {
+      const is400 = (err as Error).message === "BAD_REQUEST";
+      setDeleteError(
+        is400
+          ? "삭제할 수 없는 인터뷰입니다."
+          : "오류가 발생했습니다. 다시 시도해 주세요.",
+      );
+      setIsDeleting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -161,9 +225,26 @@ export default function MagazinePage() {
               day: "numeric",
             })}
           </span>
-          <span className={styles.count}>{entries.length} Questions</span>
+          <div className={styles.headerActions}>
+            <span className={styles.count}>{entries.length} Questions</span>
+            <button
+              className={styles.deleteBtn}
+              onClick={() => setShowModal(true)}
+            >
+              Delete
+            </button>
+          </div>
         </div>
       </header>
+
+      {showModal && (
+        <DeleteModal
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => { setShowModal(false); setDeleteError(null); }}
+          isDeleting={isDeleting}
+          deleteError={deleteError}
+        />
+      )}
 
       {/* ── 스태거드 2단 그리드 ── */}
       <div className={styles.grid}>

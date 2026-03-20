@@ -59,6 +59,19 @@ export async function fetchInterviewDetail(
   }
 }
 
+// DELETE /api/v1/interview/{interviewId} - 인터뷰 삭제
+// 400: 잘못된 요청 (이미 삭제됐거나 소유권 없음)
+export async function deleteInterview(interviewId: number): Promise<void> {
+  try {
+    await instance.delete(`/interview/${interviewId}`);
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 400) {
+      throw new Error("BAD_REQUEST");
+    }
+    throw error;
+  }
+}
+
 // POST /api/v1/interview/exit - 인터뷰 강제 종료
 // 서버가 현재까지의 대화를 바탕으로 AI 요약 제목을 생성해 반환
 export async function exitInterview(
