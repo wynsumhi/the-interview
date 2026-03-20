@@ -15,6 +15,8 @@ export default function MyPage() {
   );
   const [email, setEmail] = useState("");
   const [nickname, setNickname] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
     getMe().then((data) => {
@@ -31,8 +33,13 @@ export default function MyPage() {
       alert("닉네임은 3~8자의 영문 또는 한글만 가능합니다.");
       return;
     }
+    if (password !== confirmPassword) {
+      alert("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+      return;
+    }
     try {
-      await updateMe({ nickname });
+      await updateMe({ nickname, ...(password ? { password } : {}) });
+      alert("회원 정보 변경이 완료되었습니다.");
       router.push("/archive");
     } catch (error: unknown) {
       const message =
@@ -115,11 +122,15 @@ export default function MyPage() {
             <input
               type="password"
               placeholder="새 비밀번호"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className={styles.input}
             />
             <input
               type="password"
               placeholder="비밀번호 확인"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               className={styles.input}
             />
           </div>

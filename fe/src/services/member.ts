@@ -13,6 +13,7 @@ export interface MemberResponse {
 // 회원 정보 수정 요청 시 서버에 전달할 데이터 형태 정의
 export interface UpdateMemberRequest {
   nickname: string;
+  password?: string;
 }
 
 // 회원 정보 조회 API 호출 함수
