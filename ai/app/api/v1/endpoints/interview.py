@@ -15,6 +15,7 @@ from app.services.interview_service import (
     generate_interview_start_tts,
     generate_magazine_title,
     generate_next_opening_question,
+    run_interview_pipeline_from_stt_payload,
     run_interview_pipeline_from_upload,
     save_interview_state_temp,
 )
@@ -158,6 +159,41 @@ def run_interview_pipeline_endpoint(
         result = run_interview_pipeline_from_upload(
             audio_file=audio_file,
             answer_id=answer_id,
+            is_first_finished=is_first_finished,
+            sequence=sequence,
+            nickname=nickname,
+            previous_question=previous_question,
+            max_tokens=max_tokens,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return InterviewPipelineResponse.model_validate(result)
+
+
+@router.post(
+    "/pipeline/after-stt",
+    response_model=InterviewPipelineResponse,
+    summary="Run interview pipeline after external STT",
+)
+def run_interview_pipeline_after_stt_endpoint(
+    stt_text: str = Form(...),
+    audio_file: UploadFile = File(...),
+    is_first_finished: bool = Form(default=False),
+    sequence: int | None = Form(default=None),
+    nickname: str | None = Form(default=None),
+    previous_question: str | None = Form(default=None),
+    max_tokens: int = Form(default=1024),
+) -> InterviewPipelineResponse:
+    """외부 STT 결과를 받아 STT 이후 인터뷰 파이프라인만 실행한다."""
+
+    try:
+        result = run_interview_pipeline_from_stt_payload(
+            audio_file=audio_file,
+            stt_text=stt_text,
             is_first_finished=is_first_finished,
             sequence=sequence,
             nickname=nickname,

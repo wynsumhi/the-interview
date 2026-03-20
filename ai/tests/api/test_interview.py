@@ -31,6 +31,12 @@ def build_interview_state_db_response() -> dict[str, object]:
     }
 
 
+def build_temp_interview_state_db_response() -> dict[str, object]:
+    response = build_interview_state_db_response()
+    response["answer_id"] = 0
+    return response
+
+
 def build_interview_state_prompt_response() -> dict[str, object]:
     return {
         "top_state": "calm",
@@ -128,6 +134,54 @@ def test_interview_pipeline_returns_follow_up_tts_and_state_payloads() -> None:
         "tts_audio_mime_type": "audio/wav",
     }
     pipeline_mock.assert_called_once()
+
+
+def test_interview_pipeline_after_stt_returns_follow_up_tts_and_state_payloads() -> None:
+    with patch(
+        "app.api.v1.endpoints.interview.run_interview_pipeline_from_stt_payload",
+        return_value={
+            "stt_text": "candidate answer from external stt",
+            "interview_state_db": build_temp_interview_state_db_response(),
+            "interview_state_prompt": build_interview_state_prompt_response(),
+            "question_text": "next question",
+            "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
+            "tts_audio_mime_type": "audio/wav",
+        },
+    ) as pipeline_mock:
+        response = client.post(
+            "/api/v1/ai/interview/pipeline/after-stt",
+            files={"audio_file": ("answer.webm", BytesIO(b"webm-audio"), "audio/webm")},
+            data={
+                "stt_text": "candidate answer from external stt",
+                "is_first_finished": "true",
+                "nickname": "민수",
+                "max_tokens": "256",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "stt_text": "candidate answer from external stt",
+        "interview_state_db": build_temp_interview_state_db_response(),
+        "interview_state_prompt": build_interview_state_prompt_response(),
+        "question_text": "next question",
+        "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
+        "tts_audio_mime_type": "audio/wav",
+    }
+    pipeline_mock.assert_called_once()
+
+
+def test_interview_pipeline_after_stt_returns_bad_request_when_text_is_missing() -> None:
+    response = client.post(
+        "/api/v1/ai/interview/pipeline/after-stt",
+        files={"audio_file": ("answer.webm", BytesIO(b"webm-audio"), "audio/webm")},
+        data={"stt_text": "   ", "nickname": "민수"},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "stt_text is required.",
+    }
 
 
 def test_interview_pipeline_rejects_non_webm_upload() -> None:

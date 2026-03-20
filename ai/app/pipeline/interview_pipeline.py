@@ -107,6 +107,30 @@ def run_interview_pipeline(
     """
 
     stt_text = speech_to_text(audio_file_path)
+    return run_interview_pipeline_from_stt_text(
+        audio_file_path=audio_file_path,
+        stt_text=stt_text,
+        answer_id=answer_id,
+        is_first_finished=is_first_finished,
+        sequence=sequence,
+        nickname=nickname,
+        previous_question=previous_question,
+        max_tokens=max_tokens,
+    )
+
+
+def run_interview_pipeline_from_stt_text(
+    audio_file_path: str,
+    stt_text: str,
+    answer_id: int,
+    is_first_finished: bool,
+    sequence: int | None = None,
+    nickname: str | None = None,
+    previous_question: str | None = None,
+    max_tokens: int = 1024,
+) -> InterviewPipelineResult:
+    """STT 寃곌낵瑜?直接 注入받아 STT 단계를 건너뛴 파이프라인을 실행한다."""
+
     interview_state = analyze_interview_state(audio_file_path, stt_text)
     interview_state_db = build_interview_state_db_payload(answer_id, interview_state)
     interview_state_prompt = build_interview_state_prompt_payload(interview_state)

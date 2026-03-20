@@ -8,7 +8,10 @@ from typing import Any
 
 from fastapi import UploadFile
 
-from app.pipeline.interview_pipeline import run_interview_pipeline
+from app.pipeline.interview_pipeline import (
+    run_interview_pipeline,
+    run_interview_pipeline_from_stt_text,
+)
 from app.prompts.interview_prompts import NEXT_OPENING_SYSTEM_PROMPT, TITLE_GENERATION_SYSTEM_PROMPT
 from app.services.llm_service import create_message
 from app.services.tts_service import text_to_speech
@@ -19,6 +22,7 @@ ALLOWED_AUDIO_EXTENSIONS = {".webm"}
 
 # JSON 응답에서 TTS 오디오 타입을 명시할 때 사용하는 기본 MIME 타입이다.
 DEFAULT_AUDIO_MIME_TYPE = "audio/wav"
+TEMP_INTERVIEW_STATE_ANSWER_ID = 0
 
 # 신규 사용자의 첫 인터뷰 시작 시 사용하는 기본 질문 템플릿이다.
 # 이후 백엔드에서 별도 질문을 넘겨주기 전까지는 이 문장을 TTS로 읽는다.
@@ -180,6 +184,57 @@ def run_interview_pipeline_from_upload(
 
         # 파이프라인 내부 결과는 bytes와 dataclass를 함께 들고 있으므로,
         # API 응답 직전에는 JSON 직렬화 가능한 dict 형태로 한 번 정리한다.
+        response = pipeline_result.to_response_dict()
+        return {
+            "stt_text": response["stt_text"],
+            "interview_state_db": response["interview_state_db"],
+            "interview_state_prompt": response["interview_state_prompt"],
+            "question_text": response["question_text"],
+            "tts_audio_base64": base64.b64encode(response["tts_audio"]).decode("ascii"),
+            "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
+        }
+    finally:
+        audio_file.file.close()
+        if temp_file_path is not None and temp_file_path.exists():
+            temp_file_path.unlink()
+
+
+def run_interview_pipeline_from_stt_payload(
+    audio_file: UploadFile,
+    stt_text: str,
+    is_first_finished: bool = False,
+    sequence: int | None = None,
+    nickname: str | None = None,
+    previous_question: str | None = None,
+    max_tokens: int = 1024,
+) -> dict[str, Any]:
+    """STT 텍스트를 외부에서 받아 STT 이후 파이프라인만 실행한다."""
+
+    validate_audio_upload(audio_file)
+
+    normalized_stt_text = stt_text.strip()
+    if not normalized_stt_text:
+        raise ValueError("stt_text is required.")
+
+    suffix = Path(audio_file.filename or "audio.webm").suffix.lower() or ".webm"
+    temp_file_path: Path | None = None
+
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            shutil.copyfileobj(audio_file.file, temp_file)
+            temp_file_path = Path(temp_file.name)
+
+        pipeline_result = run_interview_pipeline_from_stt_text(
+            str(temp_file_path),
+            stt_text=normalized_stt_text,
+            answer_id=TEMP_INTERVIEW_STATE_ANSWER_ID,
+            is_first_finished=is_first_finished,
+            sequence=sequence,
+            nickname=nickname,
+            previous_question=previous_question,
+            max_tokens=max_tokens,
+        )
+
         response = pipeline_result.to_response_dict()
         return {
             "stt_text": response["stt_text"],
