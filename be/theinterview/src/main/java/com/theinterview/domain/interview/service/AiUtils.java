@@ -1,5 +1,11 @@
 package com.theinterview.domain.interview.service;
 
+import com.theinterview.domain.interview.dto.AiRagDto.DeleteRequest;
+import com.theinterview.domain.interview.dto.AiRagDto.DeleteResponse;
+import com.theinterview.domain.interview.dto.AiRagDto.ReindexRequest;
+import com.theinterview.domain.interview.dto.AiRagDto.ReindexResponse;
+import com.theinterview.domain.interview.dto.AiRagDto.UpsertRequest;
+import com.theinterview.domain.interview.dto.AiRagDto.UpsertResponse;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
@@ -11,15 +17,18 @@ import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.SttChunkResponse;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 @Slf4j
 @Component
@@ -188,5 +197,97 @@ public class AiUtils {
                 })
                 .bodyToMono(AiNextOpeningResponse.class)
                 .block();
+    }
+
+    // RAG 호출 관련 메서드 -----------------------------------------------------------------------------------------------------
+
+    /**
+     * 사용자의 전체 매거진 인터뷰 이력을 기준으로 RAG 재구성 (비동기)
+     */
+    public Mono<ReindexResponse> callFastApiForRagReindex(ReindexRequest request) {
+        log.info("AI RAG 전체 재구성 요청 시작 - userId: {}", request.getUserId());
+
+        return webClient.post()
+                .uri("/api/v1/ai/interview/rag/reindex")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError(), clientResponse -> {
+                    log.error("FastAPI RAG Reindex 클라이언트 에러 발생 (4xx): {}",
+                            clientResponse.statusCode());
+                    // 4xx 에러는 재시도를 방지하기 위해 IllegalArgumentException으로 던집니다.
+                    return Mono.error(new IllegalArgumentException("4xx Client Error"));
+                })
+                .onStatus(status -> status.is5xxServerError(), clientResponse -> {
+                    log.error("FastAPI RAG Reindex 서버 에러 발생 (5xx): {}",
+                            clientResponse.statusCode());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                .bodyToMono(ReindexResponse.class)
+                .retryWhen(getRagRetrySpec());
+    }
+
+    /**
+     * 새로운 매거진 인터뷰 문답 생성 시 RAG 추가 적재 (비동기)
+     */
+    public Mono<UpsertResponse> callFastApiForRagUpsert(UpsertRequest request) {
+        log.info("AI RAG 추가 적재 요청 시작 - interviewId: {}", request.getInterviewId());
+
+        return webClient.post()
+                .uri("/api/v1/ai/interview/rag/upsert")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError(), clientResponse -> {
+                    log.error("FastAPI RAG Upsert 클라이언트 에러 발생 (4xx): {}",
+                            clientResponse.statusCode());
+                    return Mono.error(new IllegalArgumentException("4xx Client Error"));
+                })
+                .onStatus(status -> status.is5xxServerError(), clientResponse -> {
+                    log.error("FastAPI RAG Upsert 서버 에러 발생 (5xx): {}", clientResponse.statusCode());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                .bodyToMono(UpsertResponse.class)
+                .retryWhen(getRagRetrySpec());
+    }
+
+    /**
+     * 특정 매거진 인터뷰를 사용자 RAG에서 제거 (비동기)
+     */
+    public Mono<DeleteResponse> callFastApiForRagDelete(DeleteRequest request) {
+        log.info("AI RAG 삭제 요청 시작 - interviewId: {}", request.getInterviewId());
+
+        return webClient.method(HttpMethod.DELETE)
+                .uri("/api/v1/ai/interview/rag/delete")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError(), clientResponse -> {
+                    log.error("FastAPI RAG Delete 클라이언트 에러 발생 (4xx): {}",
+                            clientResponse.statusCode());
+                    return Mono.error(new IllegalArgumentException("4xx Client Error"));
+                })
+                .onStatus(status -> status.is5xxServerError(), clientResponse -> {
+                    log.error("FastAPI RAG Delete 서버 에러 발생 (5xx): {}", clientResponse.statusCode());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                .bodyToMono(DeleteResponse.class)
+                .retryWhen(getRagRetrySpec());
+    }
+
+    /**
+     * RAG 관련 API 통신 실패 시 재시도(Retry) 정책을 정의하는 헬퍼 메서드 - 정책: 2초 간격으로 최대 3회 재시도 (Fixed Delay) - 필터링:
+     * IllegalArgumentException(4xx 에러) 발생 시 재시도 생략
+     */
+    private Retry getRagRetrySpec() {
+        return Retry.fixedDelay(3, Duration.ofSeconds(2))
+                .filter(throwable -> {
+                    if (throwable instanceof IllegalArgumentException) {
+                        log.warn("🚨 RAG 연동 4xx 에러. 멱등성이 없으므로 재시도를 생략합니다.");
+                        return false;
+                    }
+                    log.warn("⚠️ RAG 연동 5xx 서버 에러 또는 네트워크 단절. 재시도를 시작합니다.");
+                    return true;
+                });
     }
 }
