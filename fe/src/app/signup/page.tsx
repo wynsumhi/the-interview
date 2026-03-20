@@ -178,19 +178,21 @@ export default function SignupPage() {
             />
           </div>
 
-          {/* 서버에서 온 에러 메시지 (이메일 중복 등) */}
-          {errors.general && (
-            <span className={styles.error}>{errors.general}</span>
-          )}
+          <div className={styles.submitGroup}>
+            {/* 서버에서 온 에러 메시지 (이메일 중복 등) */}
+            {errors.general && (
+              <span className={styles.error}>{errors.general}</span>
+            )}
 
-          {/* disabled: isLoading이 true면 버튼 비활성화 */}
-          <button
-            type="submit"
-            className={styles.submitBtn}
-            disabled={isLoading}
-          >
-            {isLoading ? "가입 중..." : "회원가입 하기"}
-          </button>
+            {/* disabled: isLoading이 true면 버튼 비활성화 */}
+            <button
+              type="submit"
+              className={styles.submitBtn}
+              disabled={isLoading}
+            >
+              {isLoading ? "가입 중..." : "회원가입 하기"}
+            </button>
+          </div>
         </form>
 
         <p className={styles.switchAuth}>
