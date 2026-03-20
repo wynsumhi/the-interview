@@ -1,5 +1,31 @@
 // 추후 수정 예정
 
+// ─────────────────────────────────────────────
+// 인터뷰 히스토리 목록 API (GET /api/v1/interview?page=N)
+// ─────────────────────────────────────────────
+
+/** 목록의 단일 인터뷰 항목 */
+export interface InterviewHistoryItem {
+  interviewDate: string;  // "2026-03-15" 형식의 날짜 문자열
+  interviewId: number;    // 인터뷰 고유 ID (상세 페이지 링크에 사용)
+  interviewTitle: string; // AI가 생성한 인터뷰 제목
+}
+
+/** GET /api/v1/interview 응답의 result 필드 */
+export interface InterviewHistoryPage {
+  currentPage: number;              // 현재 페이지 번호 (1-based)
+  interviews: InterviewHistoryItem[]; // 현재 페이지의 인터뷰 목록
+  totalPages: number;               // 전체 페이지 수 (무한스크롤 종료 조건)
+}
+
+/** 공통 API 래퍼 응답 구조 */
+export interface ApiResponse<T> {
+  isSuccess: boolean;
+  code: string;
+  message: string;
+  result: T;
+}
+
 // 주요 감정 키워드
 export type EmotionType = "joy" | "serenity" | "anger" | "sadness" | "insight";
 

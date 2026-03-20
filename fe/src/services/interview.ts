@@ -1,4 +1,5 @@
 import instance from "@/lib/axios";
+import type { ApiResponse, InterviewHistoryPage } from "@/types/interview";
 
 // POST /api/v1/interview 응답 타입
 export interface CreateInterviewResult {
@@ -23,6 +24,17 @@ export async function createInterview(
   isPrevAffected: boolean,
 ): Promise<CreateInterviewResult> {
   const res = await instance.post("/interview", { isPrevAffected }, { timeout: 60000 });
+  return res.data.result;
+}
+
+// GET /api/v1/interview?page=N - 인터뷰 히스토리 목록 조회
+// page는 0-based (서버 기준)
+export async function fetchInterviewHistory(
+  page: number,
+): Promise<InterviewHistoryPage> {
+  const res = await instance.get<ApiResponse<InterviewHistoryPage>>("/interview", {
+    params: { page },
+  });
   return res.data.result;
 }
 
