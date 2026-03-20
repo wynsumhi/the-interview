@@ -39,6 +39,7 @@ export default function MyPage() {
     }
     try {
       await updateMe({ nickname, password });
+      alert("회원 정보 변경이 완료되었습니다.");
       router.push("/archive");
     } catch (error: unknown) {
       const message =
