@@ -54,3 +54,12 @@ export const login = async (data: LoginRequest): Promise<LoginResponse> => {
 export const logout = async (): Promise<void> => {
   await instance.post("/auth/logout");
 };
+
+// 이메일 중복 확인 API 호출 함수
+// GET /auth/exists/email?email={email}
+export const checkEmailExists = async (email: string): Promise<boolean> => {
+  const response = await instance.get("/auth/exists/email", {
+    params: { email },
+  });
+  return response.data.result.exists;
+};
