@@ -32,7 +32,7 @@ def speech_to_text(audio_file_path: str) -> str:
     elapsed = time.perf_counter() - started
 
     logger.info(
-        "STT completed in %.3fs. path=%s text=%s",
+        "[STT] completed in %.3fs path=%s text=%s",
         elapsed,
         audio_file_path,
         stt_text,

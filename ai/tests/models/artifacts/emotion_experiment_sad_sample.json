@@ -1,0 +1,80 @@
+[
+  {
+    "model_key": "wav2vec2_xlsr_ko_v1",
+    "display_name": "jungjongho/wav2vec2-xlsr-korean-speech-emotion-recognition",
+    "mode": "audio",
+    "raw_labels": {
+      "기쁨": 0.001227,
+      "당황": 0.081086,
+      "분노": 0.900685,
+      "불안": 0.004227,
+      "슬픔": 0.012774
+    },
+    "normalized_labels": {
+      "anger": 0.900685,
+      "surprise": 0.081086,
+      "sadness": 0.012774,
+      "anxiety": 0.004227,
+      "joy": 0.001227
+    },
+    "top_label": "anger",
+    "top_score": 0.900685
+  },
+  {
+    "model_key": "wav2vec2_xlsr_ko_v3",
+    "display_name": "jungjongho/wav2vec2-xlsr-korean-speech-emotion-recognition3",
+    "mode": "audio",
+    "raw_labels": {
+      "기쁨": 8e-06,
+      "당황": 0.999769,
+      "분노": 1.5e-05,
+      "불안": 0.0002,
+      "슬픔": 7e-06,
+      "중립": 1e-06
+    },
+    "normalized_labels": {
+      "surprise": 0.999769,
+      "anxiety": 0.0002,
+      "anger": 1.5e-05,
+      "joy": 8e-06,
+      "sadness": 7e-06,
+      "neutral": 1e-06
+    },
+    "top_label": "surprise",
+    "top_score": 0.999769
+  },
+  {
+    "model_key": "audio_text_fusion",
+    "display_name": "Wav2Vec2 XLSR Korean v3 + KcELECTRA Emotion Fusion",
+    "mode": "multimodal",
+    "raw_labels": {
+      "audio": {
+        "기쁨": 8.482244084007107e-06,
+        "당황": 0.9997687935829163,
+        "분노": 1.5300107406801544e-05,
+        "불안": 0.00019968759443145245,
+        "슬픔": 7.229615675896639e-06,
+        "중립": 5.848658020113362e-07
+      },
+      "text": {
+        "기쁨": 0.03173283487558365,
+        "당황": 0.0749429315328598,
+        "분노": 0.2656957805156708,
+        "불안": 0.5848845839500427,
+        "상처": 0.018222635611891747,
+        "슬픔": 0.02452123537659645
+      }
+    },
+    "normalized_labels": {
+      "surprise": 0.67608,
+      "anxiety": 0.20484,
+      "anger": 0.093003,
+      "joy": 0.011112,
+      "sadness": 0.008587,
+      "hurt": 0.006378,
+      "neutral": 1e-06
+    },
+    "top_label": "surprise",
+    "top_score": 0.67608
+  }
+]
