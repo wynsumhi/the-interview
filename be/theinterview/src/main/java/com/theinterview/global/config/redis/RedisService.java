@@ -80,7 +80,7 @@ public class RedisService {
      * @param key Redis Key
      * @return 순서가 보장된 전체 텍스트 조합
      */
-    public String getOrderedChucks(String key) {
+    public String getOrderedChunks(String key) {
         ZSetOperations<String, String> zSetOps = redisTemplate.opsForZSet();
 
         // range(key, 0, -1)은 마지막까지 Score 기준 오름차순 정렬

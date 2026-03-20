@@ -53,46 +53,38 @@ public class InterviewWebSocketController {
         log.info("청킹된 데이터 도착 interviewId: {}, questionId: {}", request.getInterviewId(),
                 request.getQuestionId());
 
-        // 비동기 청킹 요청 및 구독을 통해 해당 메서드에 대한 return이 발생하면 여기서 잡아, redis 저장 로직을 수행함
-        aiUtils.callFastApiForSttChunk(request).subscribe(sttChunkResponse -> {
-                    // redis 키 저장
-                    String redisKey = "interviewId:" + request.getInterviewId() + "questionId:"
-                            + request.getQuestionId();
-                    // redis에 청크된 STT 결과, 인덱스 저장
-                    redisService.addChunkToSortedSet(
-                            redisKey + "chunks",
-                            sttChunkResponse.getChunkText(),
-                            request.getChuckIndex()
-                    );
-                    log.info("청킹된 오디오 조각 STT 변환 성공 및 redis에 저장 저장된 텍스트: {}",
-                            sttChunkResponse.getChunkText());
+        // 청크된 오디오 변환을 위해 비동기 STT 모델 호출
+        interviewService.chunkAudioSTT(request)
+                .subscribe(isLastChunk -> {
+                    // 서비스에서 반환환 결과가 true라면 파서드 레이어를 호출하여 꼬리 질문 파이프라인 실행
+                    if (isLastChunk) {
+                        log.info("모든 청크 조각 도착 완료");
+                        // 파서드 레이어 호출 및 다음 질문 변수에 할당
+                        String nextQuestion = interviewFacade.generateNextQuestionFacade(
+                                request.getInterviewId(),
+                                request.getQuestionId());
+                        // todo: 다음 질문만 string으로 넘기는 로직 -> DTO로 감싸서 필요한 데이터들을 모두 보내주는 로직으로 변환(엔드포인트 수정)
+                        messagingTemplate.convertAndSend(
+                                "/topic/interview/tmp/" + request.getInterviewId(), nextQuestion);
 
-                    // 청킹이 완료되었다면 해당 질문이 다음 버튼이 눌렸는지 redis에 키를 조회해서 확인함
-                    if (redisService.hasKey(redisKey + "totalChunks")) {
-                        // redis에 저장되어 있는 총 청크 수를 조회함
-                        int totalChunks = Integer.parseInt(
-                                redisService.getValues(redisKey + "totalChunks"));
-                        // 만약 같다면 종료 처리 가능
-                        if (totalChunks == redisService.savedChunkCount(redisKey + "chunks")) {
-                            // 여기서 꼬리 질문 생성 메서드 호출
-                            log.info("총 청크 수, 변환된 청크 수 일치 확인. 꼬리 질문 생성 로직 호출");
-                        }
                     }
-                },
-                error -> {
-                    log.error("STT 변환 중 에러 발생: {}", error.getMessage());
                 });
-
     }
 
     @MessageMapping("/next")
     public void receiveTotalChunk(
             @Payload TotalChunkRequest request
-    ) {
+    ) throws IOException {
         String redisKey =
                 "interviewId:" + request.getInterviewId() + "questionId:" + request.getQuestionId();
+        // 서버 디렉토리에 음성 파일 저장
+        String savedPath = interviewService.saveAnswerFile(request.getAnswerAudio(),
+                request.getInterviewId());
         // 여기서 바로 총 청크 수를 저장함
         redisService.setValues(redisKey + "totalChunks", request.getTotalChunk(),
                 Duration.ofMinutes(3)); // 유효 기간 3분
+        // 음성 파일 저장 경로 redis에 저장
+        redisService.setValues(redisKey + "savedPath", savedPath, Duration.ofMinutes(3));
+
     }
 }
