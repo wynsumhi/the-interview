@@ -1,5 +1,6 @@
+import axios from "axios";
 import instance from "@/lib/axios";
-import type { ApiResponse, InterviewHistoryPage } from "@/types/interview";
+import type { ApiResponse, InterviewDetailItem, InterviewHistoryPage } from "@/types/interview";
 
 // POST /api/v1/interview 응답 타입
 export interface CreateInterviewResult {
@@ -36,6 +37,26 @@ export async function fetchInterviewHistory(
     params: { page },
   });
   return res.data.result;
+}
+
+// GET /api/v1/interview/{interviewId} - 인터뷰 상세 조회
+// 403: 권한 없음 / 404: 존재하지 않는 인터뷰
+export async function fetchInterviewDetail(
+  interviewId: number,
+): Promise<InterviewDetailItem> {
+  try {
+    const res = await instance.get<ApiResponse<InterviewDetailItem>>(
+      `/interview/${interviewId}`,
+    );
+    return res.data.result;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      if (status === 403) throw new Error("FORBIDDEN");
+      if (status === 404) throw new Error("NOT_FOUND");
+    }
+    throw error;
+  }
 }
 
 // POST /api/v1/interview/exit - 인터뷰 강제 종료

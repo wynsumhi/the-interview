@@ -1,4 +1,21 @@
-// 추후 수정 예정
+// ─────────────────────────────────────────────
+// 인터뷰 상세 API (GET /api/v1/interview/{interviewId})
+// ─────────────────────────────────────────────
+
+/** 상세 페이지의 단일 Q&A 항목 (result.interview 배열 원소) */
+export interface InterviewDetailEntry {
+  interviewQuestion: string; // AI 질문 원문
+  interviewText: string;     // STT 처리된 사용자 답변 텍스트
+  interviewVoice: string;    // 사용자 답변 음성 URL (.webm)
+}
+
+/** GET /api/v1/interview/{interviewId} 응답의 result 필드 */
+export interface InterviewDetailItem {
+  interviewId: number;
+  interviewTitle: string;
+  interviewDate: string;
+  interview: InterviewDetailEntry[]; // Q&A 목록
+}
 
 // ─────────────────────────────────────────────
 // 인터뷰 히스토리 목록 API (GET /api/v1/interview?page=N)
