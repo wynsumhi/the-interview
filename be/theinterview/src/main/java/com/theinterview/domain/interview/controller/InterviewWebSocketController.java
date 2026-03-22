@@ -17,6 +17,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.servlet.View;
+import reactor.core.publisher.Mono;
 
 @Slf4j
 @Controller
@@ -36,13 +37,16 @@ public class InterviewWebSocketController {
             @Payload AudioMessageRequest request
     ) throws IOException {
         log.info("수신 데이터 확인 interviewId: {}", request.getInterviewId());
-
+        long start = System.currentTimeMillis();
+        log.info("요청 감지. 시간 측정 시작");
         // Facade 레이어 호출
         FollowUpQuestionDTO response = interviewFacade.processOneQnA(request);
 
+        log.info("요청 및 반환 종료. 걸린 시간: {}", System.currentTimeMillis() - start);
         // 메시지 브로커에게 메시지 전달
         messagingTemplate.convertAndSend("/topic/interview/room/" + request.getInterviewId(),
                 response);
+
     }
 
     // 청킹된 오디오 조각이 도착 할 경로
@@ -50,25 +54,30 @@ public class InterviewWebSocketController {
     public void receiveChunkAudio(
             @Payload AudioChunkRequest request
     ) {
+        long start = System.currentTimeMillis();
+        log.info("요청 감지. 시간 측정 시작");
         log.info("청킹된 데이터 도착 interviewId: {}, questionId: {}", request.getInterviewId(),
                 request.getQuestionId());
 
         // 청크된 오디오 변환을 위해 비동기 STT 모델 호출
         interviewService.chunkAudioSTT(request)
-                .subscribe(isLastChunk -> {
+                .flatMap(isLastChunk -> {
                     // 서비스에서 반환환 결과가 true라면 파서드 레이어를 호출하여 꼬리 질문 파이프라인 실행
                     if (isLastChunk) {
                         log.info("모든 청크 조각 도착 완료");
                         // 파서드 레이어 호출 및 다음 질문 변수에 할당
-                        String nextQuestion = interviewFacade.generateNextQuestionFacade(
-                                request.getInterviewId(),
-                                request.getQuestionId());
-                        // todo: 다음 질문만 string으로 넘기는 로직 -> DTO로 감싸서 필요한 데이터들을 모두 보내주는 로직으로 변환(엔드포인트 수정)
-                        messagingTemplate.convertAndSend(
-                                "/topic/interview/tmp/" + request.getInterviewId(), nextQuestion);
-
+                        return interviewFacade.generateNextQuestionFacade(
+                                        request.getInterviewId(),
+                                        request.getQuestionId(), start)
+                                .doOnNext(followUpQuestionDTO ->
+                                        messagingTemplate.convertAndSend(
+                                                "/topic/interview/tmp/" + request.getInterviewId(),
+                                                followUpQuestionDTO));
                     }
-                });
+                    // 마지막 청크가 아니라면 아무 행동 하지 않음
+                    return Mono.empty();
+                })
+                .subscribe();
     }
 
     @MessageMapping("/next")

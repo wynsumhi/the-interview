@@ -1,5 +1,7 @@
 package com.theinterview.domain.interview.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.theinterview.domain.interview.Repository.InterviewAnswerRepository;
 import com.theinterview.domain.interview.Repository.InterviewQuestionRepository;
 import com.theinterview.domain.interview.Repository.InterviewRepository;
@@ -37,6 +39,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -71,12 +74,14 @@ public class InterviewService {
     @Value("${file.audio.base-url}")
     private String answerAudioUrl;
 
+    private final ObjectMapper objectMapper;
+
     // interview 진행 관련 메서드 ----------------------------------------------------------------------------------------------------------------
 
     // 웹소켓 연결 전, 클라이언트가 구독 할 인터뷰 pk를 발급하고, 첫 질문 텍스트를 TTS로 변환하여 전달함
     // todo: facade 패턴 도입을 통해 메서드 분리 필요(커넥션 풀 고갈 문제 고려)
     @Transactional
-    public WebSocketConnectResponse issueWebSocketId(String email) {
+    public WebSocketConnectResponse issueWebSocketId(String email) throws JsonProcessingException {
 
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
@@ -118,6 +123,21 @@ public class InterviewService {
                 .sequence(1)
                 .questionText(interview.getTitle())
                 .build());
+
+        // 꼬리 질문 생성 시 필요한 데이터를 redis에서 조회하기 위해 redis에 저장
+        AiPipelineReadyDto dto = AiPipelineReadyDto.builder()
+                .sequence(1)
+                .nickname(member.getNickname())
+                .previousQuestion(question.getQuestionText())
+                .isFirstFinished(member.getIsFirstFinished())
+                .build();
+
+        String redisKey = "interviewId:" + interview.getId() + "questionId:" + question.getId()
+                + "aiPipelineReadyDto";
+
+        String dtoJson = objectMapper.writeValueAsString(dto);
+
+        redisService.setValues(redisKey, dtoJson, Duration.ofMinutes(3));
 
         return WebSocketConnectResponse.builder()
                 .interviewId(interview.getId())
@@ -168,7 +188,7 @@ public class InterviewService {
      * DB에 최종 반환된 질문 텍스트와 audio 파일 경로, 사용자 답변 텍스트를 저장하는 메서드
      */
     @Transactional
-    public void saveQuestionAndAnswer(Integer interviewId, Integer questionId,
+    public Integer saveQuestionAndAnswer(Integer interviewId, Integer questionId,
             String generatedQuestionText, String savedPath, String answerText) {
 
         InterviewQuestion question = domainFindUtils.getInterviewQuestionById(questionId);
@@ -183,11 +203,14 @@ public class InterviewService {
         log.info("사용자 답변 텍스트 저장 완료");
 
         // DB에 생성된 꼬리질문 저장
-        interviewQuestionRepository.save(InterviewQuestion.builder()
-                .interview(interview)
-                .sequence(question.getSequence() + 1)
-                .questionText(generatedQuestionText)
-                .build());
+        InterviewQuestion saveQuestion = interviewQuestionRepository.save(
+                InterviewQuestion.builder()
+                        .interview(interview)
+                        .sequence(question.getSequence() + 1)
+                        .questionText(generatedQuestionText)
+                        .build());
+
+        return saveQuestion.getId();
     }
 
     /**

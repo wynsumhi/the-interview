@@ -2,6 +2,7 @@ package com.theinterview.domain.interview.dto;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.AccessLevel;
@@ -23,6 +24,15 @@ public abstract class InterviewResponse {
         private String sttResult; // 사용자의 답변 문자열
         private String followUpQuestion; // 다음 질문 텍스트
         private String ttsAudioBase64; // 질문 tts
+
+        public FollowUpQuestionDTO(AiPipelineResponse aiPipelineResponse, Integer interviewId,
+                Integer questionId) {
+            this.interviewId = interviewId;
+            this.questionId = questionId;
+            this.sttResult = aiPipelineResponse.getSttText();
+            this.followUpQuestion = aiPipelineResponse.getQuestionText();
+            this.ttsAudioBase64 = aiPipelineResponse.getTtsAudioBase64();
+        }
     }
 
     @Getter
