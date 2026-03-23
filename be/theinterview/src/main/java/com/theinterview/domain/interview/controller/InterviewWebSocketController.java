@@ -2,6 +2,7 @@ package com.theinterview.domain.interview.controller;
 
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.TotalChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.facade.InterviewFacade;
@@ -9,6 +10,7 @@ import com.theinterview.domain.interview.service.AiUtils;
 import com.theinterview.domain.interview.service.InterviewService;
 import com.theinterview.global.config.redis.RedisService;
 import java.io.IOException;
+import java.security.Principal;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,8 +54,12 @@ public class InterviewWebSocketController {
     // 청킹된 오디오 조각이 도착 할 경로
     @MessageMapping("interview/audio/chunk")
     public void receiveChunkAudio(
-            @Payload AudioChunkRequest request
+            @Payload AudioChunkRequest request,
+            Principal principal
     ) {
+
+        String email = principal.getName();
+
         long start = System.currentTimeMillis();
         log.info("요청 감지. 시간 측정 시작");
         log.info("청킹된 데이터 도착 interviewId: {}, questionId: {}", request.getInterviewId(),
@@ -65,14 +71,28 @@ public class InterviewWebSocketController {
                     // 서비스에서 반환환 결과가 true라면 파서드 레이어를 호출하여 꼬리 질문 파이프라인 실행
                     if (isLastChunk) {
                         log.info("모든 청크 조각 도착 완료");
-                        // 파서드 레이어 호출 및 다음 질문 변수에 할당
-                        return interviewFacade.generateNextQuestionFacade(
-                                        request.getInterviewId(),
-                                        request.getQuestionId(), start)
-                                .doOnNext(followUpQuestionDTO ->
-                                        messagingTemplate.convertAndSend(
-                                                "/topic/interview/tmp/" + request.getInterviewId(),
-                                                followUpQuestionDTO));
+                        // 사용자가 종료를 눌렀는지, 다음을 눌렀는지 분기
+                        if (redisService.hasKey(
+                                "interviewId:" + request.getInterviewId() + "isExit")) {
+                            log.info("인터뷰 종료 로직 실행");
+                            // 종료 파서드 호출
+                            return interviewFacade.exitInterviewFacade(email,
+                                    InterviewExitRequest.builder()
+                                            .interviewId(request.getInterviewId())
+                                            .questionId(request.getQuestionId())
+                                            .build());
+                        } else {
+                            log.info("꼬리 질문 생성 로직 실행");
+                            // 파서드 레이어 호출 및 다음 질문 변수에 할당
+                            return interviewFacade.generateNextQuestionFacade(
+                                            request.getInterviewId(),
+                                            request.getQuestionId(), start)
+                                    .doOnNext(followUpQuestionDTO ->
+                                            messagingTemplate.convertAndSend(
+                                                    "/topic/interview/tmp/"
+                                                            + request.getInterviewId(),
+                                                    followUpQuestionDTO));
+                        }
                     }
                     // 마지막 청크가 아니라면 아무 행동 하지 않음
                     return Mono.empty();
@@ -86,6 +106,9 @@ public class InterviewWebSocketController {
     ) throws IOException {
         String redisKey =
                 "interviewId:" + request.getInterviewId() + "questionId:" + request.getQuestionId();
+        // 저장 요청이 들어오면 redis에 락을 걸어 저장 중 종료를 못하도록 방지함
+        redisService.setValues("interviewId:" + request.getInterviewId() + "lock", "lock",
+                Duration.ofSeconds(20));
         // 서버 디렉토리에 음성 파일 저장
         String savedPath = interviewService.saveAnswerFile(request.getAnswerAudio(),
                 request.getInterviewId());

@@ -68,4 +68,5 @@ public abstract class FastApiRequest {
         private String previousQuestion; // 이전 대화 내역
         private Boolean isFirstFinished;
     }
+
 }

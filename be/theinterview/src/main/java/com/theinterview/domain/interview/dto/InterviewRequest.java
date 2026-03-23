@@ -1,6 +1,8 @@
 package com.theinterview.domain.interview.dto;
 
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -25,6 +27,8 @@ public abstract class InterviewRequest {
 
     @Getter
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor
+    @Builder
     public static class InterviewExitRequest {
 
         private Integer interviewId; // 웹소켓 방 번호 구독을 위해 클라이언트 측에서 가지고 있는 interviewId

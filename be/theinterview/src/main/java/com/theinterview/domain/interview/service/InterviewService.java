@@ -6,6 +6,7 @@ import com.theinterview.domain.interview.Repository.InterviewAnswerRepository;
 import com.theinterview.domain.interview.Repository.InterviewQuestionRepository;
 import com.theinterview.domain.interview.Repository.InterviewRepository;
 import com.theinterview.domain.interview.Repository.QuestionCandidateRepository;
+import com.theinterview.domain.interview.dto.FacadeInnerDto.AnswerTts;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
@@ -272,6 +273,81 @@ public class InterviewService {
                 .build();
     }
 
+
+    // 인터뷰 종료 시 facade에서 호출되는 메서드
+    // 다음 질문 생성과 제목 생성을 위해 해당 인터뷰에서의 사용자의 이전 질문과 답변 쌍을 조합하여 반환함
+    @Transactional
+    public AnswerTts findDomainMakeQnACouple(String email, Integer interviewId) {
+
+        // 필요 도메인 조회
+        Interview interview = domainFindUtils.getInterviewById(interviewId);
+
+        Member member = interview.getMember();
+        // 권한 확인
+        if (!member.getEmail().equals(email)) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        // 해당 인터뷰에서의 모둔 사용자 질문과 답변 쌍 조합
+        // 저장 진행중인 질문이 없다면 아래 로직을 실행함
+        // 인터뷰의 모든 질문과 답변을 불러와서 조립
+        String aiRequest = "";
+        int counting = 1;
+
+        List<InterviewQuestion> interviewQuestions = interview.getInterviewQuestions();
+        for (InterviewQuestion interviewQuestion : interviewQuestions) {
+            InterviewAnswer interviewAnswer = interviewQuestion.getInterviewAnswer();
+            // 사용자가 마지막에 답변하지 않고 인터뷰를 종료 했을 경우
+            if (interviewAnswer == null) {
+                // 해당 질문은 DB에서 삭제함
+                interviewQuestionRepository.delete(interviewQuestion);
+                continue;
+            }
+            aiRequest =
+                    aiRequest + "Q" + counting + interviewQuestion.getQuestionText() + "\n" + "A"
+                            + counting + interviewAnswer.getAnswerText()
+                            + "\n"
+                            + "\n";
+
+            counting += 1;
+
+        }
+
+        return AnswerTts.builder()
+                .QnACouple(aiRequest)
+                .member(member)
+                .build();
+    }
+
+    // 인터뷰 종료 시 facade에서 호출되는 메서드
+    // 다음 질문과 제목이 AI에게서 생성이 완료되면 DB에 해당 값을 저장하기 위해 호출됨
+    @Transactional
+    public void saveExitAiResponse(Integer interviewId, String title,
+            String nextStartQuestion) {
+
+        // DB에 해당 값들을 모두 저장함
+        Interview interview = domainFindUtils.getInterviewById(interviewId);
+
+        Member member = interview.getMember();
+
+        questionCandidateRepository.save(QuestionCandidate.builder()
+                .member(member)
+                .questionText(nextStartQuestion)
+                .build());
+
+        // 완료처리
+        member.completeFirstInterview();
+        interview.interviewFinished(title);
+    }
+
+    public void saveRequiredFlagInRedis(String savedPath, String redisKey, String totalChunk) {
+        
+        // 여기서 바로 총 청크 수를 저장함
+        redisService.setValues(redisKey + "totalChunks", totalChunk,
+                Duration.ofMinutes(3)); // 유효 기간 3분
+        // 음성 파일 저장 경로 redis에 저장
+        redisService.setValues(redisKey + "savedPath", savedPath, Duration.ofMinutes(3));
+    }
 
     // 인터뷰 종료 메서드
     // todo: facade 패턴 도입을 통해 메서드 분리 필요(커넥션 풀 고갈 문제 고려)
