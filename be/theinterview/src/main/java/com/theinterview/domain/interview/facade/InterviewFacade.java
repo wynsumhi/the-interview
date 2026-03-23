@@ -147,11 +147,22 @@ public class InterviewFacade {
                     // 최초 사용자이며 6 이상이면 다음 질문이 없음 -> 종료 로직 호출
                     if (!member.getIsFirstFinished() && interviewQuestion.getSequence() >= 6) {
                         log.info("sequence 기준치 도달. 인터뷰 종료 파이프라인으로 전환");
-                        return exitInterviewFacade(email, InterviewExitRequest.builder()
-                                .interviewId(interviewId)
-                                .questionId(questionId)
-                                .build())
-                                .then(Mono.empty());
+                        // 즉시 DB에 저장 후 종료 파서드 호출
+                        return Mono.fromCallable(
+                                        () -> {
+                                            interviewService.saveAnswer(interviewQuestion, answerText,
+                                                    savedPath);
+                                            return true; // fromCallable은 리턴값이 있어야 함(가짜 리턴값 사용)
+                                        })
+                                .subscribeOn(Schedulers.boundedElastic())
+                                // 위에서 반환된 가짜 리턴값을 ignored에 받아서 처리(실제로 사용되지 않음)
+                                .flatMap(ignored -> exitInterviewFacade(email,
+                                        InterviewExitRequest.builder()
+                                                .interviewId(interviewId)
+                                                .questionId(questionId)
+                                                .build())
+                                        .then(Mono.empty()));
+
                     }
                     // 3. AI 파이프라인 호출(여기서 비동기 호출 사용)
                     return Mono.fromCallable(() -> Files.readAllBytes(Paths.get(savedPath)))

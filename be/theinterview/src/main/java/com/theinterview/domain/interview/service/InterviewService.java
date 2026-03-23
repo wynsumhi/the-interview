@@ -190,6 +190,18 @@ public class InterviewService {
         return saveQuestion.getId();
     }
 
+    @Transactional
+    public void saveAnswer(InterviewQuestion interviewQuestion, String answerText,
+            String savedPath) {
+
+        // DB에 사용자의 마지막 답변 저장
+        interviewAnswerRepository.save(InterviewAnswer.builder()
+                .interviewQuestion(interviewQuestion)
+                .answerText(answerText)
+                .answerAudioUrl(savedPath)
+                .build());
+    }
+
     /**
      * AI 서버와의 꼬리 질문 생성을 위한 성공적인 통신 이후 관련 반환값들을 DB에 반영하고 DB 락을 해제함 퍼사드에서 호출됨
      */
@@ -326,7 +338,7 @@ public class InterviewService {
     }
 
     // 인터뷰 종료 메서드
-    // todo: facade 패턴 도입을 통해 메서드 분리 필요(커넥션 풀 고갈 문제 고려)
+    // todo: 실시간 STT 청크 프론트 로직 완료되면 삭제
     @Transactional
     public String exitInterview(InterviewExitRequest request, String email) {
         // 필요한 인자 -> 사용자, 지금 인터뷰 객체, 지금 질문 객체
@@ -372,7 +384,7 @@ public class InterviewService {
         AiNextOpeningResponse aiNextOpeningResponse = aiUtils.callFastApiForNextOpening(
                 AiNextOpeningRequest.builder().interviewContext(aiRequest).nickname(
                         member.getNickname()).build());
-        // todo: AI 제목 생성 로직 merge 되면 사용
+
         log.info("이번 인터뷰 제목 요약 AI 호출");
         AiTitleResponse aiTitleResponse = aiUtils.callFastApiForInterviewTitle(
                 AiTitleRequest.builder().interviewContext(aiRequest).build());
