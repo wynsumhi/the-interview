@@ -46,6 +46,8 @@ services:
     command: redis-server --port 6379 --requirepass ${REDIS_PASSWORD} --appendonly yes
     volumes:
       - redis_data:/data
+    environment:
+      - TZ=Asia/Seoul
     networks:
       - theinterview-net
     healthcheck:

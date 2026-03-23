@@ -9,6 +9,8 @@ services:
           memory: 2G
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    environment:
+      - TZ=Asia/Seoul
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -35,6 +37,8 @@ services:
           memory: 256M
     volumes:
       - /:/host:ro
+    environment:
+      - TZ=Asia/Seoul
     command:
       - '--path.rootfs=/host'
     network_mode: "host"
@@ -60,6 +64,8 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
+    environment:
+      - TZ=Asia/Seoul
     # 리눅스 커널의 메시지 버퍼에 접근할 수 있게 해주는 장치 파일
     devices:
       - /dev/kmsg
@@ -89,6 +95,7 @@ services:
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       - GF_USERS_VIEWERS_CAN_EDIT=false
       - GF_AUTH_ROLE_VIEWER_CAN_EXPLORE=true
+      - TZ=Asia/Seoul
     networks:
       - theinterview-net
     logging:
@@ -111,6 +118,8 @@ services:
     volumes:
       # Loki 로그 저장 경로
       - /home/ubuntu/monitoring/data/loki-data:/loki
+    environment:
+      - TZ=Asia/Seoul
     command:
       - '--config.file=/etc/loki/local-config.yaml'
     networks:
@@ -141,6 +150,8 @@ services:
       - ./promtail-config.yml:/etc/promtail/config.yml
       # 로그 파일 경로
       - /home/ubuntu/monitoring/data/promtail:/tmp
+    environment:
+      - TZ=Asia/Seoul
     command:
       - '--config.file=/etc/promtail/config.yml'
     networks:
