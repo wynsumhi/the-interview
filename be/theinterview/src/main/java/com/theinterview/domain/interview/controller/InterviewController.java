@@ -64,7 +64,7 @@ public class InterviewController {
     }
 
     @PostMapping("/exitV2")
-    public ApiResponse exitInterviewV2(
+    public ApiResponse<Void> exitInterviewV2(
             @RequestBody TotalChunkRequest request,
             @AuthenticationPrincipal User user
     ) throws IOException {
