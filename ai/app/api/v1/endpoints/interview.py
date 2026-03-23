@@ -1,6 +1,8 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
 from app.api.v1.schemas import (
+    InterviewClosingRequest,
+    InterviewClosingResponse,
     InterviewPipelineResponse,
     InterviewStartTTSRequest,
     InterviewStartTTSResponse,
@@ -12,6 +14,7 @@ from app.api.v1.schemas import (
     NextOpeningResponse,
 )
 from app.services.interview_service import (
+    generate_closing_message,
     generate_interview_start_tts,
     generate_magazine_title,
     generate_next_opening_question,
@@ -211,6 +214,27 @@ def run_interview_pipeline_after_stt_endpoint(
         ) from exc
 
     return InterviewPipelineResponse.model_validate(result)
+
+
+@router.post(
+    "/closing",
+    response_model=InterviewClosingResponse,
+    summary="Generate interview closing message and TTS",
+)
+def generate_closing_message_endpoint(
+    request: InterviewClosingRequest,
+) -> InterviewClosingResponse:
+    """사용자가 종료 버튼을 눌렀을 때 인터뷰 마무리 멘트를 생성하고 TTS로 변환하는 엔드포인트다.
+
+    백엔드가 지금까지의 인터뷰 대화 내용을 `interview_context`로 전달하면,
+    AI 서버는 대화 흐름을 자연스럽게 마무리하는 짧은 종료 멘트를 생성한 뒤
+    TTS로 변환해 텍스트와 오디오를 함께 반환한다.
+    """
+
+    result = generate_closing_message(
+        interview_context=request.interview_context,
+    )
+    return InterviewClosingResponse.model_validate(result)
 
 
 @router.post(

@@ -151,6 +151,24 @@ class MagazineTitleResponse(BaseModel):
     title: str
 
 
+class InterviewClosingRequest(BaseModel):
+    """인터뷰 종료 메시지 생성 요청 본문이다.
+
+    백엔드가 지금까지의 인터뷰 대화 내용을 문자열로 조합해 전달하면,
+    AI 서버는 이를 바탕으로 자연스러운 마무리 멘트를 생성하고 TTS로 변환한다.
+    """
+
+    interview_context: str
+
+
+class InterviewClosingResponse(BaseModel):
+    """인터뷰 종료 멘트 텍스트와 TTS 오디오를 함께 반환하는 응답 스키마다."""
+
+    closing_message: str
+    tts_audio_base64: str
+    tts_audio_mime_type: str = "audio/wav"
+
+
 class InterviewStartTTSRequest(BaseModel):
     """인터뷰 시작 질문을 TTS로 변환하기 위한 요청 본문이다.
 

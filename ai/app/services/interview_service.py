@@ -135,14 +135,20 @@ def generate_closing_message(
     interview_context: str,
     max_tokens: int = 128,
 ) -> dict[str, str]:
-    """인터뷰 종료 시점에 자연스러운 마무리 메시지를 생성한다."""
+    """인터뷰 종료 시점에 자연스러운 마무리 메시지를 생성하고 TTS 오디오를 함께 반환한다."""
 
     closing = create_message(
         messages=[{"role": "user", "content": interview_context}],
         system=INTERVIEW_CLOSING_SYSTEM_PROMPT,
         max_tokens=max_tokens,
     )
-    return {"closing_message": closing}
+    tts_audio = text_to_speech(closing)
+
+    return {
+        "closing_message": closing,
+        "tts_audio_base64": base64.b64encode(tts_audio).decode("ascii"),
+        "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
+    }
 
 
 def save_interview_state_temp(request: dict[str, Any]) -> dict[str, Any]:

@@ -1,5 +1,7 @@
 from app.api.v1.schemas.interview import (
     AudioFeaturesResponse,
+    InterviewClosingRequest,
+    InterviewClosingResponse,
     InterviewPipelineResponse,
     InterviewStartTTSRequest,
     InterviewStartTTSResponse,
@@ -25,6 +27,8 @@ from app.api.v1.schemas.rag import (
 
 __all__ = [
     "AudioFeaturesResponse",
+    "InterviewClosingRequest",
+    "InterviewClosingResponse",
     "InterviewPipelineResponse",
     "InterviewRAGDeleteRequest",
     "InterviewRAGDeleteResponse",
