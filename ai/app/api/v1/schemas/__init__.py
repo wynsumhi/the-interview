@@ -7,6 +7,8 @@ from app.api.v1.schemas.interview import (
     InterviewStatePromptResponse,
     InterviewStateSaveRequest,
     InterviewStateSaveResponse,
+    KeywordRequest,
+    KeywordResponse,
     MagazineTitleRequest,
     MagazineTitleResponse,
     NextOpeningRequest,
@@ -25,6 +27,8 @@ from app.api.v1.schemas.rag import (
 
 __all__ = [
     "AudioFeaturesResponse",
+    "KeywordRequest",
+    "KeywordResponse",
     "InterviewPipelineResponse",
     "InterviewRAGDeleteRequest",
     "InterviewRAGDeleteResponse",

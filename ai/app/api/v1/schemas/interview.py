@@ -151,6 +151,23 @@ class MagazineTitleResponse(BaseModel):
     title: str
 
 
+class KeywordRequest(BaseModel):
+    """북마크 키워드 생성 요청 본문이다.
+
+    북마크로 등록할 질문-답변 쌍을 전달하면,
+    해당 답변을 대표하는 짧은 영문 키워드를 생성해 반환한다.
+    """
+
+    question: str
+    answer: str
+
+
+class KeywordResponse(BaseModel):
+    """생성된 북마크 키워드 응답 스키마다."""
+
+    keyword: str
+
+
 class InterviewStartTTSRequest(BaseModel):
     """인터뷰 시작 질문을 TTS로 변환하기 위한 요청 본문이다.
 
