@@ -64,7 +64,13 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
             "tts_audio": b"tts-bytes",
         }
 
-        result = run_interview_pipeline_from_upload(upload, answer_id=123, max_tokens=256)
+        result = run_interview_pipeline_from_upload(
+            upload,
+            answer_id=123,
+            user_id="user-123",
+            previous_question="current question",
+            max_tokens=256,
+        )
 
     assert result == {
         "stt_text": "candidate answer",
@@ -75,6 +81,17 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
         "tts_audio_mime_type": "audio/wav",
     }
     pipeline_mock.assert_called_once()
+    args, kwargs = pipeline_mock.call_args
+    assert args
+    assert kwargs == {
+        "answer_id": 123,
+        "is_first_finished": False,
+        "user_id": "user-123",
+        "sequence": None,
+        "nickname": None,
+        "previous_question": "current question",
+        "max_tokens": 256,
+    }
 
 
 def test_run_interview_pipeline_from_upload_rejects_invalid_extension() -> None:
