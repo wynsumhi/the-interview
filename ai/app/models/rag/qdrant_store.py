@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -14,6 +15,15 @@ from app.core import (
     QDRANT_URL,
     QDRANT_VECTOR_SIZE,
 )
+
+
+@dataclass(frozen=True)
+class QdrantSearchResult:
+    """Qdrant 검색 결과에서 필요한 최소 필드만 정리한 구조체다."""
+
+    point_id: str
+    score: float
+    payload: dict[str, Any]
 
 
 class QdrantInterviewStore:
@@ -155,6 +165,42 @@ class QdrantInterviewStore:
                 )
             ),
         )
+
+    def search(
+        self,
+        *,
+        user_id: str,
+        query_vector: list[float],
+        limit: int,
+        score_threshold: float,
+    ) -> list[QdrantSearchResult]:
+        if len(query_vector) != self._vector_size:
+            raise ValueError("Query vector size does not match collection configuration.")
+
+        query_response = self._client.query_points(
+            collection_name=self._collection_name,
+            query=query_vector,
+            query_filter=qdrant_models.Filter(
+                must=[
+                    qdrant_models.FieldCondition(
+                        key="user_id",
+                        match=qdrant_models.MatchValue(value=user_id),
+                    )
+                ]
+            ),
+            limit=limit,
+            score_threshold=score_threshold,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [
+            QdrantSearchResult(
+                point_id=str((point.payload or {}).get("external_point_id", point.id)),
+                score=float(point.score),
+                payload=dict(point.payload or {}),
+            )
+            for point in query_response.points
+        ]
 
     @property
     def collection_name(self) -> str:

@@ -1,8 +1,30 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
-from app.models.rag import EmbeddingClient, OpenAIEmbeddingClient, QdrantInterviewStore
+from app.models.rag import (
+    EmbeddingClient,
+    OpenAIEmbeddingClient,
+    QdrantInterviewStore,
+    QdrantSearchResult,
+)
+
+DEFAULT_HISTORY_RAG_TOP_K = 3
+DEFAULT_HISTORY_RAG_SCORE_THRESHOLD = 0.35
+
+
+@dataclass(frozen=True)
+class RetrievedInterviewTurn:
+    """파이프라인 프롬프트에 넣을 과거 인터뷰 검색 결과다."""
+
+    point_id: str
+    similarity: float
+    question: str
+    answer: str
+    turn_index: int
+    interview_id: str
+    metadata: dict[str, Any]
 
 
 def _normalize_turns(turns: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -59,6 +81,25 @@ def _build_turn_document(question: str, answer: str) -> str:
     return f"Question: {question}\nAnswer: {answer}"
 
 
+def _build_query_text(current_question: str, current_answer: str) -> str:
+    """현재 질문과 답변을 묶어 유사 히스토리 검색 질의문으로 만든다."""
+
+    return f"Current Question: {current_question}\nCurrent Answer: {current_answer}"
+
+
+def _to_retrieved_turn(result: QdrantSearchResult) -> RetrievedInterviewTurn:
+    payload = result.payload
+    return RetrievedInterviewTurn(
+        point_id=result.point_id,
+        similarity=result.score,
+        question=str(payload.get("question", "")),
+        answer=str(payload.get("answer", "")),
+        turn_index=int(payload.get("turn_index", 0)),
+        interview_id=str(payload.get("interview_id", "")),
+        metadata=dict(payload.get("metadata", {})),
+    )
+
+
 def _build_index_rows(
     *,
     user_id: str,
@@ -94,6 +135,67 @@ def _close_resource(resource: Any) -> None:
     close = getattr(resource, "close", None)
     if callable(close):
         close()
+
+
+def retrieve_similar_interview_history(
+    *,
+    user_id: str,
+    current_question: str,
+    current_answer: str,
+    top_k: int = DEFAULT_HISTORY_RAG_TOP_K,
+    score_threshold: float = DEFAULT_HISTORY_RAG_SCORE_THRESHOLD,
+    embedding_client: EmbeddingClient | None = None,
+    store: QdrantInterviewStore | None = None,
+) -> list[RetrievedInterviewTurn]:
+    """현재 답변과 유사한 사용자의 과거 인터뷰 문답을 검색한다."""
+
+    normalized_user_id = user_id.strip()
+    normalized_question = current_question.strip()
+    normalized_answer = current_answer.strip()
+    if not normalized_user_id or not normalized_question or not normalized_answer or top_k <= 0:
+        return []
+
+    embedding_client = embedding_client or OpenAIEmbeddingClient()
+    store = store or QdrantInterviewStore()
+    try:
+        query_text = _build_query_text(normalized_question, normalized_answer)
+        query_vector = embedding_client.embed_texts([query_text])[0]
+        search_results = store.search(
+            user_id=normalized_user_id,
+            query_vector=query_vector,
+            limit=top_k,
+            score_threshold=score_threshold,
+        )
+        return [_to_retrieved_turn(result) for result in search_results]
+    finally:
+        _close_resource(embedding_client)
+        _close_resource(store)
+
+
+def format_retrieved_turns_for_prompt(retrieved_turns: list[RetrievedInterviewTurn]) -> str:
+    """검색된 과거 히스토리를 꼬리질문 생성 프롬프트용 문자열로 정리한다."""
+
+    if not retrieved_turns:
+        return ""
+
+    blocks: list[str] = []
+    for item in retrieved_turns:
+        metadata_text = (
+            ", ".join(f"{key}={value}" for key, value in sorted(item.metadata.items())) or "none"
+        )
+        blocks.append(
+            "\n".join(
+                [
+                    f"[Similarity {item.similarity:.4f}]",
+                    f"Interview ID: {item.interview_id}",
+                    f"Turn Index: {item.turn_index}",
+                    f"Previous Question: {item.question}",
+                    f"Previous Answer: {item.answer}",
+                    f"Metadata: {metadata_text}",
+                ]
+            )
+        )
+    return "\n\n".join(blocks)
 
 
 def upsert_interview_history_rag(
