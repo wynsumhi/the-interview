@@ -14,6 +14,7 @@ from app.pipeline.interview_pipeline import (
 )
 from app.prompts.interview_prompts import (
     INTERVIEW_CLOSING_SYSTEM_PROMPT,
+    KEYWORD_GENERATION_SYSTEM_PROMPT,
     NEXT_OPENING_SYSTEM_PROMPT,
     TITLE_GENERATION_SYSTEM_PROMPT,
 )
@@ -149,6 +150,21 @@ def generate_closing_message(
         "tts_audio_base64": base64.b64encode(tts_audio).decode("ascii"),
         "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
     }
+
+
+def generate_keyword(
+    question: str,
+    answer: str,
+    max_tokens: int = 32,
+) -> dict[str, str]:
+    """질문-답변 쌍을 바탕으로 북마크 키워드를 생성한다."""
+
+    keyword = create_message(
+        messages=[{"role": "user", "content": f"Q: {question}\nA: {answer}"}],
+        system=KEYWORD_GENERATION_SYSTEM_PROMPT,
+        max_tokens=max_tokens,
+    )
+    return {"keyword": keyword}
 
 
 def save_interview_state_temp(request: dict[str, Any]) -> dict[str, Any]:

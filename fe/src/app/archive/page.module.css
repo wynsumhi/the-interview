@@ -1,7 +1,6 @@
 .container {
   height: 100vh;
   overflow: hidden; /* 바깥 페이지 스크롤 완전 차단 */
-  padding: 0 var(--px);
   background-color: var(--bg);
   display: flex;
   flex-direction: column;
@@ -15,7 +14,7 @@
   max-width: var(--max-w);
   width: 100%;
   margin: 0 auto;
-  padding: 120px 0 40px;
+  padding: 120px var(--px) 40px;
   align-items: stretch;
 }
 

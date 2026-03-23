@@ -4,10 +4,17 @@
   left: 0;
   right: 0;
   z-index: 50;
+  height: 68px;
+}
+
+/* 콘텐츠 제약 래퍼: 최대 너비 정렬 */
+.navInner {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 68px;
   padding: 0 var(--px);
 }
 
@@ -21,11 +28,12 @@
 }
 
 .logo {
-  font-family: var(--font-playfair);
-  font-style: italic;
+  font-family: var(--font-montserrat);
+  font-weight: 800;
+  font-style: normal;
   font-size: 18px;
   color: var(--fg);
-  letter-spacing: 0.03em;
+  letter-spacing: -0.02em;
   transition: color 0.3s;
 }
 .logo:hover {

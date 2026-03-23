@@ -11,7 +11,7 @@ export interface QnaPreview {
 
 interface MemoProps {
   id: number;
-  category: string;
+  category: string; // MVP 에는 없음
   title: string;
   date: string;
   color: string;
@@ -30,8 +30,14 @@ function splitLabel(raw: string): { label: string; text: string } {
 
 const fade = {
   initial: { opacity: 0 },
-  animate: { opacity: 1, transition: { duration: 0.28, ease: "easeInOut" as const } },
-  exit:    { opacity: 0, transition: { duration: 0.18, ease: "easeInOut" as const } },
+  animate: {
+    opacity: 1,
+    transition: { duration: 0.28, ease: "easeInOut" as const },
+  },
+  exit: {
+    opacity: 0,
+    transition: { duration: 0.18, ease: "easeInOut" as const },
+  },
 };
 
 export default function MemoCard({
@@ -55,38 +61,45 @@ export default function MemoCard({
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
       transition={{ type: "spring", stiffness: 240, damping: 24 }}
-      style={{ backgroundColor: color, top: `${top}px`, left: `${left}px`, width: 260, height: 340 }}
+      style={{
+        backgroundColor: color,
+        top: `${top}px`,
+        left: `${left}px`,
+        width: 260,
+        height: 340,
+      }}
     >
       <div className={styles.inner}>
         {/* ── 카테고리 레이블 (항상 표시) ── */}
         <p className={styles.category}>{category}</p>
+        <hr className={styles.divider} />
 
         {/* ── 콘텐츠 슬롯: title ↔ Q&A 토글 ── */}
         <div className={styles.slot}>
           <AnimatePresence mode="wait" initial={false}>
             {!hovered ? (
               /* 기본: Julietta 타이틀 */
-              <motion.h2
-                key="title"
-                className={styles.title}
-                {...fade}
-              >
+              <motion.h2 key="title" className={styles.title} {...fade}>
                 {title}
               </motion.h2>
             ) : featured ? (
               /* 호버: 큐레이션 Q&A */
-              <motion.div
-                key="qa"
-                className={styles.qaWrap}
-                {...fade}
-              >
+              <motion.div key="qa" className={styles.qaWrap} {...fade}>
                 <p className={styles.question}>
-                  <span className={styles.entryLabel}>{splitLabel(featured.question).label}</span>
-                  <span className={styles.entryText}>{splitLabel(featured.question).text}</span>
+                  <span className={styles.entryLabel}>
+                    {splitLabel(featured.question).label}
+                  </span>
+                  <span className={styles.entryText}>
+                    {splitLabel(featured.question).text}
+                  </span>
                 </p>
                 <p className={styles.answer}>
-                  <span className={styles.entryLabel}>{splitLabel(featured.answer).label}</span>
-                  <span className={styles.entryText}>{splitLabel(featured.answer).text}</span>
+                  <span className={styles.entryLabel}>
+                    {splitLabel(featured.answer).label}
+                  </span>
+                  <span className={styles.entryText}>
+                    {splitLabel(featured.answer).text}
+                  </span>
                 </p>
               </motion.div>
             ) : null}

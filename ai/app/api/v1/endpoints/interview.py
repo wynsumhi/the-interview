@@ -8,6 +8,8 @@ from app.api.v1.schemas import (
     InterviewStartTTSResponse,
     InterviewStateSaveRequest,
     InterviewStateSaveResponse,
+    KeywordRequest,
+    KeywordResponse,
     MagazineTitleRequest,
     MagazineTitleResponse,
     NextOpeningRequest,
@@ -16,6 +18,7 @@ from app.api.v1.schemas import (
 from app.services.interview_service import (
     generate_closing_message,
     generate_interview_start_tts,
+    generate_keyword,
     generate_magazine_title,
     generate_next_opening_question,
     run_interview_pipeline_from_stt_payload,
@@ -112,6 +115,27 @@ def generate_magazine_title_endpoint(
         interview_context=request.interview_context,
     )
     return MagazineTitleResponse.model_validate(result)
+
+
+@router.post(
+    "/keyword",
+    response_model=KeywordResponse,
+    summary="Generate bookmark keyword from Q&A pair",
+)
+def generate_keyword_endpoint(
+    request: KeywordRequest,
+) -> KeywordResponse:
+    """북마크로 등록할 질문-답변 쌍에서 대표 키워드를 생성하는 엔드포인트다.
+
+    사용자가 북마크한 질문-답변 쌍을 받아,
+    해당 답변을 가장 잘 대표하는 짧은 영문 키워드(2–5단어)를 생성해 반환한다.
+    """
+
+    result = generate_keyword(
+        question=request.question,
+        answer=request.answer,
+    )
+    return KeywordResponse.model_validate(result)
 
 
 @router.post(

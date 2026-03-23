@@ -1,5 +1,6 @@
-import MemoCard from "@/components/memo/MemoCard";
-import type { QnaPreview } from "@/components/memo/MemoCard";
+import MemoCard from "@/components/board/MemoCard";
+import type { QnaPreview } from "@/components/board/MemoCard";
+import styles from "./page.module.css";
 
 const MEMOS: {
   id: number;
@@ -84,18 +85,19 @@ const MEMOS: {
 
 export default function MemoPage() {
   return (
-    <main
-      style={{
-        position: "relative",
-        width: "100vw",
-        height: "100vh",
-        backgroundColor: "#202020",
-        overflow: "hidden",
-      }}
-    >
-      {MEMOS.map((memo) => (
-        <MemoCard key={memo.id} {...memo} />
-      ))}
-    </main>
+    <div className={styles.page}>
+      <header className={styles.stickyHeader}>
+        <div className={styles.headerInner}>
+          <span className={styles.headerTitle}>나의 핀</span>
+          <span className={styles.headerCount}>{MEMOS.length} items</span>
+        </div>
+      </header>
+
+      <div className={styles.canvas}>
+        {MEMOS.map((memo) => (
+          <MemoCard key={memo.id} {...memo} />
+        ))}
+      </div>
+    </div>
   );
 }

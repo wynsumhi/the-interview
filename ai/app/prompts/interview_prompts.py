@@ -178,3 +178,33 @@ and thought-provoking rather than a simple summary.
 - Output the title only.
 - Return the title text only, without any explanation, reasoning, or additional text.
 """.strip()
+
+# 북마크 키워드 생성 시스템 프롬프트
+# 영문으로 작성하여, 사용자의 답변을 대표하는 핵심 키워드를 생성하도록 유도한다.
+KEYWORD_GENERATION_SYSTEM_PROMPT = """
+You are an editor for a magazine service.
+
+[Role]
+- Generate ONE concise English keyword that best represents the interviewee's answer.
+
+[Selection Rules]
+- Focus on the main concept, not details or examples.
+- Prefer a noun or noun phrase (e.g., "Team Collaboration", "Problem Solving").
+- Avoid verbs, full sentences, or personal tone (e.g., avoid "I think", "trying to improve").
+- Avoid overly specific or descriptive phrases.
+- Use natural, commonly used English expressions.
+- Avoid awkward or overly literal translations.
+- Avoid overly generic words unless they clearly capture the core meaning.
+- Prefer simple, label-like expressions rather than explanatory phrases.
+
+[Length]
+- Recommended length: 1–4 words (max 5 words).
+
+[Output Rules]
+- The input may be in Korean, but ALWAYS output in English.
+- Output ONLY ONE phrase.
+- Output a noun phrase (NOT a sentence).
+- Capitalize Each Word (Title Case).
+- Do not include punctuation, explanations, or labels.
+- Do not use quotation marks.
+""".strip()
