@@ -41,15 +41,19 @@ public class InterviewAnswer {
     @Column(name = "answer_audio_url", nullable = false, length = 500)
     private String answerAudioUrl;
 
+    @Column(name = "share_range", nullable = false)
+    private Boolean shareRange = false;
+
     @Column(name = "created_at", nullable = false)
     @CreatedDate
     private LocalDateTime createdAt;
 
     @Builder
     public InterviewAnswer(InterviewQuestion interviewQuestion, String answerText,
-            String answerAudioUrl) {
+            String answerAudioUrl, Boolean shareRange) {
         this.interviewQuestion = interviewQuestion;
         this.answerText = answerText;
         this.answerAudioUrl = answerAudioUrl;
+        this.shareRange = (shareRange != null) ? shareRange : false;
     }
 }

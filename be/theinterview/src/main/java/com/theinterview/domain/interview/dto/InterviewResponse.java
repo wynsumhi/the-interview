@@ -80,6 +80,7 @@ public abstract class InterviewResponse {
 
         private String interviewTitle; // 인터뷰 제목
         private LocalDate interviewDate; // 인터뷰 생성일(년-월-일)
+        private Boolean interviewShare; // 인터뷰 공개여부
         private List<InterviewHistoryDetail> interview; // 인터뷰 내용
     }
 
@@ -90,9 +91,11 @@ public abstract class InterviewResponse {
     @Builder
     public static class InterviewHistoryDetail {
 
+        private Integer interviewAnswerId; // 인터뷰 질문 ID
         private String interviewQuestion; // 인터뷰 질문
         private String interviewText; // 인터뷰 답변
         private String interviewVoice; // 인터뷰 음성파일 UUID
+        private Boolean interviewQAShare; // 인터뷰 질문답변 공개여부, true : 공개, 포스트잇용
     }
 
     @Getter
