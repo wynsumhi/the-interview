@@ -24,4 +24,9 @@ public interface InterviewAnswerRepository extends JpaRepository<InterviewAnswer
             "WHERE m.userUuid = :userUUID AND ia.shareRange = true")
     Slice<InterviewAnswer> findAllByMemberUUIDAndShared(@Param("userUUID") String userUUID,
             Pageable pageable);
+
+    // 음원의 UUID를 가지고 답변 조회
+    // TODO: 지금 DB에 저장하는 방식이 uuid만 저장하는게 아니기 때문에 LIKE방식이 유일, 검색 속도 매우 느림
+    @Query("SELECT ia FROM InterviewAnswer ia WHERE ia.answerAudioUrl LIKE %:voiceUuid%")
+    Optional<InterviewAnswer> findByVoiceUuidInPath(@Param("voiceUuid") String voiceUuid);
 }

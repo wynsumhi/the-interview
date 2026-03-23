@@ -44,6 +44,7 @@ import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
 import com.theinterview.global.util.DomainFindUtils;
 import com.theinterview.global.util.FileDeleteUtils;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -54,6 +55,8 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -80,9 +83,6 @@ public class InterviewService {
 
     @Value("${file.audio.base-path}")
     private String answerAudioPath;
-
-    @Value("${file.audio.base-url}")
-    private String answerAudioUrl;
 
     private final ObjectMapper objectMapper;
 
@@ -431,16 +431,15 @@ public class InterviewService {
                             .findByInterviewQuestionId(question.getId())
                             .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
 
-                    String dbUrlConverter = answer.getAnswerAudioUrl()
+                    String dbUrl = answer.getAnswerAudioUrl()
                             .substring(answer.getAnswerAudioUrl().lastIndexOf("/") + 1);
+                    String dbUrlConverter = dbUrl.substring(0, dbUrl.lastIndexOf("."));
 
                     return InterviewHistoryDetail.builder()
                             .interviewAnswerId(answer.getId())
                             .interviewQuestion(question.getQuestionText())
                             .interviewText(answer.getAnswerText())
-                            .interviewVoice(
-                                    answerAudioUrl + "/" + memberId + "/" + interviewId + "/"
-                                            + dbUrlConverter)
+                            .interviewVoice(dbUrlConverter)
                             .interviewQAShare(answer.getShareRange())
                             .build();
                 }).toList();
@@ -593,15 +592,14 @@ public class InterviewService {
                             .findByInterviewQuestionId(question.getId())
                             .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
 
-                    String dbUrlConverter = answer.getAnswerAudioUrl()
+                    String dbUrl = answer.getAnswerAudioUrl()
                             .substring(answer.getAnswerAudioUrl().lastIndexOf("/") + 1);
+                    String dbUrlConverter = dbUrl.substring(0, dbUrl.lastIndexOf("."));
 
                     return SharedInterviewDetail.builder()
                             .interviewQuestion(question.getQuestionText())
                             .interviewText(answer.getAnswerText())
-                            // TODO: 오디오 파일 변경방식 변경 예정으로 우선 형태를 대충 작성
-                            .interviewVoice(
-                                    answerAudioUrl + "/" + dbUrlConverter)
+                            .interviewVoice(dbUrlConverter)
                             .build();
                 }).toList();
 
@@ -710,5 +708,36 @@ public class InterviewService {
 
         // Request로 오는 값이 true라면 shareRange 수정 / false라면 shareRange 수정
         interviewAnswer.updateShareRange(request.getInterviewShareRange());
+    }
+
+    // 사용자 인터뷰 오디오 재생
+    public Resource getVoiceResource(String email, String voiceUuid) {
+        // DB에 UUID에 해당하는 정보가 있는지 조회
+        InterviewAnswer answer = interviewAnswerRepository.findByVoiceUuidInPath(voiceUuid)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.VOICE_NOT_FOUND));
+
+        // 이메일이 존재하고, 해당 답변의 주인 이메일과 일치하는지 확인
+        Member owner = answer.getInterviewQuestion().getInterview().getMember();
+        boolean isOwner = (email != null) && owner.getEmail().equals(email);
+
+        // 공개 설정이 되어 있지 않고, 주인도 아니라면 예외처리
+        if (!answer.getShareRange() && !isOwner) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        Integer memberId = owner.getId();
+        Integer interviewId = answer.getInterviewQuestion().getInterview().getId();
+
+        String fullPath = Paths.get(answerAudioPath, memberId.toString(), interviewId.toString(),
+                voiceUuid + ".webm").toString();
+
+        File file = new File(fullPath);
+        Resource resource = new FileSystemResource(file);
+
+        if (!resource.exists()) {
+            throw new GeneralException(ErrorStatus.VOICE_NOT_FOUND);
+        }
+
+        return resource;
     }
 }

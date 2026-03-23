@@ -46,6 +46,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 로그인 하지 않은 사용자의 요청을 허용 할 엔드포인트는 여기에 작성하세요.
                         .requestMatchers(
+                                "/v1/interview/sound/play/**",
                                 "/v1/interview/share/**",
                                 "/v1/auth/signup",
                                 "/v1/auth/exists/**",

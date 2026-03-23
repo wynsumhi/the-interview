@@ -20,6 +20,10 @@ import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -169,5 +173,21 @@ public class InterviewController {
         String email = user.getUsername();
         interviewService.setBookmark(email, interviewId, request);
         return ApiResponse.OK;
+    }
+
+    // 사용자 인터뷰 오디오 재생
+    @GetMapping("/sound/play/{voiceUuid}")
+    public ResponseEntity<Resource> serveVoice(
+            @PathVariable String voiceUuid,
+            @AuthenticationPrincipal User user
+    ) {
+        // 음원 듣기는 공개 범위를 True로 두는경우 회원이 아니여도 가능하기 때문에 로그인 정보를 조회하고 null이라면 Null로 전달
+        String email = (user != null) ? user.getUsername() : null;
+        Resource resource = interviewService.getVoiceResource(email, voiceUuid);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("audio/mpeg")) // 브라우저에게 오디오임을 알림
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline") // 브라우저 내에서 즉시 재생
+                .body(resource);
     }
 }
