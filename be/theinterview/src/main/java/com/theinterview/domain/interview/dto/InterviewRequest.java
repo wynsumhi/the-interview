@@ -50,4 +50,11 @@ public abstract class InterviewRequest {
         private String totalChunk;  // 총 청크 수
         private byte[] answerAudio; // 사용자의 답변 음성 원본
     }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    public static class InterviewShareRange {
+
+        private Boolean interviewShareRange; // 인터튜 상세조회 공개범위 설정
+    }
 }

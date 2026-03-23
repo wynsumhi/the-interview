@@ -2,6 +2,7 @@ package com.theinterview.domain.interview.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRange;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewStartRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
@@ -96,6 +97,17 @@ public class InterviewController {
         interviewService.deleteInterview(interviewId, member.getId());
 
         return ApiResponse.OK;
+    }
 
+    // 인터뷰 상세페이지 공개 범위 설정
+    @PostMapping("/{interviewId}/share/set")
+    public ApiResponse<Void> setInterviewShareRange(
+            @PathVariable(name = "interviewId") Integer interviewId,
+            @RequestBody InterviewShareRange request,
+            @AuthenticationPrincipal User user
+    ) {
+        String email = user.getUsername();
+        interviewService.setInterviewShareRange(email, interviewId, request);
+        return ApiResponse.OK;
     }
 }

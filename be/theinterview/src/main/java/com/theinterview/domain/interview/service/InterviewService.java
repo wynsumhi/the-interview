@@ -17,6 +17,7 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRange;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistory;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
@@ -425,17 +426,20 @@ public class InterviewService {
                             .substring(answer.getAnswerAudioUrl().lastIndexOf("/") + 1);
 
                     return InterviewHistoryDetail.builder()
+                            .interviewAnswerId(answer.getId())
                             .interviewQuestion(question.getQuestionText())
                             .interviewText(answer.getAnswerText())
                             .interviewVoice(
                                     answerAudioUrl + "/" + memberId + "/" + interviewId + "/"
                                             + dbUrlConverter)
+                            .interviewQAShare(answer.getShareRange())
                             .build();
                 }).toList();
 
         return InterviewHistoryDetailDTO.builder()
                 .interviewTitle(interview.getTitle())
                 .interviewDate(interview.getCreatedAt().toLocalDate())
+                .interviewShare(interview.getShareRange())
                 .interview(details)
                 .build();
     }
@@ -511,5 +515,25 @@ public class InterviewService {
                 .nickname(member.getNickname())
                 .sequence(question.getSequence() + 1)
                 .build();
+    }
+
+    @Transactional
+    public void setInterviewShareRange(String userEmail, Integer interviewId,
+            InterviewShareRange request) {
+        // 사용자 정보 조회
+        Member member = memberRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        // 인터뷰 조회
+        Interview interview = interviewRepository.findById(interviewId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+
+        // 요청한 사용자와 인터뷰 진행한 사용자가 다른 경우
+        if (!interview.getMember().getId().equals(member.getId())) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        // Request로 오는 값이 true라면 shareRange 수정 후 UUID 생성 / false라면 shareRange 수정 후 UUID 삭제
+        interview.setShareRange(request.getInterviewShareRange());
     }
 }

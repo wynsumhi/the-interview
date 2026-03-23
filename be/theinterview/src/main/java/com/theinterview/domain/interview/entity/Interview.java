@@ -91,4 +91,15 @@ public class Interview {
         this.status = InterviewStatus.FINISHED;
         this.title = title;
     }
+
+    // 인터뷰 공개범위 수정
+    public void setShareRange(Boolean isShared) {
+        this.shareRange = isShared;
+
+        if (isShared) {
+            this.shareLink = java.util.UUID.randomUUID().toString();
+        } else {
+            this.shareLink = null;
+        }
+    }
 }
