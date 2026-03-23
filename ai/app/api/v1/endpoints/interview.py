@@ -10,6 +10,8 @@ from app.api.v1.schemas import (
     InterviewStateSaveResponse,
     KeywordRequest,
     KeywordResponse,
+    MagazineRefinementRequest,
+    MagazineRefinementResponse,
     MagazineTitleRequest,
     MagazineTitleResponse,
     NextOpeningRequest,
@@ -21,6 +23,7 @@ from app.services.interview_service import (
     generate_keyword,
     generate_magazine_title,
     generate_next_opening_question,
+    refine_answer_for_magazine,
     run_interview_pipeline_from_stt_payload,
     run_interview_pipeline_from_upload,
     save_interview_state_temp,
@@ -115,6 +118,26 @@ def generate_magazine_title_endpoint(
         interview_context=request.interview_context,
     )
     return MagazineTitleResponse.model_validate(result)
+
+
+@router.post(
+    "/refine",
+    response_model=MagazineRefinementResponse,
+    summary="Refine STT answer to magazine-style written Korean",
+)
+def refine_answer_for_magazine_endpoint(
+    request: MagazineRefinementRequest,
+) -> MagazineRefinementResponse:
+    """구어체 STT 답변을 매거진 기사에 어울리는 문어체로 정제하는 엔드포인트다.
+
+    백엔드가 개별 답변 텍스트(STT 원본)를 전달하면,
+    AI 서버는 사용자의 말투와 개성을 유지하면서 문어체로 다듬은 결과를 반환한다.
+    인터뷰 종료 시점에 각 답변별로 호출하며,
+    반환된 결과는 백엔드가 `refined_answer_text` 컬럼에 저장한다.
+    """
+
+    result = refine_answer_for_magazine(answer=request.answer)
+    return MagazineRefinementResponse.model_validate(result)
 
 
 @router.post(
