@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
+import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
@@ -11,8 +12,12 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
+import com.theinterview.domain.interview.entity.InterviewQuestion;
+import com.theinterview.domain.interview.entity.QuestionCandidate;
 import com.theinterview.domain.interview.service.AiUtils;
 import com.theinterview.domain.interview.service.InterviewService;
+import com.theinterview.domain.member.Member;
 import com.theinterview.global.config.redis.RedisService;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
@@ -22,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -41,6 +47,32 @@ public class InterviewFacade {
 
     private final ObjectMapper objectMapper;
     private final View error;
+
+
+    // 인터뷰 첫 질문 TTS 변환을 위해 호춯되는 파서드
+    public Mono<WebSocketConnectResponse> issueWebSocketId(String email)
+            throws JsonProcessingException {
+
+        // 1. 필요 데이터 DB 조회
+        Member member = domainFindUtils.getMemberByEmail(email);
+
+        String dbQuestion = null;
+        if (member.getIsFirstFinished()) {
+            List<QuestionCandidate> questionCandidates = member.getQuestionCandidates();
+            dbQuestion = questionCandidates.get(0).getQuestionText();
+        }
+
+        // TTS 변환을 위한 외부 AI 호출 메서드 호출 -> DB 저장 체인 연결
+        return aiUtils.callFastApiForStartTts(AiStartTtsRequest.builder()
+                        .dbQuestion(dbQuestion)
+                        .nickname(member.getNickname())
+                        .isFirstFinished(member.getIsFirstFinished())
+                        .build())
+                .flatMap(aiStartTtsResponse ->
+                        Mono.fromCallable(() -> interviewService.saveInterviewAndQuestion(member,
+                                aiStartTtsResponse)))
+                .subscribeOn(Schedulers.boundedElastic());
+    }
 
     // DB 상태 변경 -> AI 파이프라인 호출 -> DB 저장 -> DB 상태 변경의 무거운 파이프라인을 분리하기 위한 메서드
     public FollowUpQuestionDTO processOneQnA(AudioMessageRequest request) throws IOException {
@@ -86,7 +118,7 @@ public class InterviewFacade {
 
 
     public Mono<FollowUpQuestionDTO> generateNextQuestionFacade(Integer interviewId,
-            Integer questionId, long start) {
+            Integer questionId, long start, String email) {
 
         log.info("Facade 레이어 도착");
 
@@ -102,41 +134,79 @@ public class InterviewFacade {
         String answerText = redisService.getOrderedChunks(redisKey + "chunks");
 
         log.info("AI 파이프라인 호출 시작");
-        // 3. AI 파이프라인 호출(여기서 비동기 호출 사용)
-        return Mono.fromCallable(() -> Files.readAllBytes(Paths.get(savedPath)))
-                .subscribeOn(Schedulers.boundedElastic())
-                .flatMap(audioBytes ->
-                        aiUtils.callFastApiForNextQuestionV2(audioBytes,
-                                aiPipelineReadyDto.getSequence(),
-                                aiPipelineReadyDto.getNickname(),
-                                aiPipelineReadyDto.getPreviousQuestion(),
-                                aiPipelineReadyDto.getIsFirstFinished(),
-                                answerText))
-                .flatMap(aiPipelineResponse -> {
-                    // DB 저장, dto Redis 캐싱
-                    return Mono.fromCallable(() -> {
-                        Integer nextQuestionId = interviewService.saveQuestionAndAnswer(interviewId,
-                                questionId, aiPipelineResponse.getQuestionText(), savedPath,
-                                answerText);
+        // questionId로 sequence 조회 후 분기
+        return Mono.zip(
+                        Mono.fromCallable(() -> domainFindUtils.getInterviewQuestionById(questionId))
+                                .subscribeOn(Schedulers.boundedElastic()),
+                        Mono.fromCallable(() -> domainFindUtils.getMemberByEmail(email))
+                                .subscribeOn(Schedulers.boundedElastic())
+                )
+                .flatMap(tuple -> {
+                    InterviewQuestion interviewQuestion = tuple.getT1();
+                    Member member = tuple.getT2();
+                    // 최초 사용자이며 6 이상이면 다음 질문이 없음 -> 종료 로직 호출
+                    if (!member.getIsFirstFinished() && interviewQuestion.getSequence() + 1 >= 6) {
+                        log.info("sequence 기준치 도달. 인터뷰 종료 파이프라인으로 전환");
+                        // 즉시 DB에 저장 후 종료 파서드 호출
+                        return Mono.fromCallable(
+                                        () -> {
+                                            interviewService.saveAnswer(interviewQuestion, answerText,
+                                                    savedPath);
+                                            return true; // fromCallable은 리턴값이 있어야 함(가짜 리턴값 사용)
+                                        })
+                                .subscribeOn(Schedulers.boundedElastic())
+                                // 위에서 반환된 가짜 리턴값을 ignored에 받아서 처리(실제로 사용되지 않음)
+                                .flatMap(ignored -> exitInterviewFacade(email,
+                                        InterviewExitRequest.builder()
+                                                .interviewId(interviewId)
+                                                .questionId(questionId)
+                                                .build())
+                                        .then(Mono.empty()));
 
-                        // redis에 저장하기 위한 데이터 준비
-                        String dto = objectMapper.writeValueAsString(
-                                AiPipelineReadyDto.builder()
-                                        .previousQuestion(aiPipelineResponse.getQuestionText())
-                                        .isFirstFinished(aiPipelineReadyDto.getIsFirstFinished())
-                                        .nickname(aiPipelineReadyDto.getNickname())
-                                        .sequence(aiPipelineReadyDto.getSequence() + 1)
-                                        .build());
-                        String newRedisKey =
-                                "interviewId:" + interviewId + "questionId:" + nextQuestionId;
-                        redisService.setValues(newRedisKey + "aiPipelineReadyDto", dto,
-                                Duration.ofMinutes(5));
-                        // 저장 완료 lock 상태 해제
-                        redisService.deleteValues("interviewId:" + interviewId + "lock");
-                        log.info("요청 및 반환 종료. 걸린 시간: {}", System.currentTimeMillis() - start);
-                        return new FollowUpQuestionDTO(aiPipelineResponse, interviewId,
-                                nextQuestionId);
-                    }).subscribeOn(Schedulers.boundedElastic());
+                    }
+                    // 3. AI 파이프라인 호출(여기서 비동기 호출 사용)
+                    return Mono.fromCallable(() -> Files.readAllBytes(Paths.get(savedPath)))
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .flatMap(audioBytes ->
+                                    aiUtils.callFastApiForNextQuestionV2(audioBytes,
+                                            aiPipelineReadyDto.getSequence() + 1,
+                                            aiPipelineReadyDto.getNickname(),
+                                            aiPipelineReadyDto.getPreviousQuestion(),
+                                            aiPipelineReadyDto.getIsFirstFinished(),
+                                            answerText))
+                            .flatMap(aiPipelineResponse -> {
+                                // DB 저장, dto Redis 캐싱
+                                return Mono.fromCallable(() -> {
+                                    Integer nextQuestionId = interviewService.saveQuestionAndAnswer(
+                                            interviewId,
+                                            questionId, aiPipelineResponse.getQuestionText(),
+                                            savedPath,
+                                            answerText);
+
+                                    // redis에 저장하기 위한 데이터 준비
+                                    String dto = objectMapper.writeValueAsString(
+                                            AiPipelineReadyDto.builder()
+                                                    .previousQuestion(
+                                                            aiPipelineResponse.getQuestionText())
+                                                    .isFirstFinished(
+                                                            aiPipelineReadyDto.getIsFirstFinished())
+                                                    .nickname(aiPipelineReadyDto.getNickname())
+                                                    .sequence(aiPipelineReadyDto.getSequence() + 1)
+                                                    .build());
+                                    String newRedisKey =
+                                            "interviewId:" + interviewId + "questionId:"
+                                                    + nextQuestionId;
+                                    redisService.setValues(newRedisKey + "aiPipelineReadyDto", dto,
+                                            Duration.ofMinutes(5));
+                                    // 저장 완료 lock 상태 해제
+                                    redisService.deleteValues(
+                                            "interviewId:" + interviewId + "lock");
+                                    log.info("요청 및 반환 종료. 걸린 시간: {}",
+                                            System.currentTimeMillis() - start);
+                                    return new FollowUpQuestionDTO(aiPipelineResponse, interviewId,
+                                            nextQuestionId);
+                                }).subscribeOn(Schedulers.boundedElastic());
+                            });
                 });
     }
 

@@ -48,8 +48,10 @@ public class InterviewController {
             @AuthenticationPrincipal User user
     ) throws JsonProcessingException {
         String email = user.getUsername();
-        // 서비스 레이어 호출
-        return ApiResponse.onSuccess(interviewService.issueWebSocketId(email));
+        // 파서드 레이어 호출
+        return ApiResponse.onSuccess(
+                interviewFacade.issueWebSocketId(email)
+                        .block()); // 여기에서 톰캣 스레드가 멈춤(마치 기존의 async 처럼 동작함)
     }
 
 

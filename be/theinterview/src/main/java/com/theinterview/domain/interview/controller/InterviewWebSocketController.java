@@ -75,7 +75,7 @@ public class InterviewWebSocketController {
                         if (redisService.hasKey(
                                 "interviewId:" + request.getInterviewId() + "isExit")) {
                             log.info("인터뷰 종료 로직 실행");
-                            // 종료 파서드 호출
+                            // 즉시 DB에 저장 후 종료 Facade 호출
                             return interviewFacade.exitInterviewFacade(email,
                                     InterviewExitRequest.builder()
                                             .interviewId(request.getInterviewId())
@@ -86,7 +86,8 @@ public class InterviewWebSocketController {
                             // 파서드 레이어 호출 및 다음 질문 변수에 할당
                             return interviewFacade.generateNextQuestionFacade(
                                             request.getInterviewId(),
-                                            request.getQuestionId(), start)
+                                            request.getQuestionId(), start, email)
+                                    // 파서드 로직 완료된 후 클라이언트에 전달
                                     .doOnNext(followUpQuestionDTO ->
                                             messagingTemplate.convertAndSend(
                                                     "/topic/interview/tmp/"
