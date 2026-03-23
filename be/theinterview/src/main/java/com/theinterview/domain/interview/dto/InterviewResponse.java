@@ -140,4 +140,28 @@ public abstract class InterviewResponse {
         private String interviewText; // 인터뷰 답변
         private String interviewVoice; // 인터뷰 음성파일 UUID
     }
+
+    // 사용자 공유 페이지 Response( 포스트 잇 )
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    @Builder
+    public static class InterviewPostItBoardResponse {
+
+        private List<InterviewPostItDetail> postIt;
+        private Boolean hasNext; // 다음 페이지 유무
+        private Integer currentPage; // 현재 페이지
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class InterviewPostItDetail {
+
+        private String answerKeyword;
+        private String interviewQuestion;
+        private String interviewAnswer;
+        private String interviewUrl;
+    }
 }

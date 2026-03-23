@@ -44,6 +44,9 @@ public class InterviewAnswer {
     @Column(name = "share_range", nullable = false)
     private Boolean shareRange = false;
 
+    @Column(name = "answer_keyword", length = 300)
+    private String answerKeyword;
+
     @Column(name = "created_at", nullable = false)
     @CreatedDate
     private LocalDateTime createdAt;

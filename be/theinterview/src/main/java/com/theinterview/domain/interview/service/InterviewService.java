@@ -23,6 +23,8 @@ import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistory;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItBoardResponse;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewResponseDTO;
@@ -52,6 +54,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
@@ -603,6 +606,40 @@ public class InterviewService {
                 .interviewTitle(interview.getTitle())
                 .interviewDate(interview.getCreatedAt().toLocalDate())
                 .interview(details)
+                .build();
+    }
+
+    // 사용자 공유 페이지 ( 포스트 잇 )
+    public InterviewPostItBoardResponse getSharedPostItBoard(String userUuid, Integer page) {
+        // 12개씩 가져오며 업데이트 날짜를 기준으로 가져옴
+        Pageable pageable = PageRequest.of(page, 12, Sort.by("createdAt").descending());
+        Slice<InterviewAnswer> answerSlice = interviewAnswerRepository.findAllByMemberUUIDAndShared(
+                userUuid, pageable);
+
+        List<InterviewPostItDetail> postItList = answerSlice.getContent().stream()
+                .map(answer -> {
+                    // 계층 구조를 따라 Interview 객체 추출
+                    Interview interview = answer.getInterviewQuestion().getInterview();
+
+                    // 공유 링크 조립
+                    String fullUrl = (interview.getShareLink() != null)
+                            ? "https://j14a307.p.ssafy.io/interview/share/"
+                            + interview.getShareLink()
+                            : null;
+
+                    return InterviewPostItDetail.builder()
+                            .answerKeyword(answer.getAnswerKeyword())
+                            .interviewQuestion(answer.getInterviewQuestion().getQuestionText())
+                            .interviewAnswer(answer.getAnswerText())
+                            .interviewUrl(fullUrl)
+                            .build();
+                })
+                .toList();
+
+        return InterviewPostItBoardResponse.builder()
+                .currentPage(page)
+                .postIt(postItList)
+                .hasNext(answerSlice.hasNext())
                 .build();
     }
 }

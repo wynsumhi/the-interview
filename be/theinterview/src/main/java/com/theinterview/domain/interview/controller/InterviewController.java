@@ -6,6 +6,7 @@ import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRang
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewStartRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItBoardResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewResponseDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
@@ -133,5 +134,16 @@ public class InterviewController {
         SharedInterviewResponseDTO sharedInterviewResponseDTO = interviewService.getSharedInterviewDetail(
                 shareUuid);
         return ApiResponse.onSuccess(sharedInterviewResponseDTO);
+    }
+
+    // 사용자 공유 페이지 ( 포스트 잇 )
+    @GetMapping("/share/{userUuid}")
+    public ApiResponse<InterviewPostItBoardResponse> getSharedPostItBoard(
+            @PathVariable(name = "userUuid") String userUuid,
+            @RequestParam(defaultValue = "0") Integer page
+    ) {
+        InterviewPostItBoardResponse interviewPostItBoardResponseDTO = interviewService.getSharedPostItBoard(
+                userUuid, page);
+        return ApiResponse.onSuccess(interviewPostItBoardResponseDTO);
     }
 }
