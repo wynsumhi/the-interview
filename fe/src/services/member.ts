@@ -13,6 +13,7 @@ export interface MemberResponse {
 // 회원 정보 수정 요청 시 서버에 전달할 데이터 형태 정의
 export interface UpdateMemberRequest {
   nickname: string;
+  password?: string;
 }
 
 // 회원 정보 조회 API 호출 함수
@@ -31,4 +32,8 @@ export const updateMe = async (
   return response.data.result;
 };
 
-// TODO: 회원 탈퇴 (DELETE)
+// 회원 탈퇴 API 호출 함수
+// DELETE /auth/me 엔드포인트로 요청
+export const deleteMe = async (): Promise<void> => {
+  await instance.delete("/auth/me");
+};

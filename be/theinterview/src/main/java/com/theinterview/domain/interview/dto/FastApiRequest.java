@@ -58,7 +58,7 @@ public abstract class FastApiRequest {
     // 퍼사드에서 데이터를 받아 올 목적으로 사용하는 내부 dto
     @Getter
     @Builder
-    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @NoArgsConstructor
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     public static class AiPipelineReadyDto {
 

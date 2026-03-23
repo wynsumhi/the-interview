@@ -1,5 +1,7 @@
 package com.theinterview.domain.interview.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.theinterview.domain.interview.Repository.InterviewAnswerRepository;
 import com.theinterview.domain.interview.Repository.InterviewQuestionRepository;
 import com.theinterview.domain.interview.Repository.InterviewRepository;
@@ -12,6 +14,7 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningRespon
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
+import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
@@ -27,13 +30,16 @@ import com.theinterview.domain.interview.entity.QuestionCandidate;
 import com.theinterview.domain.interview.enums.InterviewStatus;
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.repository.MemberRepository;
+import com.theinterview.global.config.redis.RedisService;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
+import com.theinterview.global.util.DomainFindUtils;
 import com.theinterview.global.util.FileDeleteUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +50,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Mono;
 
 @Service
 @RequiredArgsConstructor
@@ -58,6 +65,8 @@ public class InterviewService {
 
     private final AiUtils aiUtils;
     private final FileDeleteUtils fileDeleteUtils;
+    private final DomainFindUtils domainFindUtils;
+    private final RedisService redisService;
 
     @Value("${file.audio.base-path}")
     private String answerAudioPath;
@@ -65,11 +74,14 @@ public class InterviewService {
     @Value("${file.audio.base-url}")
     private String answerAudioUrl;
 
+    private final ObjectMapper objectMapper;
+
+    // interview 진행 관련 메서드 ----------------------------------------------------------------------------------------------------------------
 
     // 웹소켓 연결 전, 클라이언트가 구독 할 인터뷰 pk를 발급하고, 첫 질문 텍스트를 TTS로 변환하여 전달함
     // todo: facade 패턴 도입을 통해 메서드 분리 필요(커넥션 풀 고갈 문제 고려)
     @Transactional
-    public WebSocketConnectResponse issueWebSocketId(String email) {
+    public WebSocketConnectResponse issueWebSocketId(String email) throws JsonProcessingException {
 
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
@@ -112,6 +124,21 @@ public class InterviewService {
                 .questionText(interview.getTitle())
                 .build());
 
+        // 꼬리 질문 생성 시 필요한 데이터를 redis에서 조회하기 위해 redis에 저장
+        AiPipelineReadyDto dto = AiPipelineReadyDto.builder()
+                .sequence(1)
+                .nickname(member.getNickname())
+                .previousQuestion(question.getQuestionText())
+                .isFirstFinished(member.getIsFirstFinished())
+                .build();
+
+        String redisKey = "interviewId:" + interview.getId() + "questionId:" + question.getId()
+                + "aiPipelineReadyDto";
+
+        String dtoJson = objectMapper.writeValueAsString(dto);
+
+        redisService.setValues(redisKey, dtoJson, Duration.ofMinutes(3));
+
         return WebSocketConnectResponse.builder()
                 .interviewId(interview.getId())
                 .questionId(question.getId())
@@ -146,7 +173,7 @@ public class InterviewService {
 
         // 파일 저장 후 저장한 경로를 반환
         // 파일 저장 유틸 메서드 호출
-        String savedFilePath = saveAnswerFile(audioBytes, member.getId(), interview.getId());
+        String savedFilePath = saveAnswerFile(audioBytes, interview.getId());
 
         return AiPipelineReadyDto.builder()
                 .savedFilePath(savedFilePath)
@@ -155,6 +182,35 @@ public class InterviewService {
                 .previousQuestion(question.getQuestionText())
                 .isFirstFinished(member.getIsFirstFinished())
                 .build();
+    }
+
+    /**
+     * DB에 최종 반환된 질문 텍스트와 audio 파일 경로, 사용자 답변 텍스트를 저장하는 메서드
+     */
+    @Transactional
+    public Integer saveQuestionAndAnswer(Integer interviewId, Integer questionId,
+            String generatedQuestionText, String savedPath, String answerText) {
+
+        InterviewQuestion question = domainFindUtils.getInterviewQuestionById(questionId);
+        Interview interview = domainFindUtils.getInterviewById(interviewId);
+
+        // DB에 사용자 답변과 오디오 경로 저장
+        interviewAnswerRepository.save(InterviewAnswer.builder()
+                .interviewQuestion(question)
+                .answerText(answerText)
+                .answerAudioUrl(savedPath)
+                .build());
+        log.info("사용자 답변 텍스트 저장 완료");
+
+        // DB에 생성된 꼬리질문 저장
+        InterviewQuestion saveQuestion = interviewQuestionRepository.save(
+                InterviewQuestion.builder()
+                        .interview(interview)
+                        .sequence(question.getSequence() + 1)
+                        .questionText(generatedQuestionText)
+                        .build());
+
+        return saveQuestion.getId();
     }
 
     /**
@@ -289,12 +345,17 @@ public class InterviewService {
     /**
      * 음성 바이트 배열을 지정된 경로에 저장하는 유틸 메서드
      */
-    private String saveAnswerFile(byte[] audioBytes, Integer memberId, Integer interviewId)
+    @Transactional
+    public String saveAnswerFile(byte[] audioBytes, Integer interviewId)
             throws IOException {
+
+        Interview interview = domainFindUtils.getInterviewById(interviewId);
+
+        Member member = interview.getMember();
 
         String fileName = UUID.randomUUID().toString() + ".webm";
 
-        Path directoryPath = Paths.get(answerAudioPath, String.valueOf(memberId),
+        Path directoryPath = Paths.get(answerAudioPath, String.valueOf(member.getId()),
                 String.valueOf(interviewId));
 
         // 디렉토리가 없다면 생성
@@ -360,12 +421,15 @@ public class InterviewService {
                             .findByInterviewQuestionId(question.getId())
                             .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
 
+                    String dbUrlConverter = answer.getAnswerAudioUrl()
+                            .substring(answer.getAnswerAudioUrl().lastIndexOf("/") + 1);
+
                     return InterviewHistoryDetail.builder()
                             .interviewQuestion(question.getQuestionText())
                             .interviewText(answer.getAnswerText())
                             .interviewVoice(
                                     answerAudioUrl + "/" + memberId + "/" + interviewId + "/"
-                                            + answer.getAnswerAudioUrl())
+                                            + dbUrlConverter)
                             .build();
                 }).toList();
 
@@ -398,5 +462,54 @@ public class InterviewService {
 
         // 2. 인터뷰 삭제
         interviewRepository.delete(interview);
+    }
+
+    // 청크된 오디오 데이터를 STT로 변환하기 위해 FastAPI 서버를 호출하는 메서드
+    public Mono<Boolean> chunkAudioSTT(AudioChunkRequest request) {
+
+        // 비동기 청킹 요청 및 구독을 통해 해당 메서드에 대한 return이 발생하면 여기서 잡아, redis 저장 로직을 수행함
+        return aiUtils.callFastApiForSttChunk(request).map(sttChunkResponse -> {
+            // redis 키 저장
+            String redisKey = "interviewId:" + request.getInterviewId() + "questionId:"
+                    + request.getQuestionId();
+            // redis에 청크된 STT 결과, 인덱스 저장
+            redisService.addChunkToSortedSet(
+                    redisKey + "chunks",
+                    sttChunkResponse.getChunkText(),
+                    request.getChuckIndex()
+            );
+            log.info("청킹된 오디오 조각 STT 변환 성공 및 redis에 저장 저장된 텍스트: {}",
+                    sttChunkResponse.getChunkText());
+
+            // 청킹이 완료되었다면 해당 질문이 다음 버튼이 눌렸는지 redis에 키를 조회해서 확인함
+            if (redisService.hasKey(redisKey + "totalChunks")) {
+                // redis에 저장되어 있는 총 청크 수를 조회함
+                int totalChunks = Integer.parseInt(
+                        redisService.getValues(redisKey + "totalChunks"));
+                // 만약 같다면 종료 처리 가능
+                log.info("총 청크 개수{}", totalChunks);
+                log.info("저장된 청크 개수: {}", redisService.savedChunkCount(redisKey + "chunks"));
+                if (totalChunks == redisService.savedChunkCount(redisKey + "chunks")) {
+                    return true;
+                }
+            }
+            return false;
+        }).onErrorReturn(false);
+    }
+
+    // Facade 레이어에서 필요한 정보를 DTO에 담아 반환하는 헬퍼 메서드
+    @Transactional(readOnly = true)
+    public AiPipelineReadyDto getReadyDto(Integer interviewId, Integer questionId) {
+
+        Interview interview = domainFindUtils.getInterviewById(interviewId);
+        InterviewQuestion question = domainFindUtils.getInterviewQuestionById(questionId);
+
+        Member member = interview.getMember();
+        return AiPipelineReadyDto.builder()
+                .isFirstFinished(member.getIsFirstFinished())
+                .previousQuestion(question.getQuestionText())
+                .nickname(member.getNickname())
+                .sequence(question.getSequence() + 1)
+                .build();
     }
 }

@@ -4,32 +4,38 @@ import base64
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from fastapi import UploadFile
 
-from app.pipeline.interview_pipeline import run_interview_pipeline
+from app.pipeline.interview_pipeline import (
+    run_interview_pipeline,
+    run_interview_pipeline_from_stt_text,
+)
 from app.prompts.interview_prompts import NEXT_OPENING_SYSTEM_PROMPT, TITLE_GENERATION_SYSTEM_PROMPT
 from app.services.llm_service import create_message
 from app.services.tts_service import text_to_speech
 
-# 현재 인터뷰 답변 업로드 API는 webm 파일만 받도록 제한한다.
+# 현재 업로드 기반 인터뷰 API는 webm만 허용한다.
+# STT provider와 실제 프론트 입력 포맷을 맞춘 최소 계약이다.
 ALLOWED_AUDIO_EXTENSIONS = {".webm"}
-# JSON 응답에서 사용하는 기본 오디오 MIME 타입이다.
+
+# JSON 응답에서 TTS 오디오 타입을 명시할 때 사용하는 기본 MIME 타입이다.
 DEFAULT_AUDIO_MIME_TYPE = "audio/wav"
-# 신규 유저의 첫 인터뷰 시작에서만 사용하는 하드코딩 질문 템플릿이다.
+TEMP_INTERVIEW_STATE_ANSWER_ID = 0
+
+# 신규 사용자의 첫 인터뷰 시작 시 사용하는 기본 질문 템플릿이다.
+# 이후 백엔드에서 별도 질문을 넘겨주기 전까지는 이 문장을 TTS로 읽는다.
 NEW_USER_START_QUESTION_TEMPLATE = (
-    "안녕하세요. {nickname}님. 오늘 시간 내주셔서 감사해요. 요즘 어떻게 지내고 계시나요?"
+    "안녕하세요 {nickname}님, 오늘 시간 내주셔서 감사합니다. 요즘 어떻게 지내시고 계세요?"
 )
 
 
 def validate_audio_upload(audio_file: UploadFile) -> None:
-    """업로드된 음성 파일이 현재 지원 포맷인지 검증한다.
+    """업로드된 인터뷰 음성 파일 확장자가 현재 지원 대상인지 검증한다.
 
-    Args:
-        audio_file: FastAPI multipart/form-data로 전달된 업로드 파일.
-
-    Raises:
-        ValueError: 지원하지 않는 확장자면 요청을 거절한다.
+    API 진입점에서 잘못된 포맷을 먼저 걸러야
+    STT provider 호출 전에 빠르게 400 응답으로 반환할 수 있다.
     """
 
     suffix = Path(audio_file.filename or "").suffix.lower()
@@ -44,33 +50,19 @@ def build_interview_start_question_text(
 ) -> str:
     """인터뷰 시작 시점에 TTS로 읽을 최종 질문 텍스트를 결정한다.
 
-    첫 인터뷰를 아직 마치지 않은 사용자는 하드코딩 템플릿에 닉네임을 치환하고,
-    첫 인터뷰를 이미 마친 사용자는 DB 질문을 그대로 사용한다.
-    API 계층에서는 이 함수가 발생시키는 `ValueError`를 400 응답으로 변환한다.
-
-    Args:
-        is_first_finished: 백엔드가 전달한 첫 인터뷰 완료 여부.
-        nickname: 첫 인터뷰 시작 사용자일 때 템플릿에 삽입할 닉네임.
-        db_question: 첫 인터뷰를 이미 마친 사용자일 때 사용할 DB 질문 텍스트.
-
-    Returns:
-        str: TTS provider에 실제로 전달할 최종 질문 텍스트.
-
-    Raises:
-        ValueError: 분기별 필수 값이 비어 있으면 예외를 발생시킨다.
+    첫 인터뷰가 아직 끝나지 않은 사용자는 기본 템플릿을 사용하고,
+    이미 이전 인터뷰가 있는 사용자는 백엔드가 넘긴 질문을 그대로 사용한다.
     """
 
     if not is_first_finished:
         normalized_nickname = (nickname or "").strip()
         if not normalized_nickname:
             raise ValueError("nickname is required when is_first_finished is false.")
-
         return NEW_USER_START_QUESTION_TEMPLATE.format(nickname=normalized_nickname)
 
     normalized_db_question = (db_question or "").strip()
     if not normalized_db_question:
         raise ValueError("db_question is required when is_first_finished is true.")
-
     return normalized_db_question
 
 
@@ -79,15 +71,10 @@ def generate_interview_start_tts(
     nickname: str | None = None,
     db_question: str | None = None,
 ) -> dict[str, str]:
-    """인터뷰 시작 질문을 결정하고 TTS 오디오까지 생성해 API 응답 형태로 반환한다.
+    """인터뷰 시작 질문과 그에 대한 TTS 오디오를 함께 생성한다.
 
-    Args:
-        is_first_finished: 첫 인터뷰 완료 여부.
-        nickname: 첫 인터뷰 시작 사용자일 때 하드코딩 질문에 삽입할 닉네임.
-        db_question: 첫 인터뷰를 이미 마친 사용자일 때 사용할 DB 질문.
-
-    Returns:
-        dict[str, str]: 최종 질문 텍스트와 base64 인코딩된 TTS 오디오 응답 데이터.
+    반환값은 바로 API 응답에 실을 수 있도록
+    텍스트와 base64 인코딩된 오디오를 포함한 dict 형태를 사용한다.
     """
 
     question_text = build_interview_start_question_text(
@@ -109,19 +96,10 @@ def generate_next_opening_question(
     nickname: str | None = None,
     max_tokens: int = 256,
 ) -> dict[str, str]:
-    """이전 인터뷰 내용을 바탕으로 다음 회차의 첫 질문을 생성한다.
+    """이전 인터뷰 맥락을 바탕으로 다음 회차의 첫 질문을 생성한다.
 
-    어떤 인터뷰 내용을 `interview_context`에 담을지는 백엔드가 판단한다.
-    (2회차: 1회차 5번째 Q&A, 3회차+: 직전 인터뷰 전체 Q&A)
-    생성된 질문은 백엔드가 DB에 저장한 뒤 /start-tts의 db_question으로 사용한다.
-
-    Args:
-        interview_context: 백엔드가 조합한 직전 인터뷰 내용 텍스트.
-        nickname: 환영 인사에 사용할 사용자 닉네임.
-        max_tokens: LLM 최대 토큰 수.
-
-    Returns:
-        dict[str, str]: 생성된 다음 회차 첫 질문 텍스트.
+    이 함수는 현재 인터뷰 파이프라인과는 별개로,
+    회차 간 연결 질문을 생성하는 보조 서비스 역할을 맡는다.
     """
 
     nickname_line = f"사용자 닉네임: {nickname}\n\n" if (nickname or "").strip() else ""
@@ -132,7 +110,6 @@ def generate_next_opening_question(
         system=NEXT_OPENING_SYSTEM_PROMPT,
         max_tokens=max_tokens,
     )
-
     return {"db_question": db_question}
 
 
@@ -140,50 +117,48 @@ def generate_magazine_title(
     interview_context: str,
     max_tokens: int = 64,
 ) -> dict[str, str]:
-    """인터뷰 전체 내용을 바탕으로 매거진 스타일 타이틀을 생성한다.
-
-    생성된 타이틀은 백엔드가 매거진 아티클에 사용한다.
-
-    Args:
-        interview_context: 백엔드가 조합한 인터뷰 전체 Q&A 텍스트.
-        max_tokens: LLM 최대 토큰 수.
-
-    Returns:
-        dict[str, str]: 생성된 매거진 타이틀 텍스트.
-    """
+    """인터뷰 전체 맥락을 바탕으로 매거진 제목을 생성한다."""
 
     title = create_message(
         messages=[{"role": "user", "content": interview_context}],
         system=TITLE_GENERATION_SYSTEM_PROMPT,
         max_tokens=max_tokens,
     )
-
     return {"title": title}
+
+
+def save_interview_state_temp(request: dict[str, Any]) -> dict[str, Any]:
+    """임시 인터뷰 상태 저장 요청을 그대로 감싸서 반환한다.
+
+    실제 백엔드 저장 API가 아직 준비되지 않았기 때문에,
+    우선 AI 서버가 어떤 형태의 payload를 보낼지 계약을 고정하는 용도로 둔다.
+    """
+
+    return {
+        "status": "queued",
+        "message": "Temporary interview-state save request accepted.",
+        "request": request,
+    }
 
 
 def run_interview_pipeline_from_upload(
     audio_file: UploadFile,
+    answer_id: int,
     is_first_finished: bool = False,
+    user_id: str | None = None,
     sequence: int | None = None,
     nickname: str | None = None,
     previous_question: str | None = None,
     max_tokens: int = 1024,
-) -> dict[str, str]:
-    """업로드 음성 파일을 인터뷰 파이프라인에 전달하고 API 응답 형태로 변환한다.
+) -> dict[str, Any]:
+    """업로드된 답변 음성을 인터뷰 파이프라인에 전달하고 API 응답 형태로 변환한다.
 
-    Args:
-        audio_file: 인터뷰 답변 음성 파일.
-        is_first_finished: 첫 질문 응답이 끝난 뒤인지 여부.
-        sequence: 첫 인터뷰 질문 순서.
-        nickname: 첫 인터뷰 질문 생성에 사용할 닉네임.
-        previous_question: 이전 질문 텍스트.
-        max_tokens: LLM 최대 토큰 수.
-
-    Returns:
-        dict[str, str]: STT 결과, 후속 질문, base64 인코딩된 TTS 오디오를 담은 응답 데이터.
-
-    Raises:
-        ValueError: 지원하지 않는 업로드 파일 형식이면 예외를 발생시킨다.
+    처리 순서는 다음과 같다.
+    1. 업로드 포맷 검증
+    2. 임시 파일 저장
+    3. 파이프라인 실행
+    4. 응답 직렬화
+    5. 임시 파일 정리
     """
 
     validate_audio_upload(audio_file)
@@ -192,23 +167,85 @@ def run_interview_pipeline_from_upload(
     temp_file_path: Path | None = None
 
     try:
-        # STT provider는 파일 경로 기반 입력을 받기 때문에 업로드 스트림을 임시 파일로 복사한다.
+        # STT provider는 파일 경로 기반 입력을 기대하므로,
+        # multipart 업로드 스트림을 그대로 넘기지 않고 임시 파일로 복사한다.
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
             shutil.copyfileobj(audio_file.file, temp_file)
             temp_file_path = Path(temp_file.name)
 
         pipeline_result = run_interview_pipeline(
             str(temp_file_path),
+            answer_id=answer_id,
             is_first_finished=is_first_finished,
+            user_id=user_id,
             sequence=sequence,
             nickname=nickname,
             previous_question=previous_question,
             max_tokens=max_tokens,
         )
+
+        # 파이프라인 내부 결과는 bytes와 dataclass를 함께 들고 있으므로,
+        # API 응답 직전에는 JSON 직렬화 가능한 dict 형태로 한 번 정리한다.
+        response = pipeline_result.to_response_dict()
         return {
-            "stt_text": pipeline_result.stt_text,
-            "question_text": pipeline_result.llm_text,
-            "tts_audio_base64": base64.b64encode(pipeline_result.tts_audio).decode("ascii"),
+            "stt_text": response["stt_text"],
+            "interview_state_db": response["interview_state_db"],
+            "interview_state_prompt": response["interview_state_prompt"],
+            "question_text": response["question_text"],
+            "tts_audio_base64": base64.b64encode(response["tts_audio"]).decode("ascii"),
+            "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
+        }
+    finally:
+        audio_file.file.close()
+        if temp_file_path is not None and temp_file_path.exists():
+            temp_file_path.unlink()
+
+
+def run_interview_pipeline_from_stt_payload(
+    audio_file: UploadFile,
+    stt_text: str,
+    is_first_finished: bool = False,
+    user_id: str | None = None,
+    sequence: int | None = None,
+    nickname: str | None = None,
+    previous_question: str | None = None,
+    max_tokens: int = 1024,
+) -> dict[str, Any]:
+    """STT 텍스트를 외부에서 받아 STT 이후 파이프라인만 실행한다."""
+
+    validate_audio_upload(audio_file)
+
+    normalized_stt_text = stt_text.strip()
+    if not normalized_stt_text:
+        raise ValueError("stt_text is required.")
+
+    suffix = Path(audio_file.filename or "audio.webm").suffix.lower() or ".webm"
+    temp_file_path: Path | None = None
+
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            shutil.copyfileobj(audio_file.file, temp_file)
+            temp_file_path = Path(temp_file.name)
+
+        pipeline_result = run_interview_pipeline_from_stt_text(
+            str(temp_file_path),
+            stt_text=normalized_stt_text,
+            answer_id=TEMP_INTERVIEW_STATE_ANSWER_ID,
+            is_first_finished=is_first_finished,
+            user_id=user_id,
+            sequence=sequence,
+            nickname=nickname,
+            previous_question=previous_question,
+            max_tokens=max_tokens,
+        )
+
+        response = pipeline_result.to_response_dict()
+        return {
+            "stt_text": response["stt_text"],
+            "interview_state_db": response["interview_state_db"],
+            "interview_state_prompt": response["interview_state_prompt"],
+            "question_text": response["question_text"],
+            "tts_audio_base64": base64.b64encode(response["tts_audio"]).decode("ascii"),
             "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
         }
     finally:

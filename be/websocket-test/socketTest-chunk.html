@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>PoC: AI 인터뷰 비동기 파이프라인 (통합 테스트)</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .box { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .log-area { background: #1e1e1e; color: #4af626; padding: 10px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 13px; margin-top: 10px; border-radius: 5px; }
+        .setting-input { width: 100%; max-width: 300px; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; display: block;}
+        .btn { padding: 10px 20px; font-weight: bold; cursor: pointer; border-radius: 5px; border: none; transition: 0.2s; }
+        .btn-start { background-color: #007bff; color: white; }
+        .btn-record { background-color: #dc3545; color: white; }
+        .btn-stop { background-color: #6c757d; color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .status-badge { font-weight: bold; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
+        .status-off { background-color: #ffeeba; color: #856404; }
+        .status-on { background-color: #d4edda; color: #155724; }
+    </style>
+</head>
+<body>
+    <h2>🚀 비동기 파이프라인 통합 테스트 (방 생성 + Event-Driven)</h2>
+
+    <div class="box">
+        <h3>1. 인터뷰 방 생성 (HTTP)</h3>
+        <input type="text" id="token" class="setting-input" placeholder="JWT Access Token 입력">
+        <button class="btn btn-start" id="initBtn" onclick="initRecordSession()">1. 방 생성 및 소켓 연결</button>
+        <span id="roomStatus" class="status-badge status-off">방 생성 대기중</span>
+        <div id="roomInfo" style="margin-top: 10px; font-weight: bold; color: blue;"></div>
+    </div>
+
+    <div class="box">
+        <h3>2. 녹음 및 전송 파이프라인 (/chunk & /next)</h3>
+        <input type="number" id="chunkMs" class="setting-input" value="3000" placeholder="청크 단위(ms)"> 
+        <button class="btn btn-record" id="recordBtn" onclick="startRecording()" disabled>🔴 답변 녹음 시작</button>
+        <button class="btn btn-stop" id="stopBtn" onclick="stopRecording()" disabled>⏹️ 다음 질문 (완료 트리거 전송)</button>
+        <div class="log-area" id="logArea">시스템 로그가 여기에 표시됩니다...</div>
+    </div>
+
+    <script>
+        let stompClient = null;
+        let globalStream = null;
+        let chunkRecorder = null; 
+        let fullRecorder = null;  
+        let chunkIntervalId = null;
+        let chunkIndex = 0; 
+        let fullAudioChunks = [];
+        
+        let currentInterviewId = null;
+        let currentQuestionId = null; 
+
+        const logArea = document.getElementById('logArea');
+        function addLog(msg) {
+            logArea.innerHTML += `> ${new Date().toLocaleTimeString()} : ${msg}<br>`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        function blobToBase64(blob) {
+            return new Promise((resolve, _) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        // [Step 1] HTTP POST 방 생성
+        async function initRecordSession() {
+            const token = document.getElementById('token').value;
+            document.getElementById('roomStatus').innerText = "인터뷰 생성 중...";
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/v1/interview', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ isPrevAffected: false }) 
+                });
+
+                if (!response.ok) throw new Error(`HTTP 요청 실패: ${response.status}`);
+
+                const rawData = await response.json();
+                const payload = rawData.result || rawData.data || rawData;
+
+                currentInterviewId = payload.interviewId;
+                currentQuestionId = payload.questionId;
+                
+                document.getElementById('roomStatus').innerText = "✅ 방 생성 완료";
+                document.getElementById('roomStatus').className = "status-badge status-on";
+                document.getElementById('roomInfo').innerText = `🔗 Interview ID: ${currentInterviewId} | Question ID: ${currentQuestionId}`;
+                addLog(`방 생성 성공. WebSocket 연결을 시도합니다...`);
+
+                // 방 생성이 완료되면 곧바로 WebSocket 연결 시도
+                connectWebSocket(token);
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('roomStatus').innerText = "생성 실패";
+                addLog(`에러: 방 생성 실패 (${error.message})`);
+            }
+        }
+
+        // [Step 2] WebSocket 연결 및 구독
+        function connectWebSocket(token) {
+            const socket = new SockJS('http://localhost:8080/api/ws-connect');
+            stompClient = Stomp.over(socket);
+            stompClient.debug = null; 
+
+            const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+
+            stompClient.connect(headers, (frame) => {
+                addLog("✅ STOMP 웹소켓 연결 완료.");
+                document.getElementById('recordBtn').disabled = false;
+                document.getElementById('initBtn').disabled = true;
+
+                // AI 응답 수신용 구독 (컨트롤러 로직에 맞춰 /tmp/ 경로 구독)
+                stompClient.subscribe(`/topic/interview/tmp/${currentInterviewId}`, function (message) {
+                    addLog(`🎉 [AI 파사드 응답 도착]: ${message.body}`);
+                    addLog("🚀 파이프라인 테스트 완벽 성공!");
+                    document.getElementById('recordBtn').disabled = false; // 다음 질문을 위해 활성화
+                });
+                addLog(`/topic/interview/tmp/${currentInterviewId} 구독 완료.`);
+
+            }, (error) => {
+                addLog(`웹소켓 연결 에러: ${error}`);
+            });
+        }
+
+        // [Step 3] 녹음 시작 (청크 분할 및 통짜 녹음 동시 진행)
+        async function startRecording() {
+            document.getElementById('recordBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            chunkIndex = 0;
+            fullAudioChunks = [];
+
+            globalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            fullRecorder = new MediaRecorder(globalStream, { mimeType: 'audio/webm' });
+            fullRecorder.ondataavailable = e => fullAudioChunks.push(e.data);
+            fullRecorder.start();
+
+            const chunkInterval = document.getElementById('chunkMs').value || 3000;
+            addLog(`🎙️ 녹음 시작. ${chunkInterval}ms 단위로 청크를 전송합니다.`);
+            
+            startChunkCycle(chunkInterval);
+        }
+
+        // 지정된 시간마다 녹음기를 멈추고 서버로 청크를 보내는 사이클
+        function startChunkCycle(interval) {
+            chunkRecorder = new MediaRecorder(globalStream, { mimeType: 'audio/webm' });
+            
+            chunkRecorder.ondataavailable = async (e) => {
+                if (e.data.size > 0) {
+                    const base64Audio = await blobToBase64(e.data);
+                    sendChunkToServer(base64Audio);
+                }
+            };
+
+            chunkRecorder.start();
+
+            chunkIntervalId = setInterval(() => {
+                if (chunkRecorder.state === "recording") {
+                    chunkRecorder.stop();
+                    chunkRecorder.start();
+                }
+            }, interval);
+        }
+
+        // 청크 전송 (Event Trigger의 원재료)
+        function sendChunkToServer(base64Audio) {
+            const currentIndex = ++chunkIndex; 
+
+            const payload = {
+                interviewId: currentInterviewId,
+                questionId: currentQuestionId,
+                chuckIndex: currentIndex, 
+                audioData: base64Audio    
+            };
+
+            stompClient.send("/app/interview/audio/chunk", {}, JSON.stringify(payload));
+            addLog(`📡 [Chunk ${currentIndex}] 전송 완료`);
+        }
+
+        // [Step 4] 녹음 종료 및 통짜 파일 전송 (/next 트리거)
+        async function stopRecording() {
+            document.getElementById('recordBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = true;
+            
+            clearInterval(chunkIntervalId);
+
+            if (chunkRecorder && chunkRecorder.state === "recording") {
+                chunkRecorder.stop(); 
+            }
+
+            addLog("⏳ 통짜 오디오 파일 생성 중...");
+
+            fullRecorder.onstop = async () => {
+                const fullBlob = new Blob(fullAudioChunks, { type: 'audio/webm' });
+                const fullBase64 = await blobToBase64(fullBlob);
+                
+                const payload = {
+                    interviewId: currentInterviewId,
+                    questionId: currentQuestionId,
+                    totalChunk: String(chunkIndex), // String 타입 강제
+                    answerAudio: fullBase64 
+                };
+
+                stompClient.send("/app/next", {}, JSON.stringify(payload));
+                addLog(`🛑 [/next] 완료 트리거 전송 완료! (Total Chunks: ${chunkIndex})`);
+                addLog("⏳ 백엔드 Event-Driven 처리를 기다립니다. (Spring 콘솔 로그를 확인하세요)");
+            };
+
+            fullRecorder.stop(); 
+            globalStream.getTracks().forEach(track => track.stop());
+        }
+    </script>
+</body>
+</html>

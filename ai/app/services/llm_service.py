@@ -22,7 +22,7 @@ def create_message(
     elapsed = time.perf_counter() - started
 
     logger.info(
-        "LLM completed in %.3fs. max_tokens=%s text=%s",
+        "[LLM] completed in %.3fs max_tokens=%s text=%s",
         elapsed,
         max_tokens,
         llm_text,

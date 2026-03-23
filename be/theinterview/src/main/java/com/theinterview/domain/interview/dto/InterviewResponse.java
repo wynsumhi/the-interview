@@ -1,6 +1,8 @@
 package com.theinterview.domain.interview.dto;
 
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.AccessLevel;
@@ -22,6 +24,15 @@ public abstract class InterviewResponse {
         private String sttResult; // 사용자의 답변 문자열
         private String followUpQuestion; // 다음 질문 텍스트
         private String ttsAudioBase64; // 질문 tts
+
+        public FollowUpQuestionDTO(AiPipelineResponse aiPipelineResponse, Integer interviewId,
+                Integer questionId) {
+            this.interviewId = interviewId;
+            this.questionId = questionId;
+            this.sttResult = aiPipelineResponse.getSttText();
+            this.followUpQuestion = aiPipelineResponse.getQuestionText();
+            this.ttsAudioBase64 = aiPipelineResponse.getTtsAudioBase64();
+        }
     }
 
     @Getter
@@ -82,5 +93,15 @@ public abstract class InterviewResponse {
         private String interviewQuestion; // 인터뷰 질문
         private String interviewText; // 인터뷰 답변
         private String interviewVoice; // 인터뷰 음성파일 UUID
+    }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    @Builder
+    public static class SttChunkResponse {
+
+        @JsonProperty("stt_text")
+        private String chunkText;
     }
 }

@@ -102,7 +102,7 @@ function ConversationContent() {
       questionRef.current = {
         interviewId: data.interviewId,
         questionId: data.questionId,
-        questionText: data.interviewTitle,
+        questionText: stripMarkdown(data.interviewTitle),
         ttsAudioBase64: data.ttsAudioBase64,
       };
 
@@ -127,7 +127,7 @@ function ConversationContent() {
           questionRef.current = {
             interviewId: dto.interviewId,
             questionId: dto.questionId,
-            questionText: dto.followUpQuestion,
+            questionText: stripMarkdown(dto.followUpQuestion),
             ttsAudioBase64: dto.ttsAudioBase64,
           };
           setStatus("AI_SPEAKING");
@@ -137,7 +137,9 @@ function ConversationContent() {
     } catch (err) {
       if (!isCancelled()) {
         console.error("인터뷰 초기화 실패:", err);
-        setErrorMsg("인터뷰를 시작할 수 없습니다. 마이크 권한을 확인해 주세요.");
+        setErrorMsg(
+          "인터뷰를 시작할 수 없습니다. 마이크 권한을 확인해 주세요.",
+        );
       }
     }
   };
@@ -366,41 +368,117 @@ function ConversationContent() {
                 <div className={styles.blobWrapper}>
                   {/* 사진 느낌의 멀티 컬러 Blob 배경 */}
                   {/* 디자인 blob SVG */}
-                  <svg className={styles.blobSvg} viewBox="0 0 435 416" xmlns="http://www.w3.org/2000/svg">
+                  <svg
+                    className={styles.blobSvg}
+                    viewBox="0 0 435 416"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
                     <defs>
-                      <filter id="b0" x="90.5" y="47" width="300" height="309" filterUnits="userSpaceOnUse">
+                      <filter
+                        id="b0"
+                        x="90.5"
+                        y="47"
+                        width="300"
+                        height="309"
+                        filterUnits="userSpaceOnUse"
+                      >
                         <feGaussianBlur stdDeviation="17.135" />
                       </filter>
-                      <filter id="b1" x="28" y="110.5" width="305" height="276" filterUnits="userSpaceOnUse">
+                      <filter
+                        id="b1"
+                        x="28"
+                        y="110.5"
+                        width="305"
+                        height="276"
+                        filterUnits="userSpaceOnUse"
+                      >
                         <feGaussianBlur stdDeviation="17.135" />
                       </filter>
-                      <filter id="b2" x="90" y="0" width="344.5" height="365.5" filterUnits="userSpaceOnUse">
+                      <filter
+                        id="b2"
+                        x="90"
+                        y="0"
+                        width="344.5"
+                        height="365.5"
+                        filterUnits="userSpaceOnUse"
+                      >
                         <feGaussianBlur stdDeviation="17.135" />
                       </filter>
-                      <filter id="b3" x="0" y="100" width="350.5" height="315.5" filterUnits="userSpaceOnUse">
+                      <filter
+                        id="b3"
+                        x="0"
+                        y="100"
+                        width="350.5"
+                        height="315.5"
+                        filterUnits="userSpaceOnUse"
+                      >
                         <feGaussianBlur stdDeviation="17.135" />
                       </filter>
-                      <linearGradient id="g0" x1="166.875" y1="113.673" x2="292.5" y2="281.27" gradientUnits="userSpaceOnUse">
+                      <linearGradient
+                        id="g0"
+                        x1="166.875"
+                        y1="113.673"
+                        x2="292.5"
+                        y2="281.27"
+                        gradientUnits="userSpaceOnUse"
+                      >
                         <stop stopColor="#6981FF" />
                         <stop offset="1" stopColor="#C68059" stopOpacity="0" />
                       </linearGradient>
-                      <linearGradient id="g1" x1="154.27" y1="192.269" x2="154.27" y2="352.269" gradientUnits="userSpaceOnUse">
+                      <linearGradient
+                        id="g1"
+                        x1="154.27"
+                        y1="192.269"
+                        x2="154.27"
+                        y2="352.269"
+                        gradientUnits="userSpaceOnUse"
+                      >
                         <stop stopColor="#FFB6B6" stopOpacity="0.62" />
                         <stop offset="1" stopColor="#6141E1" stopOpacity="0" />
                       </linearGradient>
-                      <linearGradient id="g2" x1="174.469" y1="74.286" x2="331.056" y2="275.965" gradientUnits="userSpaceOnUse">
+                      <linearGradient
+                        id="g2"
+                        x1="174.469"
+                        y1="74.286"
+                        x2="331.056"
+                        y2="275.965"
+                        gradientUnits="userSpaceOnUse"
+                      >
                         <stop stopColor="#6981FF" />
                         <stop offset="1" stopColor="#C68059" stopOpacity="0" />
                       </linearGradient>
-                      <linearGradient id="g3" x1="143.969" y1="190.811" x2="143.969" y2="381.269" gradientUnits="userSpaceOnUse">
+                      <linearGradient
+                        id="g3"
+                        x1="143.969"
+                        y1="190.811"
+                        x2="143.969"
+                        y2="381.269"
+                        gradientUnits="userSpaceOnUse"
+                      >
                         <stop stopColor="#FFB6B6" stopOpacity="0.62" />
                         <stop offset="1" stopColor="#6141E1" stopOpacity="0" />
                       </linearGradient>
                     </defs>
-                    <path filter="url(#b0)" d="M356.27 254.77C356.27 304.475 290.475 321.77 240.77 321.77C191.064 321.77 124.77 295.475 124.77 245.77C124.77 196.064 143.564 81.2695 193.27 81.2695C242.975 81.2695 356.27 205.064 356.27 254.77Z" fill="url(#g0)" />
-                    <path filter="url(#b1)" d="M298.77 296.769C298.77 340.952 198.452 352.269 154.27 352.269C110.087 352.269 62.2695 257.452 62.2695 213.269C62.2695 169.086 110.087 144.769 154.27 144.769C198.452 144.769 298.77 252.587 298.77 296.769Z" fill="url(#g1)" />
-                    <path filter="url(#b2)" d="M400.27 248.529C400.27 309.912 321.828 331.27 262.568 331.27C203.307 331.27 124.27 298.798 124.27 237.415C124.27 176.032 146.677 34.2695 205.937 34.2695C265.197 34.2695 400.27 187.147 400.27 248.529Z" fill="url(#g2)" />
-                    <path filter="url(#b3)" d="M316.27 315.205C316.27 367.798 196.652 381.27 143.969 381.27C91.2863 381.27 34.2695 268.402 34.2695 215.809C34.2695 163.216 91.2863 134.27 143.969 134.27C196.652 134.27 316.27 262.611 316.27 315.205Z" fill="url(#g3)" />
+                    <path
+                      filter="url(#b0)"
+                      d="M356.27 254.77C356.27 304.475 290.475 321.77 240.77 321.77C191.064 321.77 124.77 295.475 124.77 245.77C124.77 196.064 143.564 81.2695 193.27 81.2695C242.975 81.2695 356.27 205.064 356.27 254.77Z"
+                      fill="url(#g0)"
+                    />
+                    <path
+                      filter="url(#b1)"
+                      d="M298.77 296.769C298.77 340.952 198.452 352.269 154.27 352.269C110.087 352.269 62.2695 257.452 62.2695 213.269C62.2695 169.086 110.087 144.769 154.27 144.769C198.452 144.769 298.77 252.587 298.77 296.769Z"
+                      fill="url(#g1)"
+                    />
+                    <path
+                      filter="url(#b2)"
+                      d="M400.27 248.529C400.27 309.912 321.828 331.27 262.568 331.27C203.307 331.27 124.27 298.798 124.27 237.415C124.27 176.032 146.677 34.2695 205.937 34.2695C265.197 34.2695 400.27 187.147 400.27 248.529Z"
+                      fill="url(#g2)"
+                    />
+                    <path
+                      filter="url(#b3)"
+                      d="M316.27 315.205C316.27 367.798 196.652 381.27 143.969 381.27C91.2863 381.27 34.2695 268.402 34.2695 215.809C34.2695 163.216 91.2863 134.27 143.969 134.27C196.652 134.27 316.27 262.611 316.27 315.205Z"
+                      fill="url(#g3)"
+                    />
                   </svg>
 
                   {/* 중앙 파형 비주얼라이저 */}
@@ -433,6 +511,18 @@ function ConversationContent() {
       )}
     </main>
   );
+}
+
+// Markdown 문법 제거 함수
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/#{1,6}\s*/g, "") // ## 헤더
+    .replace(/\*{1,2}([^*]*)\*{1,2}/g, "$1") // **bold**, *italic*
+    .replace(/_{1,2}([^_]*)_{1,2}/g, "$1") // __bold__, _italic_
+    .replace(/`{1,3}[^`]*`{1,3}/g, "") // `code`, ```code```
+    .replace(/^[-*>]\s+/gm, "") // 목록 (-), 인용 (>)
+    .replace(/[()[\]]/g, "") // 괄호
+    .trim();
 }
 
 function playBase64Audio(

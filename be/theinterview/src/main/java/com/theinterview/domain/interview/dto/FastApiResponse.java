@@ -22,6 +22,8 @@ public abstract class FastApiResponse {
 
         @JsonProperty("stt_text")
         private String sttText;
+
+        private Integer newQuestionId;
     }
 
     @Getter

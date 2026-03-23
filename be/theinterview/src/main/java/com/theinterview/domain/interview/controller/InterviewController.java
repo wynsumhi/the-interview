@@ -1,5 +1,6 @@
 package com.theinterview.domain.interview.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewStartRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
@@ -38,7 +39,7 @@ public class InterviewController {
     public ApiResponse<WebSocketConnectResponse> readForConnectWebSocket(
             @RequestBody InterviewStartRequest request,
             @AuthenticationPrincipal User user
-    ) {
+    ) throws JsonProcessingException {
         String email = user.getUsername();
         // 서비스 레이어 호출
         return ApiResponse.onSuccess(interviewService.issueWebSocketId(email));
