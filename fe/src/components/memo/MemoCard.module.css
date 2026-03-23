@@ -1,0 +1,126 @@
+/* ── 카드: 수직 메모 비율 고정 (260 × 340) ── */
+.card {
+  position: absolute !important;
+  width: 260px !important;
+  height: 340px !important;
+  min-height: 340px !important;
+  max-height: 340px !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  padding: 10px;
+  box-sizing: border-box;
+  display: flex;
+  overflow: hidden;
+  cursor: default;
+}
+
+/* ── 이중 라인 내부 컨테이너 ── */
+.inner {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  padding: 14px 16px 12px;
+  box-sizing: border-box;
+  position: relative;   /* slot의 absolute 기준점 */
+  overflow: hidden;
+}
+
+/* ── 카테고리 레이블 ── */
+.category {
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.38);
+}
+
+/* ── 콘텐츠 슬롯: title ↔ Q&A 절대 중앙 정렬 ── */
+.slot {
+  position: absolute;
+  /* category(~22px) 와 footer(~28px) 사이를 모두 차지 */
+  top: 36px;
+  left: 16px;
+  right: 16px;
+  bottom: 32px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── 메인 타이틀: Julietta, 절대 중앙 ── */
+.title {
+  font-family: var(--font-julietta);
+  font-size: 2.8rem;
+  font-weight: normal;
+  line-height: 1.1;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.82);
+  width: 100%;
+  margin: 0;
+  word-break: keep-all;
+}
+
+/* ── 큐레이션 Q&A 래퍼 ── */
+.qaWrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+/* ── 질문 줄 ── */
+.question {
+  font-size: 0.62rem;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+/* ── 답변 줄 ── */
+.answer {
+  font-size: 0.62rem;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.76);
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+/* ── Q. / A. 레이블: Montserrat ── */
+.entryLabel {
+  font-family: var(--font-montserrat);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+  /* Montserrat cap-height 보정: Pretendard 와 베이스라인 맞춤 */
+  line-height: 1;
+  padding-top: 0.1em;
+}
+
+/* ── 한국어 본문: Pretendard ── */
+.entryText {
+  font-family: var(--font-sans); /* Pretendard */
+  font-size: 0.62rem;
+  font-weight: 500;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+
+/* ── 날짜 푸터 ── */
+.footer {
+  position: absolute;
+  bottom: 14px;
+  right: 16px;
+  font-family: serif;
+  font-size: 0.65rem;
+  font-style: italic;
+  color: rgba(0, 0, 0, 0.32);
+  letter-spacing: 0.04em;
+}
