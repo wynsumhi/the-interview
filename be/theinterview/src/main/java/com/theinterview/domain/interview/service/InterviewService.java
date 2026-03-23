@@ -628,7 +628,9 @@ public class InterviewService {
                             : null;
 
                     return InterviewPostItDetail.builder()
-                            .answerKeyword(answer.getAnswerKeyword())
+                            // TODO: 키워드를 아직 생성하지 않아서 임의로 데이터 전달
+                            //.answerKeyword(answer.getAnswerKeyword())
+                            .answerKeyword("Hello!")
                             .interviewQuestion(answer.getInterviewQuestion().getQuestionText())
                             .interviewAnswer(answer.getAnswerText())
                             .interviewUrl(fullUrl)
