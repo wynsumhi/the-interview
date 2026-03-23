@@ -1,5 +1,5 @@
-import MemoCard from "@/components/memo/MemoCard";
-import type { QnaPreview } from "@/components/memo/MemoCard";
+import MemoCard from "@/components/board/MemoCard";
+import type { QnaPreview } from "@/components/board/MemoCard";
 
 const MEMOS: {
   id: number;
