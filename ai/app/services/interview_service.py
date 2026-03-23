@@ -12,7 +12,11 @@ from app.pipeline.interview_pipeline import (
     run_interview_pipeline,
     run_interview_pipeline_from_stt_text,
 )
-from app.prompts.interview_prompts import NEXT_OPENING_SYSTEM_PROMPT, TITLE_GENERATION_SYSTEM_PROMPT
+from app.prompts.interview_prompts import (
+    INTERVIEW_CLOSING_SYSTEM_PROMPT,
+    NEXT_OPENING_SYSTEM_PROMPT,
+    TITLE_GENERATION_SYSTEM_PROMPT,
+)
 from app.services.llm_service import create_message
 from app.services.tts_service import text_to_speech
 
@@ -125,6 +129,20 @@ def generate_magazine_title(
         max_tokens=max_tokens,
     )
     return {"title": title}
+
+
+def generate_closing_message(
+    interview_context: str,
+    max_tokens: int = 128,
+) -> dict[str, str]:
+    """인터뷰 종료 시점에 자연스러운 마무리 메시지를 생성한다."""
+
+    closing = create_message(
+        messages=[{"role": "user", "content": interview_context}],
+        system=INTERVIEW_CLOSING_SYSTEM_PROMPT,
+        max_tokens=max_tokens,
+    )
+    return {"closing_message": closing}
 
 
 def save_interview_state_temp(request: dict[str, Any]) -> dict[str, Any]:
