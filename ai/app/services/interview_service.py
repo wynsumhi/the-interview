@@ -13,6 +13,7 @@ from app.pipeline.interview_pipeline import (
     run_interview_pipeline_from_stt_text,
 )
 from app.prompts.interview_prompts import (
+    INTERVIEW_CLOSING_SYSTEM_PROMPT,
     KEYWORD_GENERATION_SYSTEM_PROMPT,
     NEXT_OPENING_SYSTEM_PROMPT,
     TITLE_GENERATION_SYSTEM_PROMPT,
@@ -129,6 +130,34 @@ def generate_magazine_title(
         max_tokens=max_tokens,
     )
     return {"title": title}
+
+
+def generate_closing_message(
+    interview_context: str,
+    nickname: str,
+    max_tokens: int = 128,
+) -> dict[str, str]:
+    """인터뷰 종료 시점에 자연스러운 마무리 메시지를 생성하고 TTS 오디오를 함께 반환한다."""
+
+    system = (
+        f"사용자의 닉네임은 '{nickname}'입니다.\n"
+        f"사용자를 호칭할 때는 반드시 이 닉네임만 사용하십시오.\n"
+        f"대화 맥락에 등장하는 다른 이름, 별명, 호칭은 절대 사용하지 마십시오.\n"
+        f"입력 대화에 포함된 이름이라도 모두 무시하고, '{nickname}'만 사용하십시오.\n\n"
+        + INTERVIEW_CLOSING_SYSTEM_PROMPT
+    )
+    closing = create_message(
+        messages=[{"role": "user", "content": interview_context}],
+        system=system,
+        max_tokens=max_tokens,
+    )
+    tts_audio = text_to_speech(closing)
+
+    return {
+        "closing_message": closing,
+        "tts_audio_base64": base64.b64encode(tts_audio).decode("ascii"),
+        "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
+    }
 
 
 def generate_keyword(
