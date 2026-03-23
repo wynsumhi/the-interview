@@ -15,6 +15,7 @@ from app.pipeline.interview_pipeline import (
 from app.prompts.interview_prompts import (
     INTERVIEW_CLOSING_SYSTEM_PROMPT,
     KEYWORD_GENERATION_SYSTEM_PROMPT,
+    MAGAZINE_GENERATION_SYSTEM_PROMPT,
     NEXT_OPENING_SYSTEM_PROMPT,
     TITLE_GENERATION_SYSTEM_PROMPT,
 )
@@ -130,6 +131,20 @@ def generate_magazine_title(
         max_tokens=max_tokens,
     )
     return {"title": title}
+
+
+def refine_answer_for_magazine(
+    answer: str,
+    max_tokens: int = 300,
+) -> dict[str, str]:
+    """구어체 인터뷰 답변을 매거진 기사에 어울리는 문어체로 정제한다."""
+
+    refined = create_message(
+        messages=[{"role": "user", "content": answer}],
+        system=MAGAZINE_GENERATION_SYSTEM_PROMPT,
+        max_tokens=max_tokens,
+    )
+    return {"refined_answer": refined}
 
 
 def generate_closing_message(
