@@ -1,6 +1,12 @@
 .section {
   background: var(--warm);
-  padding: 128px var(--px);
+  padding: 128px 0;
+}
+
+.inner {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 0 var(--px);
 }
 
 /* ─── 섹션 헤더 ─── */
@@ -123,7 +129,8 @@
 
 /* ─── Responsive ─── */
 @media (max-width: 1024px) {
-  .section { padding: 96px var(--px-mobile); }
+  .section { padding: 96px 0; }
+  .inner { padding: 0 var(--px-mobile); }
   .grid { grid-template-columns: 1fr; gap: 56px; }
   .sectionNum { font-size: 100px; }
   .h2 { font-size: 36px; }

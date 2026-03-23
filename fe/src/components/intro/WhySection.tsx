@@ -5,7 +5,7 @@ const TAGS = ["녹음", "질문", "아카이브", "매거진", "성찰"];
 export default function WhySection() {
   return (
     <section id="why" className={styles.section}>
-      <div style={{ maxWidth: "var(--max-w)", margin: "0 auto" }}>
+      <div className={styles.inner}>
 
         <div className={styles.header}>
           <span className={styles.sectionNum}>01</span>
