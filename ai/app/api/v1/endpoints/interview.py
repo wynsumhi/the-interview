@@ -257,6 +257,7 @@ def generate_closing_message_endpoint(
 
     result = generate_closing_message(
         interview_context=request.interview_context,
+        nickname=request.nickname,
     )
     return InterviewClosingResponse.model_validate(result)
 

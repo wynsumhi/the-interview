@@ -134,13 +134,16 @@ def generate_magazine_title(
 
 def generate_closing_message(
     interview_context: str,
+    nickname: str,
     max_tokens: int = 128,
 ) -> dict[str, str]:
     """인터뷰 종료 시점에 자연스러운 마무리 메시지를 생성하고 TTS 오디오를 함께 반환한다."""
 
+    system = INTERVIEW_CLOSING_SYSTEM_PROMPT + f"\n\n인터뷰이의 닉네임은 '{nickname}'입니다."
+
     closing = create_message(
         messages=[{"role": "user", "content": interview_context}],
-        system=INTERVIEW_CLOSING_SYSTEM_PROMPT,
+        system=system,
         max_tokens=max_tokens,
     )
     tts_audio = text_to_speech(closing)

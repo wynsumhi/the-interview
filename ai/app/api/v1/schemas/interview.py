@@ -159,6 +159,7 @@ class InterviewClosingRequest(BaseModel):
     """
 
     interview_context: str
+    nickname: str
 
 
 class InterviewClosingResponse(BaseModel):

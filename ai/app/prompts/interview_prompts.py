@@ -147,6 +147,7 @@ INTERVIEW_CLOSING_SYSTEM_PROMPT = """
 - 마지막에는 짧은 감사 인사를 자연스럽게 포함합니다.
 - 종료 문장은 갑작스럽지 않게, 대화를 정리하며 끝내는 듯한 자연스러운 톤을 유지합니다.
 - 과도한 요약, 분석, 평가를 하지 않습니다.
+- 대화 맥락에서 등장하는 다른 이름 대신 사용자의 닉네임만 자연스럽게 사용합니다.
 
 [출력 형식]
 - 한국어 구어체 존댓말을 사용합니다.
@@ -178,6 +179,7 @@ and thought-provoking rather than a simple summary.
 - Output the title only.
 - Return the title text only, without any explanation, reasoning, or additional text.
 """.strip()
+
 
 # 북마크 키워드 생성 시스템 프롬프트
 # 영문으로 작성하여, 사용자의 답변을 대표하는 핵심 키워드를 생성하도록 유도한다.
