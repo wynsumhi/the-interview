@@ -5,10 +5,19 @@ import re
 from dataclasses import asdict, dataclass
 from time import perf_counter
 
-# STT가 반환한 원문 텍스트에서 정형화된 개인정보 패턴을 먼저 탐지한다.
+# STT가 반환한 자유 텍스트에서 정형화된 개인정보 패턴을 먼저 찾아낸다.
 # 현재는 전화번호, 이메일, 주민등록번호, 계좌번호, 카드번호를 규칙 기반으로 처리한다.
 # 이 규칙 목록은 나중에 모델 기반 분류기나 추가 패턴이 붙더라도 교체하기 쉽도록
 # 서비스 레벨 상수로 분리해 둔 것이다.
+BANK_CONTEXT_PATTERN = (
+    r"(?:계좌번호|계좌|통장|입금계좌|출금계좌|은행계좌|"
+    r"우리은행|국민은행|신한은행|하나은행|기업은행|농협은행|"
+    r"카카오뱅크|토스뱅크|케이뱅크|새마을금고|우체국|수협은행|"
+    r"부산은행|대구은행|광주은행|전북은행|경남은행|SC제일은행|"
+    r"한국씨티은행|아이엠뱅크|농협|신한|국민|하나|우리|기업|수협|"
+    r"부산|대구|광주|전북|경남)"
+)
+
 PII_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
     (
         "PHONE",
@@ -17,21 +26,23 @@ PII_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
     ),
     (
         "EMAIL",
-        re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
+        re.compile(
+            r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9._%+-])"
+        ),
         "rule:email",
+    ),
+    (
+        "ACCOUNT",
+        re.compile(
+            rf"(?:(?:{BANK_CONTEXT_PATTERN})\s*:?\s*)?(?<!\d)\d{{2,6}}-\d{{2,6}}-\d{{4,8}}(?!\d)"
+            rf"|(?:{BANK_CONTEXT_PATTERN})\s*:?\s*(?<!\d)\d{{6,14}}-\d{{6,8}}(?!\d)"
+        ),
+        "rule:bank-account",
     ),
     (
         "RRN",
         re.compile(r"(?<!\d)\d{6}-[1-4]\d{6}(?!\d)"),
         "rule:resident-registration-number",
-    ),
-    (
-        "ACCOUNT",
-        re.compile(
-            r"(?:(?:계좌|통장|은행|농협|신한|국민|하나|우리|기업|카카오뱅크|토스뱅크|새마을금고|우체국|수협|부산|대구)\s*)?"
-            r"(?<!\d)\d{2,6}-\d{2,6}-\d{4,8}(?!\d)"
-        ),
-        "rule:bank-account",
     ),
     (
         "CARD",
@@ -43,7 +54,7 @@ PII_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
 
 @dataclass(frozen=True)
 class MaskedEntity:
-    """한 번의 마스킹 과정에서 탐지된 개인정보 한 건을 표현한다."""
+    """한 번의 마스킹 과정에서 찾아낸 개인정보 한 건을 표현한다."""
 
     entity_type: str
     original: str
@@ -55,7 +66,7 @@ class MaskedEntity:
 
 @dataclass(frozen=True)
 class MaskingResult:
-    """원문, 마스킹 결과, 탐지된 엔티티 목록을 함께 반환하는 결과 객체다."""
+    """원문, 마스킹 결과, 엔티티 목록과 처리 시간을 함께 반환하는 결과 객체다."""
 
     original_text: str
     masked_text: str
@@ -79,9 +90,9 @@ def mask_sensitive_information(text: str) -> MaskingResult:
 
     동작 순서는 다음과 같다.
     1. 전체 텍스트에서 정규식 규칙으로 개인정보 후보를 수집한다.
-    2. 겹치는 후보가 있으면 더 긴 범위를 남겨 중복 치환을 방지한다.
+    2. 겹치는 후보가 있으면 더 긴 범위를 우선해 중복 치환을 방지한다.
     3. 발견 순서대로 `[PHONE_1]`, `[EMAIL_1]` 같은 토큰으로 치환한다.
-    4. 원문, 치환 결과, 탐지 메타데이터, 처리 시간을 묶어서 반환한다.
+    4. 원문, 치환 결과, 엔티티 메타데이터, 처리 시간을 묶어서 반환한다.
     """
     start_time = perf_counter()
     candidates = _collect_candidates(text)
@@ -91,14 +102,14 @@ def mask_sensitive_information(text: str) -> MaskingResult:
     cursor = 0
 
     for candidate in candidates:
-        # 이미 앞선 후보가 같은 구간을 덮었다면 현재 후보는 무시
+        # 이미 앞선 후보가 같은 구간을 덮었다면 현재 후보는 무시한다.
         if candidate.start < cursor:
             continue
 
         counters[candidate.entity_type] = counters.get(candidate.entity_type, 0) + 1
         replacement = f"[{candidate.entity_type}_{counters[candidate.entity_type]}]"
 
-        # 직전 커서부터 현재 후보 시작점 전까지는 원문 그대로 유지한다.
+        # 직전 커서부터 현재 후보 시작 전까지는 원문 그대로 유지한다.
         masked_parts.append(text[cursor : candidate.start])
         masked_parts.append(replacement)
         entities.append(
@@ -128,14 +139,14 @@ def mask_stt_text_for_llm(stt_text: str) -> MaskingResult:
     """향후 파이프라인에서 STT 직후 바로 호출할 수 있도록 만든 진입점이다.
 
     지금은 내부적으로 `mask_sensitive_information()`을 그대로 호출하지만,
-    이후 전처리, 로깅, 정책 분기, 모델 기반 마스킹이 추가되더라도
-    파이프라인 코드는 이 함수만 의존하면 되도록 의도를 분리해 두었다.
+    이후 전처리 로깅, 정책 분기, 모델 기반 마스킹이 추가되더라도
+    파이프라인 코드는 이 함수만 호출하면 되도록 의도를 분리해 두었다.
     """
     return mask_sensitive_information(stt_text)
 
 
 def format_masking_report(result: MaskingResult) -> str:
-    """로컬 실행이나 디버깅 시 사람이 읽기 쉬운 문자열 리포트로 변환한다."""
+    """로컬 실행이나 디버깅용으로 읽기 쉬운 문자열 리포트로 변환한다."""
     entities_json = json.dumps([asdict(entity) for entity in result.entities], ensure_ascii=False)
     return (
         f"Original: {result.original_text}\n"
@@ -163,10 +174,10 @@ def _collect_candidates(text: str) -> list[CandidateSpan]:
 
 
 def _dedupe_candidates(candidates: list[CandidateSpan]) -> list[CandidateSpan]:
-    """겹치는 후보가 있을 때 더 넓은 구간을 우선 유지해 중복 치환을 막는다."""
+    """겹치는 후보가 있으면 더 넓은 구간을 우선 유지해 중복 치환을 막는다."""
 
-    # 예를 들어 계좌번호 규칙과 숫자 패턴이 비슷한 다른 규칙이 동시에 잡히면
-    # 같은 위치를 두 번 치환할 수 있으므로, 먼저 긴 범위를 남기고 나머지는 버린다.
+    # 예를 들어 계좌번호 규칙과 숫자 패턴이 비슷한 다른 규칙이 동시에 겹치면
+    # 같은 위치를 두 번 치환할 수 있으므로 먼저 긴 범위를 남기고 나머지는 버린다.
     deduped: list[CandidateSpan] = []
     for candidate in sorted(candidates, key=lambda item: (item.start, -(item.end - item.start))):
         if any(
