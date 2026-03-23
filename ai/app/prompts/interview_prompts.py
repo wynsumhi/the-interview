@@ -176,7 +176,7 @@ You are an editor for a magazine service.
 - Prefer simple, label-like expressions rather than explanatory phrases.
 
 [Length]
-- Recommended length: 2–4 words (max 5 words).
+- Recommended length: 1–4 words (max 5 words).
 
 [Output Rules]
 - The input may be in Korean, but ALWAYS output in English.
