@@ -145,7 +145,7 @@ public class InterviewFacade {
                     InterviewQuestion interviewQuestion = tuple.getT1();
                     Member member = tuple.getT2();
                     // 최초 사용자이며 6 이상이면 다음 질문이 없음 -> 종료 로직 호출
-                    if (!member.getIsFirstFinished() && interviewQuestion.getSequence() >= 6) {
+                    if (!member.getIsFirstFinished() && interviewQuestion.getSequence() + 1 >= 6) {
                         log.info("sequence 기준치 도달. 인터뷰 종료 파이프라인으로 전환");
                         // 즉시 DB에 저장 후 종료 파서드 호출
                         return Mono.fromCallable(
@@ -169,7 +169,7 @@ public class InterviewFacade {
                             .subscribeOn(Schedulers.boundedElastic())
                             .flatMap(audioBytes ->
                                     aiUtils.callFastApiForNextQuestionV2(audioBytes,
-                                            aiPipelineReadyDto.getSequence(),
+                                            aiPipelineReadyDto.getSequence() + 1,
                                             aiPipelineReadyDto.getNickname(),
                                             aiPipelineReadyDto.getPreviousQuestion(),
                                             aiPipelineReadyDto.getIsFirstFinished(),
