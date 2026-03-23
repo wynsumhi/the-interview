@@ -1,0 +1,170 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    environment:
+      - TZ=Asia/Seoul
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.external-url=https://j14a307.p.ssafy.io/infra/prometheus/'
+      - '--web.route-prefix=/'
+    networks:
+      - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    #ports:
+    #  - "9090:9090"
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    pid: "host"
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    volumes:
+      - /:/host:ro
+    environment:
+      - TZ=Asia/Seoul
+    command:
+      - '--path.rootfs=/host'
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    #ports:
+    #  - "9100:9100"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    environment:
+      - TZ=Asia/Seoul
+    # 리눅스 커널의 메시지 버퍼에 접근할 수 있게 해주는 장치 파일
+    devices:
+      - /dev/kmsg
+    networks:
+      - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    #ports:
+    #  - "8080:8080"
+    # port가 BE 스프링이랑 겹치기 때문에 오픈시 주의필요
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 356M
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    environment:
+      - GF_SERVER_ROOT_URL=https://j14a307.p.ssafy.io/infra/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_USERS_VIEWERS_CAN_EDIT=false
+      - GF_AUTH_ROLE_VIEWER_CAN_EXPLORE=true
+      - TZ=Asia/Seoul
+    networks:
+      - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    #ports:
+    #  - "3001:3000"
+    # port가 FE이랑 겹치기 때문에 오픈시 주의필요
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    volumes:
+      # Loki 로그 저장 경로
+      - /home/ubuntu/monitoring/data/loki-data:/loki
+    environment:
+      - TZ=Asia/Seoul
+    command:
+      - '--config.file=/etc/loki/local-config.yaml'
+    networks:
+      - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    #ports:
+    #  - "3100:3100"
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    user: root
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    volumes:
+      # Docker 소켓 직접 연결
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Docker 로그 경로
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # 설정 파일
+      - ./promtail-config.yml:/etc/promtail/config.yml
+      # 로그 파일 경로
+      - /home/ubuntu/monitoring/data/promtail:/tmp
+    environment:
+      - TZ=Asia/Seoul
+    command:
+      - '--config.file=/etc/promtail/config.yml'
+    networks:
+      - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  theinterview-net:
+    external: true
+
+volumes:
+  grafana-storage:

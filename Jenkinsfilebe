@@ -125,7 +125,7 @@ pipeline {
 							--network theinterview-net \
 							--env-file infra/app/.env \
 							-e SPRING_PROFILES_ACTIVE=dev \
-							-m 1g --memory-swap 2g \
+							-m 2g --memory-swap 4g \
 							be-test-image ./gradlew test --no-daemon \
 							-Dorg.gradle.jvmargs="-Xmx768m" \
 							-Dspring.profiles.active=dev

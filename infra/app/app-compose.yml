@@ -11,6 +11,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=dev
       - JAVA_OPTS=-Xms1024m -Xmx2048m
+      - TZ=Asia/Seoul
     networks:
       - theinterview-net
     deploy:
@@ -33,6 +34,7 @@ services:
       dockerfile: Dockerfile
     environment:
       - API_URL=https://j14a307.p.ssafy.io
+      - TZ=Asia/Seoul
     image: theinterview-frontend:latest
     container_name: frontend
     restart: on-failure
@@ -41,7 +43,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 512G
     logging:
       driver: "json-file"
       options:
@@ -57,6 +59,8 @@ services:
     restart: on-failure
     env_file:
       - .env
+    environment:
+      - TZ=Asia/Seoul
     networks:
       - theinterview-net
     deploy:

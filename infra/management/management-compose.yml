@@ -2,20 +2,28 @@ services:
   nginx:
     image: nginx:latest
     container_name: nginx
+    restart: on-failure
     ports:
       - "80:80"
       - "443:443"
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 128M
     volumes:
       - ./nginx/default.conf:/etc/nginx/nginx.conf:ro
       - /home/ubuntu/infra/nginx/www:/var/www/certbot:ro
       - /home/ubuntu/infra/nginx/certs:/etc/letsencrypt:ro
       - /home/ubuntu/theInterview/history:/var/www/html/history:ro
+    environment:
+      - TZ=Asia/Seoul
     networks:
       - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   jenkins:
     image: jenkins/jenkins:lts
@@ -36,6 +44,11 @@ services:
       - TZ=Asia/Seoul
     networks:
       - theinterview-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     # ports:
     #   - "8989:8989"
     #   - "50000:50000"
@@ -51,11 +64,17 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 384M
         reservations:
           memory: 64M
     environment:
       - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+      - TZ=Asia/Seoul
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     #ports:
     # - 9123:9123
 
