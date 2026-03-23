@@ -58,13 +58,23 @@ function ConversationContent() {
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  // ── 듀얼 MediaRecorder ──────────────────────────────────────────────────
+  // chunkRecorder: 2초 간격으로 STT 청크를 /app/interview/audio/chunk로 전송
+  // fullRecorder:  전체 답변 오디오를 누적해 감정 분석 및 /next|/exitV2로 전송
+  const chunkRecorderRef = useRef<MediaRecorder | null>(null);
+  const fullRecorderRef = useRef<MediaRecorder | null>(null);
+  // 청크 순번 - 각 녹음 세션 시작 시 0으로 초기화 (서버 측 동기화 기준)
+  const chunkIndexRef = useRef<number>(0);
+  // fullRecorder 누적 버퍼
+  const fullChunksRef = useRef<Blob[]>([]);
+  // fullRecorder.onstop 의 전송 목적지: "next"(꼬리질문) | "exit"(인터뷰 종료)
+  const finalDestRef = useRef<"next" | "exit">("next");
+  // ────────────────────────────────────────────────────────────────────────
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  const { connect, sendAudio, disconnect } = useStompInterview();
+  const { connect, sendChunk, sendNext, sendExit, disconnect } = useStompInterview();
 
   useEffect(() => {
     statusRef.current = status;
@@ -200,25 +210,63 @@ function ConversationContent() {
 
   const startRecording = useCallback(() => {
     if (!streamRef.current) return;
-    chunksRef.current = [];
-    const recorder = new MediaRecorder(streamRef.current);
-    recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
-    recorder.onstop = async () => {
-      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-      const audioData = await blobToBase64(blob);
+
+    // 각 녹음 세션 시작 시 청크 카운터·버퍼·목적지 초기화
+    chunkIndexRef.current = 0;
+    fullChunksRef.current = [];
+    finalDestRef.current = "next";
+
+    // ── chunkRecorder: 2초 간격으로 STT 청크 전송 ──────────────────────
+    // timeslice=2000 으로 ondataavailable이 2초마다 자동 트리거됨
+    // questionRef.current를 호출 시점에 읽어 최신 questionId를 사용
+    const chunkRecorder = new MediaRecorder(streamRef.current);
+    chunkRecorder.ondataavailable = async (e) => {
+      if (e.data.size === 0) return;
+      // 비동기 변환 전에 인덱스를 동기적으로 확보해 순번 보장
+      const index = chunkIndexRef.current++;
+      const audioData = await blobToBase64(e.data);
       const question = questionRef.current;
       if (!question) return;
-      sendAudio({
+      sendChunk({
         interviewId: question.interviewId,
         questionId: question.questionId,
         audioData,
-        isFinal: false,
+        chunkIndex: index,
       });
-      setStatus("WAITING_AI");
     };
-    recorder.start();
-    recorderRef.current = recorder;
-  }, [sendAudio]);
+    chunkRecorder.start(2000);
+    chunkRecorderRef.current = chunkRecorder;
+
+    // ── fullRecorder: 전체 답변 오디오 누적 ────────────────────────────
+    // onstop 시점에 totalChunk(String)와 함께 /next 또는 /exitV2로 전송
+    const fullRecorder = new MediaRecorder(streamRef.current);
+    fullRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) fullChunksRef.current.push(e.data);
+    };
+    fullRecorder.onstop = async () => {
+      const blob = new Blob(fullChunksRef.current, { type: "audio/webm" });
+      const audioData = await blobToBase64(blob);
+      const question = questionRef.current;
+      if (!question) return;
+
+      const payload = {
+        interviewId: question.interviewId,
+        questionId: question.questionId,
+        audioData,
+        // totalChunk는 String 타입으로 전송해야 서버 측 동기화 오류를 방지
+        totalChunk: String(chunkIndexRef.current),
+      };
+
+      if (finalDestRef.current === "exit") {
+        sendExit(payload);
+      } else {
+        sendNext(payload);
+        setStatus("WAITING_AI");
+      }
+    };
+    fullRecorder.start();
+    fullRecorderRef.current = fullRecorder;
+  }, [sendChunk, sendNext, sendExit]);
 
   const startVad = useCallback(() => {
     if (!analyserRef.current) return;
@@ -239,7 +287,8 @@ function ConversationContent() {
         if (!silenceTimerRef.current) {
           silenceTimerRef.current = setTimeout(() => {
             if (statusRef.current === "USER_RECORDING") {
-              recorderRef.current?.stop();
+              chunkRecorderRef.current?.stop();
+              fullRecorderRef.current?.stop();
             }
           }, SILENCE_DELAY_MS);
         }
@@ -260,24 +309,51 @@ function ConversationContent() {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
-    recorderRef.current?.stop();
+    chunkRecorderRef.current?.stop();
+    fullRecorderRef.current?.stop();
   };
 
   // 인터뷰 종료 버튼 핸들러
-  // 1) 진행 중인 녹음/오디오 정리 → 2) POST /interview/exit 호출 → 3) 리소스 cleanup → 4) /archive로 이동
+  // 1) 녹음 중이면 전체 오디오를 /exitV2로 전송 → 2) POST /interview/exit → 3) cleanup → 4) /archive
   const handleExit = async () => {
     if (isExiting) return; // 중복 클릭 방지
     setIsExiting(true);
 
-    // 녹음 중이었다면 onstop 핸들러를 먼저 제거 후 중단
-    // onstop을 그대로 두면 stop() 호출 시 sendAudio + setStatus("WAITING_AI")가
-    // 실행되어 종료 중에 불필요한 상태 전환과 백엔드 요청이 발생함
-    if (recorderRef.current) {
-      recorderRef.current.onstop = null;
-      recorderRef.current.stop();
-    }
     ttsAudioRef.current?.pause();
-    // WebSocket을 먼저 끊어 백엔드로부터 메시지 수신 차단
+
+    if (fullRecorderRef.current?.state === "recording") {
+      // 종료 경로로 설정: fullRecorder.onstop이 sendExit를 호출
+      finalDestRef.current = "exit";
+
+      // chunkRecorder: 마지막 조각 전송 생략 (exit 시 불필요)
+      if (chunkRecorderRef.current) {
+        chunkRecorderRef.current.ondataavailable = null;
+        chunkRecorderRef.current.stop();
+      }
+
+      // fullRecorder onstop(sendExit 호출)이 완료될 때까지 대기 후 WebSocket 종료
+      await new Promise<void>((resolve) => {
+        const recorder = fullRecorderRef.current;
+        if (!recorder) { resolve(); return; }
+        const prev = recorder.onstop as ((e: Event) => Promise<void>) | null;
+        recorder.onstop = async (e) => {
+          await prev?.(e);
+          resolve();
+        };
+        recorder.stop();
+      });
+    } else {
+      // 녹음 중이 아닌 경우: onstop 핸들러만 제거 후 정리
+      // onstop을 그대로 두면 sendNext + setStatus("WAITING_AI")가 재실행될 수 있음
+      if (chunkRecorderRef.current) {
+        chunkRecorderRef.current.ondataavailable = null;
+      }
+      if (fullRecorderRef.current) {
+        fullRecorderRef.current.onstop = null;
+      }
+    }
+
+    // WebSocket을 끊어 백엔드로부터의 메시지 수신 차단
     disconnect();
 
     const question = questionRef.current;
@@ -309,8 +385,10 @@ function ConversationContent() {
 
   const cleanup = () => {
     stopVad();
-    recorderRef.current?.stop();
-    recorderRef.current = null;
+    chunkRecorderRef.current?.stop();
+    chunkRecorderRef.current = null;
+    fullRecorderRef.current?.stop();
+    fullRecorderRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     // ref를 null로 초기화하여 중복 호출 시 "Cannot close a closed AudioContext" 방지
