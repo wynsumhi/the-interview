@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import userIcon from "@/assets/icons/user.svg";
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { logout } from "@/services/auth"; // 로그아웃 API 호출 함수
@@ -66,7 +68,7 @@ export default function Navbar() {
       <div className={styles.backdrop} />
 
       {/* 로고: 로그인 여부에 따라 목적지 변경 */}
-      <Link href={isLoggedIn ? "/archive" : "/"} className={styles.logo}>
+      <Link href={isLoggedIn ? "/board" : "/"} className={styles.logo}>
         The interview
       </Link>
 
@@ -74,14 +76,11 @@ export default function Navbar() {
         {isLoggedIn ? (
           <>
             {/* 로그인 시 메뉴 구성 */}
-            <Link href="/archive" className={styles.navLink}>
-              아카이브
-            </Link>
-            <Link href="/emotion" className={styles.navLink}>
-              감정 인사이트
+            <Link href="/board" className={styles.navLink}>
+              나의 핀
             </Link>
             <Link href="/explore" className={styles.navLink}>
-              인터뷰 둘러보기
+              탐색하기
             </Link>
             <Link href="/interview/setup" className={styles.startBtn}>
               인터뷰 시작
@@ -95,7 +94,15 @@ export default function Navbar() {
                 className={styles.profileCircle}
                 onClick={() => setIsDropdownOpen((prev) => !prev)}
                 title="프로필"
-              />
+              >
+                <Image
+                  src={userIcon}
+                  alt="프로필"
+                  width={32}
+                  height={32}
+                  className={styles.profileAvatar}
+                />
+              </button>
 
               {/* isDropdownOpen이 true일 때만 드롭다운 렌더링 */}
               {isDropdownOpen && (
