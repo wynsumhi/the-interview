@@ -23,6 +23,7 @@ import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistory;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.entity.Interview;
 import com.theinterview.domain.interview.entity.InterviewAnswer;
@@ -535,5 +536,29 @@ public class InterviewService {
 
         // Request로 오는 값이 true라면 shareRange 수정 후 UUID 생성 / false라면 shareRange 수정 후 UUID 삭제
         interview.setShareRange(request.getInterviewShareRange());
+    }
+
+    // 인터뷰 상세페이지 공유 링크 발급
+    public InterviewShareLink getInterviewShareLink(String userEmail, Integer interviewId) {
+        // 사용자 정보 조회
+        Member member = memberRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        // 인터뷰 조회
+        Interview interview = interviewRepository.findById(interviewId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+
+        // 요청한 사용자와 인터뷰 진행한 사용자가 다른 경우
+        if (!interview.getMember().getId().equals(member.getId())) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        // ShareLink가 없거나 공개범위가 비공개면 예외처리
+        if (interview.getShareLink() == null || Boolean.FALSE.equals(interview.getShareRange())) {
+            throw new GeneralException(ErrorStatus.SHARE_NOT_ENABLED);
+        }
+        return InterviewShareLink.builder()
+                .shareLink("https://j14a307.p.ssafy.io/interview/share/" + interview.getShareLink())
+                .build();
     }
 }

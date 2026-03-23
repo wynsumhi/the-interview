@@ -6,6 +6,7 @@ import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRang
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewStartRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.service.InterviewService;
 import com.theinterview.domain.member.Member;
@@ -109,5 +110,17 @@ public class InterviewController {
         String email = user.getUsername();
         interviewService.setInterviewShareRange(email, interviewId, request);
         return ApiResponse.OK;
+    }
+
+    // 인터뷰 상세페이지 공유 링크 발급
+    @GetMapping("/{interviewId}/share")
+    public ApiResponse<InterviewShareLink> getInterviewShareLink(
+            @PathVariable(name = "interviewId") Integer interviewId,
+            @AuthenticationPrincipal User user
+    ) {
+        String email = user.getUsername();
+        InterviewShareLink interviewShareLinkDTO = interviewService.getInterviewShareLink(email,
+                interviewId);
+        return ApiResponse.onSuccess(interviewShareLinkDTO);
     }
 }

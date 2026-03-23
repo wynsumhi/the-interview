@@ -107,4 +107,13 @@ public abstract class InterviewResponse {
         @JsonProperty("stt_text")
         private String chunkText;
     }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    @Builder
+    public static class InterviewShareLink {
+
+        private String shareLink;
+    }
 }
