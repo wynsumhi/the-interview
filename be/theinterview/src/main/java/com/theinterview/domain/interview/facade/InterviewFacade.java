@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
+import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
@@ -11,7 +12,9 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.entity.InterviewQuestion;
+import com.theinterview.domain.interview.entity.QuestionCandidate;
 import com.theinterview.domain.interview.service.AiUtils;
 import com.theinterview.domain.interview.service.InterviewService;
 import com.theinterview.domain.member.Member;
@@ -24,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -43,6 +47,32 @@ public class InterviewFacade {
 
     private final ObjectMapper objectMapper;
     private final View error;
+
+
+    // 인터뷰 첫 질문 TTS 변환을 위해 호춯되는 파서드
+    public Mono<WebSocketConnectResponse> issueWebSocketId(String email)
+            throws JsonProcessingException {
+
+        // 1. 필요 데이터 DB 조회
+        Member member = domainFindUtils.getMemberByEmail(email);
+
+        String dbQuestion = null;
+        if (member.getIsFirstFinished()) {
+            List<QuestionCandidate> questionCandidates = member.getQuestionCandidates();
+            dbQuestion = questionCandidates.get(0).getQuestionText();
+        }
+
+        // TTS 변환을 위한 외부 AI 호출 메서드 호출 -> DB 저장 체인 연결
+        return aiUtils.callFastApiForStartTts(AiStartTtsRequest.builder()
+                        .dbQuestion(dbQuestion)
+                        .nickname(member.getNickname())
+                        .isFirstFinished(member.getIsFirstFinished())
+                        .build())
+                .flatMap(aiStartTtsResponse ->
+                        Mono.fromCallable(() -> interviewService.saveInterviewAndQuestion(member,
+                                aiStartTtsResponse)))
+                .subscribeOn(Schedulers.boundedElastic());
+    }
 
     // DB 상태 변경 -> AI 파이프라인 호출 -> DB 저장 -> DB 상태 변경의 무거운 파이프라인을 분리하기 위한 메서드
     public FollowUpQuestionDTO processOneQnA(AudioMessageRequest request) throws IOException {

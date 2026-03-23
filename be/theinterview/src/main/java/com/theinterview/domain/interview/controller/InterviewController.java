@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
 
 @RestController
 @Slf4j
@@ -43,13 +44,14 @@ public class InterviewController {
 
     // 웹소켓 연결 및 구독할 인터뷰 방의 번호(interviewID) 및 첫 질문의 번호(questionId)를 발급
     @PostMapping
-    public ApiResponse<WebSocketConnectResponse> readForConnectWebSocket(
+    public Mono<ApiResponse<WebSocketConnectResponse>> readForConnectWebSocket(
             @RequestBody InterviewStartRequest request,
             @AuthenticationPrincipal User user
     ) throws JsonProcessingException {
         String email = user.getUsername();
-        // 서비스 레이어 호출
-        return ApiResponse.onSuccess(interviewService.issueWebSocketId(email));
+        // 파서드 레이어 호출
+        return interviewFacade.issueWebSocketId(email)
+                .map(webSocketConnectResponse -> ApiResponse.onSuccess(webSocketConnectResponse));
     }
 
 

@@ -12,12 +12,14 @@ import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 필요한 도메인 객체를 pk를 통해 찾아오는 유틸. member 객체의 경우 email로 조회하는 메서드가 포함됨
  */
 @Component
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class DomainFindUtils {
 
     private final MemberRepository memberRepository;
