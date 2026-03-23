@@ -21,7 +21,7 @@ FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS runner
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3.11 python3-pip \
+    && apt-get install -y --no-install-recommends ffmpeg python3.11 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /root/.local /root/.local
