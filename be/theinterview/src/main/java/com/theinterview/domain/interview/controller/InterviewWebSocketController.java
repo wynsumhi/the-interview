@@ -10,10 +10,11 @@ import com.theinterview.domain.interview.service.AiUtils;
 import com.theinterview.domain.interview.service.InterviewService;
 import com.theinterview.global.config.redis.RedisService;
 import java.io.IOException;
-import java.security.Principal;
 import java.time.Duration;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -55,16 +56,15 @@ public class InterviewWebSocketController {
     @MessageMapping("interview/audio/chunk")
     public void receiveChunkAudio(
             @Payload AudioChunkRequest request,
-            Principal principal
+            @Header("simpSessionAttributes") Map<String, Object> sessionAttributes
     ) {
 
-        String email = principal.getName();
+        String email = (String) sessionAttributes.get("email");
 
         long start = System.currentTimeMillis();
-        log.info("요청 감지. 시간 측정 시작");
         log.info("청킹된 데이터 도착 interviewId: {}, questionId: {}", request.getInterviewId(),
                 request.getQuestionId());
-
+        log.info("요청 감지. 시간 측정 시작");
         // 청크된 오디오 변환을 위해 비동기 STT 모델 호출
         interviewService.chunkAudioSTT(request)
                 .flatMap(isLastChunk -> {
@@ -98,6 +98,7 @@ public class InterviewWebSocketController {
                     return Mono.empty();
                 })
                 .subscribe();
+
     }
 
     @MessageMapping("/next")

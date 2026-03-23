@@ -159,11 +159,17 @@ public class InterviewFacade {
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(answerTts -> {
 
+                    // 답변이 저장된 적 없다면 예외를 발생시킴
+                    if (answerTts.getQnACouple() == null || answerTts.getQnACouple().isEmpty()) {
+                        answerTts.protectEmptyString();
+                    }
+
                     // 2. AI 시작 질문 생성 및 제목 생성 로직
                     Mono<AiTitleResponse> aiTitleResponseMono = aiUtils.callFastApiForInterviewTitleV2(
                             AiTitleRequest.builder()
                                     .interviewContext(answerTts.getQnACouple())
                                     .build());
+
                     Mono<AiNextOpeningResponse> aiNextOpeningResponseMono = aiUtils.callFastApiForNextOpeningV2(
                             AiNextOpeningRequest.builder()
                                     .interviewContext(answerTts.getQnACouple())

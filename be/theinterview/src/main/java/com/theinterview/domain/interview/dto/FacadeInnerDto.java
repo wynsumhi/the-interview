@@ -18,5 +18,9 @@ public abstract class FacadeInnerDto {
 
         private Member member; // 일단 객체 자체로 받고 구현하면서 정말 필요한 값이 확정되면 변경
         private String QnACouple; // QnA 쌍
+
+        public void protectEmptyString() {
+            this.QnACouple = "저장된 텍스트가 없습니다. 아무 질문을 반환하세요.";
+        }
     }
 }

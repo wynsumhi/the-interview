@@ -35,7 +35,7 @@ jwt:
 file:
   audio:
     base-url: "http://localhost:8080/theInterview/history"
-    base-path: "C:/Users/kjmin/Desktop" # 윈도우 - 바탕화면에 저장
+    base-path: "C:/Users/SSAFY/Desktop" # 윈도우 - 바탕화면에 저장
     # base-path: "/Users/사용자명/Desktop" # Mac 예시
 
 # fastAPI 호출 경로

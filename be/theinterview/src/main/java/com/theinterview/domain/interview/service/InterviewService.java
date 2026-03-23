@@ -341,7 +341,7 @@ public class InterviewService {
     }
 
     public void saveRequiredFlagInRedis(String savedPath, String redisKey, String totalChunk) {
-        
+
         // 여기서 바로 총 청크 수를 저장함
         redisService.setValues(redisKey + "totalChunks", totalChunk,
                 Duration.ofMinutes(3)); // 유효 기간 3분
@@ -545,32 +545,33 @@ public class InterviewService {
 
         // 비동기 청킹 요청 및 구독을 통해 해당 메서드에 대한 return이 발생하면 여기서 잡아, redis 저장 로직을 수행함
         return aiUtils.callFastApiForSttChunk(request).map(sttChunkResponse -> {
-            // redis 키 저장
-            String redisKey = "interviewId:" + request.getInterviewId() + "questionId:"
-                    + request.getQuestionId();
-            // redis에 청크된 STT 결과, 인덱스 저장
-            redisService.addChunkToSortedSet(
-                    redisKey + "chunks",
-                    sttChunkResponse.getChunkText(),
-                    request.getChunkIndex()
-            );
-            log.info("청킹된 오디오 조각 STT 변환 성공 및 redis에 저장 저장된 텍스트: {}",
-                    sttChunkResponse.getChunkText());
+                    // redis 키 저장
+                    String redisKey = "interviewId:" + request.getInterviewId() + "questionId:"
+                            + request.getQuestionId();
+                    // redis에 청크된 STT 결과, 인덱스 저장
+                    redisService.addChunkToSortedSet(
+                            redisKey + "chunks",
+                            sttChunkResponse.getChunkText(),
+                            request.getChunkIndex()
+                    );
+                    log.info("청킹된 오디오 조각 STT 변환 성공 및 redis에 저장 저장된 텍스트: {}",
+                            sttChunkResponse.getChunkText());
 
-            // 청킹이 완료되었다면 해당 질문이 다음 버튼이 눌렸는지 redis에 키를 조회해서 확인함
-            if (redisService.hasKey(redisKey + "totalChunks")) {
-                // redis에 저장되어 있는 총 청크 수를 조회함
-                int totalChunks = Integer.parseInt(
-                        redisService.getValues(redisKey + "totalChunks"));
-                // 만약 같다면 종료 처리 가능
-                log.info("총 청크 개수{}", totalChunks);
-                log.info("저장된 청크 개수: {}", redisService.savedChunkCount(redisKey + "chunks"));
-                if (totalChunks == redisService.savedChunkCount(redisKey + "chunks")) {
-                    return true;
-                }
-            }
-            return false;
-        }).onErrorReturn(false);
+                    // 청킹이 완료되었다면 해당 질문이 다음 버튼이 눌렸는지 redis에 키를 조회해서 확인함
+                    if (redisService.hasKey(redisKey + "totalChunks")) {
+                        // redis에 저장되어 있는 총 청크 수를 조회함
+                        int totalChunks = Integer.parseInt(
+                                redisService.getValues(redisKey + "totalChunks"));
+                        // 만약 같다면 종료 처리 가능
+                        log.info("총 청크 개수{}", totalChunks);
+                        log.info("저장된 청크 개수: {}", redisService.savedChunkCount(redisKey + "chunks"));
+                        if (totalChunks == redisService.savedChunkCount(redisKey + "chunks")) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }).doOnError(e -> log.error("청크 변환 실패: {}", e.getMessage()))
+                .onErrorReturn(false);
     }
 
     // Facade 레이어에서 필요한 정보를 DTO에 담아 반환하는 헬퍼 메서드
