@@ -1,7 +1,9 @@
 import pytest
 from app.services.rag_service import (
     delete_interview_history_rag,
+    format_retrieved_turns_for_prompt,
     reindex_interview_history_rag,
+    retrieve_similar_interview_history,
     upsert_interview_history_rag,
 )
 
@@ -20,6 +22,7 @@ class StubQdrantInterviewStore:
         self.upsert_calls: list[dict[str, object]] = []
         self.delete_interview_calls: list[tuple[str, str]] = []
         self.delete_user_calls: list[str] = []
+        self.search_calls: list[dict[str, object]] = []
 
     def close(self) -> None:
         return None
@@ -38,6 +41,40 @@ class StubQdrantInterviewStore:
 
     def delete_by_user(self, user_id: str) -> None:
         self.delete_user_calls.append(user_id)
+
+    def search(
+        self,
+        *,
+        user_id: str,
+        query_vector: list[float],
+        limit: int,
+        score_threshold: float,
+    ) -> list[object]:
+        self.search_calls.append(
+            {
+                "user_id": user_id,
+                "query_vector": query_vector,
+                "limit": limit,
+                "score_threshold": score_threshold,
+            }
+        )
+        return [
+            type(
+                "SearchResult",
+                (),
+                {
+                    "point_id": "user-123:magazine-interview-001:question-001:answer-001",
+                    "score": 0.91,
+                    "payload": {
+                        "interview_id": "magazine-interview-001",
+                        "question": "이전 질문",
+                        "answer": "이전 답변",
+                        "turn_index": 1,
+                        "metadata": {"title": "이전 인터뷰"},
+                    },
+                },
+            )()
+        ]
 
 
 def build_rag_upsert_request() -> dict[str, object]:
@@ -181,3 +218,47 @@ def test_reindex_interview_history_rag_requires_interviews() -> None:
             embedding_client=StubEmbeddingClient(),
             store=StubQdrantInterviewStore(),
         )
+
+
+def test_retrieve_similar_interview_history_returns_search_results() -> None:
+    store = StubQdrantInterviewStore()
+
+    result = retrieve_similar_interview_history(
+        user_id="user-123",
+        current_question="현재 질문",
+        current_answer="현재 답변",
+        embedding_client=StubEmbeddingClient(),
+        store=store,
+    )
+
+    assert len(result) == 1
+    assert result[0].interview_id == "magazine-interview-001"
+    assert result[0].question == "이전 질문"
+    assert store.search_calls == [
+        {
+            "user_id": "user-123",
+            "query_vector": [0.1, 0.2, 0.3],
+            "limit": 3,
+            "score_threshold": 0.35,
+        }
+    ]
+
+
+def test_format_retrieved_turns_for_prompt_returns_empty_string_for_no_results() -> None:
+    assert format_retrieved_turns_for_prompt([]) == ""
+
+
+def test_format_retrieved_turns_for_prompt_creates_llm_context() -> None:
+    retrieved_turns = retrieve_similar_interview_history(
+        user_id="user-123",
+        current_question="현재 질문",
+        current_answer="현재 답변",
+        embedding_client=StubEmbeddingClient(),
+        store=StubQdrantInterviewStore(),
+    )
+
+    result = format_retrieved_turns_for_prompt(retrieved_turns)
+
+    assert "[Similarity 0.9100]" in result
+    assert "Previous Question: 이전 질문" in result
+    assert "Previous Answer: 이전 답변" in result

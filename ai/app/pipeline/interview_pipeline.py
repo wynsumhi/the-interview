@@ -15,6 +15,10 @@ from app.services.interview_state_service import (
     build_interview_state_prompt_payload,
 )
 from app.services.llm_service import create_message
+from app.services.rag_service import (
+    format_retrieved_turns_for_prompt,
+    retrieve_similar_interview_history,
+)
 from app.services.stt_service import speech_to_text
 from app.services.tts_service import text_to_speech
 
@@ -48,15 +52,19 @@ class InterviewPipelineResult:
 def _build_regular_messages(
     stt_text: str,
     prompt_payload: InterviewStatePromptPayload,
+    rag_context: str = "",
 ) -> list[dict[str, str]]:
     """일반 인터뷰 단계에서 사용할 사용자 메시지를 구성한다.
 
-    기존 시스템 프롬프트는 그대로 유지하고,
-    사용자 메시지 안에 참고용 인터뷰 상태 점수와 실제 답변 텍스트를 함께 넣는다.
+    기존 상태 프롬프트는 유지하고,
+    필요하면 유사한 과거 인터뷰 히스토리를 참고 블록으로 덧붙인다.
     """
 
-    user_message = f"{prompt_payload.formatted_prompt}\n\n[사용자 답변]\n{stt_text}"
-    return [{"role": "user", "content": user_message}]
+    sections = [prompt_payload.formatted_prompt]
+    if rag_context:
+        sections.append(f"[유사한 과거 인터뷰 참고]\n{rag_context}")
+    sections.append(f"[사용자 답변]\n{stt_text}")
+    return [{"role": "user", "content": "\n\n".join(sections)}]
 
 
 def _build_first_interview_messages(
@@ -66,10 +74,10 @@ def _build_first_interview_messages(
     previous_question: str | None,
     prompt_payload: InterviewStatePromptPayload,
 ) -> list[dict[str, str]]:
-    """첫 인터뷰 전용 사용자 메시지를 구성한다.
+    """첫 인터뷰 단계에서 사용할 사용자 메시지를 구성한다.
 
-    첫 인터뷰 단계에서는 단순 답변 텍스트만으로는 맥락이 부족하므로,
-    현재 질문 번호, 직전 질문, 사용자 닉네임까지 함께 묶어 전달한다.
+    첫 인터뷰는 현재 순서와 직전 질문 맥락이 중요하므로,
+    닉네임과 질문 순서를 함께 묶어 LLM에 전달한다.
     """
 
     if sequence == 1:
@@ -90,21 +98,13 @@ def run_interview_pipeline(
     audio_file_path: str,
     answer_id: int,
     is_first_finished: bool,
+    user_id: str | None = None,
     sequence: int | None = None,
     nickname: str | None = None,
     previous_question: str | None = None,
     max_tokens: int = 1024,
 ) -> InterviewPipelineResult:
-    """STT부터 상태 분석, 후속 질문 생성, TTS까지 한 번에 오케스트레이션한다.
-
-    이 파이프라인은 답변 음성 하나를 입력으로 받아 다음 순서로 처리한다.
-    1. STT 수행
-    2. 인터뷰 상태 상세 분석 수행
-    3. DB 저장용 payload 생성
-    4. LLM 참고용 payload 생성
-    5. 후속 질문 생성
-    6. 생성된 질문 TTS 변환
-    """
+    """STT부터 상태 분석, 꼬리질문 생성, TTS까지 한 번에 실행한다."""
 
     stt_text = speech_to_text(audio_file_path)
     return run_interview_pipeline_from_stt_text(
@@ -112,6 +112,7 @@ def run_interview_pipeline(
         stt_text=stt_text,
         answer_id=answer_id,
         is_first_finished=is_first_finished,
+        user_id=user_id,
         sequence=sequence,
         nickname=nickname,
         previous_question=previous_question,
@@ -124,19 +125,19 @@ def run_interview_pipeline_from_stt_text(
     stt_text: str,
     answer_id: int,
     is_first_finished: bool,
+    user_id: str | None = None,
     sequence: int | None = None,
     nickname: str | None = None,
     previous_question: str | None = None,
     max_tokens: int = 1024,
 ) -> InterviewPipelineResult:
-    """STT 寃곌낵瑜?直接 注入받아 STT 단계를 건너뛴 파이프라인을 실행한다."""
+    """이미 확보한 STT 텍스트를 기준으로 나머지 인터뷰 단계를 실행한다."""
 
     interview_state = analyze_interview_state(audio_file_path, stt_text)
     interview_state_db = build_interview_state_db_payload(answer_id, interview_state)
     interview_state_prompt = build_interview_state_prompt_payload(interview_state)
 
-    # 첫 인터뷰의 마지막 답변까지 도달하면 더 이상 후속 질문을 생성하지 않는다.
-    # 이 경우에도 STT와 상태 분석 결과는 반환해서 백엔드가 저장/후처리에 활용할 수 있다.
+    # 첫 인터뷰의 마지막 답변까지 도달하면 추가 질문은 만들지 않는다.
     if not is_first_finished and (sequence or 1) >= 6:
         return InterviewPipelineResult(
             stt_text=stt_text,
@@ -156,10 +157,20 @@ def run_interview_pipeline_from_stt_text(
             prompt_payload=interview_state_prompt,
         )
     else:
+        rag_context = ""
+        if (user_id or "").strip() and (previous_question or "").strip():
+            retrieved_turns = retrieve_similar_interview_history(
+                user_id=user_id or "",
+                current_question=previous_question or "",
+                current_answer=stt_text,
+            )
+            rag_context = format_retrieved_turns_for_prompt(retrieved_turns)
+
         system = INTERVIEW_SYSTEM_PROMPT
         messages = _build_regular_messages(
             stt_text=stt_text,
             prompt_payload=interview_state_prompt,
+            rag_context=rag_context,
         )
 
     llm_text = create_message(

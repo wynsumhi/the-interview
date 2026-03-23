@@ -8,6 +8,7 @@ from app.services.interview_state_service import (
     build_interview_state_db_payload,
     build_interview_state_prompt_payload,
     fuse_signals,
+    read_audio,
 )
 
 
@@ -42,6 +43,18 @@ def test_analyze_interview_state_returns_structured_result(tmp_path: Path) -> No
     assert result.text_signal.top_state in {"calm", "tense"}
     assert result.voice_signal.top_state in {"calm", "low"}
     assert result.fused_signal.top_state in {"calm", "tense", "low"}
+
+
+def test_read_audio_converts_stereo_to_mono_float32(tmp_path: Path) -> None:
+    audio_path = tmp_path / "stereo.wav"
+    samples = [[0.5, -0.5], [0.25, -0.25], [0.0, 0.0]]
+    sf.write(audio_path, samples, 16000)
+
+    mono_samples, sample_rate = read_audio(audio_path)
+
+    assert sample_rate == 16000
+    assert mono_samples.dtype.name == "float32"
+    assert mono_samples.ndim == 1
 
 
 def test_analyze_text_state_detects_engaged_keywords() -> None:
