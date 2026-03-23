@@ -476,7 +476,7 @@ public class InterviewService {
             redisService.addChunkToSortedSet(
                     redisKey + "chunks",
                     sttChunkResponse.getChunkText(),
-                    request.getChuckIndex()
+                    request.getChunkIndex()
             );
             log.info("청킹된 오디오 조각 STT 변환 성공 및 redis에 저장 저장된 텍스트: {}",
                     sttChunkResponse.getChunkText());

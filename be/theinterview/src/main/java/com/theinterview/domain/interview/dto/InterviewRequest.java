@@ -37,7 +37,7 @@ public abstract class InterviewRequest {
 
         private Integer interviewId; // 어떤 인터뷰인지(인터뷰 pk)
         private Integer questionId; // 사용자가 어떤 질문에 대해 답변했는지
-        private Integer chuckIndex; // 청킹된 오디오의 순서 보장을 위한 순번
+        private Integer chunkIndex; // 청킹된 오디오의 순서 보장을 위한 순번
         private byte[] audioData; // Base64로 인코딩된 오디오 조각 배열
     }
 
