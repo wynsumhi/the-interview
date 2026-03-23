@@ -24,6 +24,8 @@ import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryD
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
+import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewDetail;
+import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewResponseDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.entity.Interview;
 import com.theinterview.domain.interview.entity.InterviewAnswer;
@@ -559,6 +561,48 @@ public class InterviewService {
         }
         return InterviewShareLink.builder()
                 .shareLink("https://j14a307.p.ssafy.io/interview/share/" + interview.getShareLink())
+                .build();
+    }
+
+    // 공유된 인터뷰 조회
+    // 인터뷰 히스토리 상세조회
+    public SharedInterviewResponseDTO getSharedInterviewDetail(String shareUuid) {
+        // UUID로 인터뷰 조회
+        Interview interview = interviewRepository.findByShareLink(shareUuid)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+
+        // 공유 상태가 true인지 확인
+        if (!Boolean.TRUE.equals(interview.getShareRange())) {
+            throw new GeneralException(ErrorStatus.SHARE_NOT_ENABLED);
+        }
+
+        // 인터뷰 질문 조회
+        List<InterviewQuestion> questions = interviewQuestionRepository.findAllByInterviewIdOrderBySequence(
+                interview.getId());
+
+        // 질문에 맵핑되는 답변 조회
+        List<SharedInterviewDetail> details = questions.stream()
+                .map(question -> {
+                    InterviewAnswer answer = interviewAnswerRepository
+                            .findByInterviewQuestionId(question.getId())
+                            .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
+
+                    String dbUrlConverter = answer.getAnswerAudioUrl()
+                            .substring(answer.getAnswerAudioUrl().lastIndexOf("/") + 1);
+
+                    return SharedInterviewDetail.builder()
+                            .interviewQuestion(question.getQuestionText())
+                            .interviewText(answer.getAnswerText())
+                            // TODO: 오디오 파일 변경방식 변경 예정으로 우선 형태를 대충 작성
+                            .interviewVoice(
+                                    answerAudioUrl + "/" + dbUrlConverter)
+                            .build();
+                }).toList();
+
+        return SharedInterviewResponseDTO.builder()
+                .interviewTitle(interview.getTitle())
+                .interviewDate(interview.getCreatedAt().toLocalDate())
+                .interview(details)
                 .build();
     }
 }

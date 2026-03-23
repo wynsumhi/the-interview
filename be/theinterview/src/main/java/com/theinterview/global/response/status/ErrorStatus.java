@@ -19,7 +19,7 @@ public enum ErrorStatus {
     QUESTION_NOT_SAVED(HttpStatus.CONFLICT, "409", "아직 이전 인터뷰가 저장 완료되지 않았습니다."),
     ANSWER_NOT_FOUND(HttpStatus.NOT_FOUND, "404", "해당 답변을 찾을 수 없습니다"),
     EMPTY_AUDIO_FILE(HttpStatus.BAD_REQUEST, "400", "답변이 녹음되지 않았습니다 다시 시도해주세요."),
-    SHARE_NOT_ENABLED(HttpStatus.NOT_FOUND, "404", "공개 범위가 비공개 입니다.");
+    SHARE_NOT_ENABLED(HttpStatus.NOT_FOUND, "403", "공개 범위가 비공개 입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

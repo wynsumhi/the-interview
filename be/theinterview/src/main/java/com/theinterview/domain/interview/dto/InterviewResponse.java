@@ -116,4 +116,28 @@ public abstract class InterviewResponse {
 
         private String shareLink;
     }
+
+    // 공유된 인터뷰 조회
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    @Builder
+    public static class SharedInterviewResponseDTO {
+
+        private String interviewTitle; // 인터뷰 제목
+        private LocalDate interviewDate; // 인터뷰 생성일(년-월-일)
+        private List<SharedInterviewDetail> interview; // 인터뷰 내용
+    }
+
+    // 인터뷰 내용
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    @Builder
+    public static class SharedInterviewDetail {
+
+        private String interviewQuestion; // 인터뷰 질문
+        private String interviewText; // 인터뷰 답변
+        private String interviewVoice; // 인터뷰 음성파일 UUID
+    }
 }
