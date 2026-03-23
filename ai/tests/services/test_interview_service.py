@@ -58,6 +58,8 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
     with patch("app.services.interview_service.run_interview_pipeline") as pipeline_mock:
         pipeline_mock.return_value.to_response_dict.return_value = {
             "stt_text": "candidate answer",
+            "masked_stt_text": "candidate [PHONE_1]",
+            "pii_masking_duration_seconds": 0.0012,
             "interview_state_db": build_interview_state_db_response(),
             "interview_state_prompt": build_interview_state_prompt_response(),
             "question_text": "follow up",
@@ -74,6 +76,8 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
 
     assert result == {
         "stt_text": "candidate answer",
+        "masked_stt_text": "candidate [PHONE_1]",
+        "pii_masking_duration_seconds": 0.0012,
         "interview_state_db": build_interview_state_db_response(),
         "interview_state_prompt": build_interview_state_prompt_response(),
         "question_text": "follow up",
