@@ -139,8 +139,13 @@ def generate_closing_message(
 ) -> dict[str, str]:
     """인터뷰 종료 시점에 자연스러운 마무리 메시지를 생성하고 TTS 오디오를 함께 반환한다."""
 
-    system = INTERVIEW_CLOSING_SYSTEM_PROMPT + f"\n\n인터뷰이의 닉네임은 '{nickname}'입니다."
-
+    system = (
+        f"사용자의 닉네임은 '{nickname}'입니다.\n"
+        f"사용자를 호칭할 때는 반드시 이 닉네임만 사용하십시오.\n"
+        f"대화 맥락에 등장하는 다른 이름, 별명, 호칭은 절대 사용하지 마십시오.\n"
+        f"입력 대화에 포함된 이름이라도 모두 무시하고, '{nickname}'만 사용하십시오.\n\n"
+        + INTERVIEW_CLOSING_SYSTEM_PROMPT
+    )
     closing = create_message(
         messages=[{"role": "user", "content": interview_context}],
         system=system,
