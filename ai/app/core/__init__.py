@@ -1,5 +1,7 @@
 from app.core.settings import (
     ANTHROPIC_VERSION,
+    AUTH_ENABLED,
+    AUTH_TOKENS,
     DEFAULT_EMBEDDING_API_KEY,
     DEFAULT_EMBEDDING_BASE_URL,
     DEFAULT_EMBEDDING_MODEL,
@@ -28,6 +30,8 @@ from app.core.settings import (
 )
 
 __all__ = [
+    "AUTH_ENABLED",
+    "AUTH_TOKENS",
     "ANTHROPIC_VERSION",
     "DEFAULT_EMBEDDING_API_KEY",
     "DEFAULT_EMBEDDING_BASE_URL",
