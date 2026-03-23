@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import logging
 import time
 from dataclasses import dataclass
@@ -7,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import soundfile as sf
+from pydub import AudioSegment
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -149,11 +151,18 @@ class InterviewStatePromptPayload:
 def read_audio(audio_path: Path) -> tuple[np.ndarray, int]:
     """오디오 파일을 읽어 모노 float32 파형으로 정규화한다.
 
+    webm 입력은 `soundfile`이 직접 처리하지 못할 수 있으므로,
+    `pydub`으로 메모리 상의 wav 버퍼로 변환한 뒤 읽는다.
     후속 특징 계산은 단일 채널 파형을 가정하므로,
     스테레오 입력은 채널 평균으로 단순화한다.
     """
 
-    samples, sample_rate = sf.read(audio_path)
+    audio = AudioSegment.from_file(audio_path)
+    wav_io = io.BytesIO()
+    audio.export(wav_io, format="wav")
+    wav_io.seek(0)
+
+    samples, sample_rate = sf.read(wav_io)
     if samples.ndim > 1:
         samples = samples.mean(axis=1)
     return samples.astype(np.float32), sample_rate

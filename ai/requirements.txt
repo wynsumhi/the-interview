@@ -19,3 +19,4 @@ supertonic==1.1.2
 uvicorn[standard]==0.35.0
 pytest==8.3.4
 qdrant-client==1.15.1
+pydub==0.25.1
