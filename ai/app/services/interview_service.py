@@ -12,7 +12,11 @@ from app.pipeline.interview_pipeline import (
     run_interview_pipeline,
     run_interview_pipeline_from_stt_text,
 )
-from app.prompts.interview_prompts import NEXT_OPENING_SYSTEM_PROMPT, TITLE_GENERATION_SYSTEM_PROMPT
+from app.prompts.interview_prompts import (
+    KEYWORD_GENERATION_SYSTEM_PROMPT,
+    NEXT_OPENING_SYSTEM_PROMPT,
+    TITLE_GENERATION_SYSTEM_PROMPT,
+)
 from app.services.llm_service import create_message
 from app.services.tts_service import text_to_speech
 
@@ -125,6 +129,21 @@ def generate_magazine_title(
         max_tokens=max_tokens,
     )
     return {"title": title}
+
+
+def generate_keyword(
+    question: str,
+    answer: str,
+    max_tokens: int = 32,
+) -> dict[str, str]:
+    """질문-답변 쌍을 바탕으로 북마크 키워드를 생성한다."""
+
+    keyword = create_message(
+        messages=[{"role": "user", "content": f"Q: {question}\nA: {answer}"}],
+        system=KEYWORD_GENERATION_SYSTEM_PROMPT,
+        max_tokens=max_tokens,
+    )
+    return {"keyword": keyword}
 
 
 def save_interview_state_temp(request: dict[str, Any]) -> dict[str, Any]:
