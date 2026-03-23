@@ -2,9 +2,14 @@ package com.theinterview.domain.interview.facade;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
+import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
+import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.service.AiUtils;
 import com.theinterview.domain.interview.service.InterviewService;
@@ -20,6 +25,7 @@ import java.util.Base64;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.View;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -34,6 +40,7 @@ public class InterviewFacade {
     private final DomainFindUtils domainFindUtils;
 
     private final ObjectMapper objectMapper;
+    private final View error;
 
     // DB 상태 변경 -> AI 파이프라인 호출 -> DB 저장 -> DB 상태 변경의 무거운 파이프라인을 분리하기 위한 메서드
     public FollowUpQuestionDTO processOneQnA(AudioMessageRequest request) throws IOException {
@@ -124,7 +131,8 @@ public class InterviewFacade {
                                 "interviewId:" + interviewId + "questionId:" + nextQuestionId;
                         redisService.setValues(newRedisKey + "aiPipelineReadyDto", dto,
                                 Duration.ofMinutes(5));
-
+                        // 저장 완료 lock 상태 해제
+                        redisService.deleteValues("interviewId:" + interviewId + "lock");
                         log.info("요청 및 반환 종료. 걸린 시간: {}", System.currentTimeMillis() - start);
                         return new FollowUpQuestionDTO(aiPipelineResponse, interviewId,
                                 nextQuestionId);
@@ -140,5 +148,49 @@ public class InterviewFacade {
             log.info("역직렬화 중 오류 발생");
             throw new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    // 인터뷰 종료 시 호출되는 facade
+    public Mono<Void> exitInterviewFacade(String email, InterviewExitRequest request) {
+
+        // 1. 필요 도메인 조회 및 다음 질문 생성을 위한 준비(질문 답변 쌍 조합 및 답변 없는 질문 삭제)
+        return Mono.fromCallable(() ->
+                        interviewService.findDomainMakeQnACouple(email, request.getInterviewId()))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(answerTts -> {
+
+                    // 답변이 저장된 적 없다면 예외를 발생시킴
+                    if (answerTts.getQnACouple() == null || answerTts.getQnACouple().isEmpty()) {
+                        answerTts.protectEmptyString();
+                    }
+
+                    // 2. AI 시작 질문 생성 및 제목 생성 로직
+                    Mono<AiTitleResponse> aiTitleResponseMono = aiUtils.callFastApiForInterviewTitleV2(
+                            AiTitleRequest.builder()
+                                    .interviewContext(answerTts.getQnACouple())
+                                    .build());
+
+                    Mono<AiNextOpeningResponse> aiNextOpeningResponseMono = aiUtils.callFastApiForNextOpeningV2(
+                            AiNextOpeningRequest.builder()
+                                    .interviewContext(answerTts.getQnACouple())
+                                    .nickname(answerTts.getMember().getNickname())
+                                    .build());
+
+                    return Mono.zip(aiNextOpeningResponseMono, aiTitleResponseMono)
+                            .flatMap(aiResponse -> Mono.fromRunnable(() -> {
+                                        // 저장 로직
+                                        AiNextOpeningResponse openingQuestionResponse = aiResponse.getT1();
+                                        AiTitleResponse titleResponse = aiResponse.getT2();
+                                        interviewService.saveExitAiResponse(
+                                                request.getInterviewId(),
+                                                titleResponse.getTitle(),
+                                                openingQuestionResponse.getDbQuestion());
+                                        // 성공 시 isSaving 키 삭제
+                                        redisService.deleteValues(
+                                                "interviewId:" + request.getInterviewId() + "isSaving");
+                                    }).subscribeOn(Schedulers.boundedElastic())
+                            ).retry(3);
+                })
+                .then(); // Mono<Void> 반영
     }
 }
