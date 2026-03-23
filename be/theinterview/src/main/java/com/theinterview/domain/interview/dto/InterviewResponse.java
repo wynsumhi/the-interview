@@ -164,4 +164,29 @@ public abstract class InterviewResponse {
         private String interviewAnswer;
         private String interviewUrl;
     }
+
+    // 인터뷰 탐색하기 조회
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class InterviewExploreResponse {
+
+        private List<InterviewExploreDetail> interviews;
+        private Boolean hasNext; // 다음 페이지 유무
+        private Integer currentPage; // 현재 페이지
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class InterviewExploreDetail {
+
+        private Integer interviewAnswerCount;
+        private LocalDate interviewDate;
+        private String interviewTitle;
+        private String answerText;
+        private String fusedScores;
+    }
 }

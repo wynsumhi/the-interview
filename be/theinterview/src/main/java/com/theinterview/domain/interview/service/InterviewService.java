@@ -19,6 +19,8 @@ import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageReques
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRange;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewExploreDetail;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewExploreResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistory;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetail;
@@ -642,6 +644,39 @@ public class InterviewService {
                 .currentPage(page)
                 .postIt(postItList)
                 .hasNext(answerSlice.hasNext())
+                .build();
+    }
+
+    public InterviewExploreResponse getInterviewExplore(Integer page) {
+        // 인터뷰의 상태가 FINISHED인 정보만 5개씩 가져옴
+        Pageable pageable = PageRequest.of(page, 12);
+        Slice<Interview> interviews = interviewRepository.findAllByStatus(
+                InterviewStatus.FINISHED, pageable);
+
+        List<InterviewExploreDetail> detailList = interviews.getContent().stream()
+                .map(interview -> {
+                    // 해당 인터뷰에 해당하는 질문들을 가져옴
+                    List<InterviewQuestion> questions = interview.getInterviewQuestions();
+
+                    // 첫 질문에 해당하는 답변을 대표 답변으로 지정
+                    String representAnswer = questions.get(0).getInterviewAnswer().getAnswerText();
+                    Integer answerCount = questions.size();
+
+                    return InterviewExploreDetail.builder()
+                            .interviewAnswerCount(answerCount)
+                            .interviewDate(interview.getCreatedAt().toLocalDate())
+                            .interviewTitle(interview.getTitle())
+                            .answerText(representAnswer)
+                            // TODO : 이미지화 시키기 위한, 감정 지표에 대한 [] 내용 추후 수정필요
+                            .fusedScores("임의 데이터")
+                            .build();
+                })
+                .toList();
+
+        return InterviewExploreResponse.builder()
+                .interviews(detailList)
+                .hasNext(interviews.hasNext())
+                .currentPage(page)
                 .build();
     }
 }

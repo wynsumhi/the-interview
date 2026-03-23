@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRange;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewStartRequest;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewExploreResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItBoardResponse;
@@ -145,5 +146,15 @@ public class InterviewController {
         InterviewPostItBoardResponse interviewPostItBoardResponseDTO = interviewService.getSharedPostItBoard(
                 userUuid, page);
         return ApiResponse.onSuccess(interviewPostItBoardResponseDTO);
+    }
+
+    // 인터뷰 탐색하기 조회
+    @GetMapping("/explore")
+    public ApiResponse<InterviewExploreResponse> getInterviewExplore(
+            @RequestParam(defaultValue = "0") Integer page
+    ) {
+        InterviewExploreResponse interviewExploreResponseDTO = interviewService.getInterviewExplore(
+                page);
+        return ApiResponse.onSuccess(interviewExploreResponseDTO);
     }
 }
