@@ -189,6 +189,8 @@ def run_interview_pipeline_from_upload(
         response = pipeline_result.to_response_dict()
         return {
             "stt_text": response["stt_text"],
+            "masked_stt_text": response["masked_stt_text"],
+            "pii_masking_duration_seconds": response["pii_masking_duration_seconds"],
             "interview_state_db": response["interview_state_db"],
             "interview_state_prompt": response["interview_state_prompt"],
             "question_text": response["question_text"],
@@ -242,6 +244,8 @@ def run_interview_pipeline_from_stt_payload(
         response = pipeline_result.to_response_dict()
         return {
             "stt_text": response["stt_text"],
+            "masked_stt_text": response["masked_stt_text"],
+            "pii_masking_duration_seconds": response["pii_masking_duration_seconds"],
             "interview_state_db": response["interview_state_db"],
             "interview_state_prompt": response["interview_state_prompt"],
             "question_text": response["question_text"],

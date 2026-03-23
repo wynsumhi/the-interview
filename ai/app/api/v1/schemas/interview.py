@@ -100,6 +100,8 @@ class InterviewPipelineResponse(BaseModel):
     """
 
     stt_text: str
+    masked_stt_text: str
+    pii_masking_duration_seconds: float
     interview_state_db: InterviewStateDbPayloadResponse
     interview_state_prompt: InterviewStatePromptResponse
     question_text: str
