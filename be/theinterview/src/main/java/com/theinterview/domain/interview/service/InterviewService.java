@@ -16,6 +16,7 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.BookmarkSetting;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRange;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
@@ -684,5 +685,30 @@ public class InterviewService {
                 .hasNext(interviews.hasNext())
                 .currentPage(page)
                 .build();
+    }
+
+    // 인터뷰 북마크 추가/삭제
+    @Transactional
+    public void setBookmark(String userEmail, Integer interviewId, BookmarkSetting request) {
+        // 사용자 정보 조회
+        Member member = memberRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        // 인터뷰 조회
+        Interview interview = interviewRepository.findById(interviewId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+
+        // 요청한 사용자와 인터뷰 진행한 사용자가 다른 경우
+        if (!interview.getMember().getId().equals(member.getId())) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        // 특정 답변 조회
+        InterviewAnswer interviewAnswer = interviewAnswerRepository.findById(
+                        request.getInterviewAnswerID())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
+
+        // Request로 오는 값이 true라면 shareRange 수정 / false라면 shareRange 수정
+        interviewAnswer.updateShareRange(request.getInterviewShareRange());
     }
 }

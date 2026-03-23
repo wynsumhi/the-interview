@@ -59,4 +59,9 @@ public class InterviewAnswer {
         this.answerAudioUrl = answerAudioUrl;
         this.shareRange = (shareRange != null) ? shareRange : false;
     }
+
+    // 답변 공유 범위 수정
+    public void updateShareRange(Boolean shareRange) {
+        this.shareRange = shareRange;
+    }
 }

@@ -1,6 +1,7 @@
 package com.theinterview.domain.interview.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.theinterview.domain.interview.dto.InterviewRequest.BookmarkSetting;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRange;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewStartRequest;
@@ -156,5 +157,17 @@ public class InterviewController {
         InterviewExploreResponse interviewExploreResponseDTO = interviewService.getInterviewExplore(
                 page);
         return ApiResponse.onSuccess(interviewExploreResponseDTO);
+    }
+
+    // 인터뷰 북마크 추가/삭제
+    @PostMapping("/{interviewId}/share/bookmark")
+    public ApiResponse<Void> setBookmark(
+            @PathVariable(name = "interviewId") Integer interviewId,
+            @RequestBody BookmarkSetting request,
+            @AuthenticationPrincipal User user
+    ) {
+        String email = user.getUsername();
+        interviewService.setBookmark(email, interviewId, request);
+        return ApiResponse.OK;
     }
 }
