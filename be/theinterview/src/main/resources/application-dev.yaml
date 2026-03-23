@@ -40,3 +40,4 @@ file:
 # fastAPI 호출 경로
 fastapi:
   base-path: "http://fastapi:8000"
+  service-token: ${FASTAPI_SERVICE_TOKEN:}
