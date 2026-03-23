@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
+from app.pipeline.pii_masking import build_guardrail_payload
 from app.prompts.interview_prompts import (
     FIRST_INTERVIEW_QUESTION_MAP,
     FIRST_INTERVIEW_SYSTEM_PROMPT,
@@ -32,6 +33,8 @@ class InterviewPipelineResult:
     """
 
     stt_text: str
+    masked_stt_text: str
+    pii_masking_duration_seconds: float
     interview_state_db: InterviewStateDbPayload
     interview_state_prompt: InterviewStatePromptPayload
     llm_text: str
@@ -42,6 +45,8 @@ class InterviewPipelineResult:
 
         return {
             "stt_text": self.stt_text,
+            "masked_stt_text": self.masked_stt_text,
+            "pii_masking_duration_seconds": self.pii_masking_duration_seconds,
             "interview_state_db": asdict(self.interview_state_db),
             "interview_state_prompt": asdict(self.interview_state_prompt),
             "question_text": self.llm_text,
@@ -133,6 +138,7 @@ def run_interview_pipeline_from_stt_text(
 ) -> InterviewPipelineResult:
     """이미 확보한 STT 텍스트를 기준으로 나머지 인터뷰 단계를 실행한다."""
 
+    guardrail_payload = build_guardrail_payload(stt_text)
     interview_state = analyze_interview_state(audio_file_path, stt_text)
     interview_state_db = build_interview_state_db_payload(answer_id, interview_state)
     interview_state_prompt = build_interview_state_prompt_payload(interview_state)
@@ -141,6 +147,8 @@ def run_interview_pipeline_from_stt_text(
     if not is_first_finished and (sequence or 1) >= 6:
         return InterviewPipelineResult(
             stt_text=stt_text,
+            masked_stt_text=guardrail_payload.masked_text,
+            pii_masking_duration_seconds=guardrail_payload.masking_result.duration_seconds,
             interview_state_db=interview_state_db,
             interview_state_prompt=interview_state_prompt,
             llm_text="",
@@ -150,7 +158,7 @@ def run_interview_pipeline_from_stt_text(
     if not is_first_finished:
         system = FIRST_INTERVIEW_SYSTEM_PROMPT
         messages = _build_first_interview_messages(
-            stt_text=stt_text,
+            stt_text=guardrail_payload.masked_text,
             nickname=nickname or "",
             sequence=sequence or 1,
             previous_question=previous_question,
@@ -162,13 +170,13 @@ def run_interview_pipeline_from_stt_text(
             retrieved_turns = retrieve_similar_interview_history(
                 user_id=user_id or "",
                 current_question=previous_question or "",
-                current_answer=stt_text,
+                current_answer=guardrail_payload.masked_text,
             )
             rag_context = format_retrieved_turns_for_prompt(retrieved_turns)
 
         system = INTERVIEW_SYSTEM_PROMPT
         messages = _build_regular_messages(
-            stt_text=stt_text,
+            stt_text=guardrail_payload.masked_text,
             prompt_payload=interview_state_prompt,
             rag_context=rag_context,
         )
@@ -182,6 +190,8 @@ def run_interview_pipeline_from_stt_text(
 
     return InterviewPipelineResult(
         stt_text=stt_text,
+        masked_stt_text=guardrail_payload.masked_text,
+        pii_masking_duration_seconds=guardrail_payload.masking_result.duration_seconds,
         interview_state_db=interview_state_db,
         interview_state_prompt=interview_state_prompt,
         llm_text=llm_text,
