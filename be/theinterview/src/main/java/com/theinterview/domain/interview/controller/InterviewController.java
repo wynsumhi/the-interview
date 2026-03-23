@@ -138,7 +138,7 @@ public class InterviewController {
     }
 
     // 사용자 공유 페이지 ( 포스트 잇 )
-    @GetMapping("/share/{userUuid}")
+    @GetMapping("/share/user/{userUuid}")
     public ApiResponse<InterviewPostItBoardResponse> getSharedPostItBoard(
             @PathVariable(name = "userUuid") String userUuid,
             @RequestParam(defaultValue = "0") Integer page
