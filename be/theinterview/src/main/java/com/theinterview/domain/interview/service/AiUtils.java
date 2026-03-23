@@ -21,6 +21,8 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+
+// todo: 모든 block으로 작동하는 webClient 수정 필요
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -46,7 +48,7 @@ public class AiUtils {
 
         log.info("청킹된 오디오 파일 STT 변환을 위한 통신 시작");
 
-        // WebFlux 비동기 체인 시작
+        // WbFlux 비동기 체인 시작
         return webClient.post()
                 .uri("api/v1/ai/stt")
                 .contentType(MediaType.MULTIPART_FORM_DATA)
