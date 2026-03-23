@@ -86,7 +86,7 @@ public class InterviewWebSocketController {
                             // 파서드 레이어 호출 및 다음 질문 변수에 할당
                             return interviewFacade.generateNextQuestionFacade(
                                             request.getInterviewId(),
-                                            request.getQuestionId(), start)
+                                            request.getQuestionId(), start, email)
                                     .doOnNext(followUpQuestionDTO ->
                                             messagingTemplate.convertAndSend(
                                                     "/topic/interview/tmp/"
