@@ -87,8 +87,10 @@ export default function MemoPage() {
   return (
     <div className={styles.page}>
       <header className={styles.stickyHeader}>
-        <span className={styles.headerTitle}>나의 핀</span>
-        <span className={styles.headerCount}>{MEMOS.length} items</span>
+        <div className={styles.headerInner}>
+          <span className={styles.headerTitle}>나의 핀</span>
+          <span className={styles.headerCount}>{MEMOS.length} items</span>
+        </div>
       </header>
 
       <div className={styles.canvas}>
