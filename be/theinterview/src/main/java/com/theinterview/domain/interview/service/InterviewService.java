@@ -647,6 +647,7 @@ public class InterviewService {
                 .build();
     }
 
+    // 인터뷰 탐색하기
     public InterviewExploreResponse getInterviewExplore(Integer page) {
         // 인터뷰의 상태가 FINISHED인 정보만 5개씩 가져옴
         Pageable pageable = PageRequest.of(page, 12);
@@ -657,6 +658,11 @@ public class InterviewService {
                 .map(interview -> {
                     // 해당 인터뷰에 해당하는 질문들을 가져옴
                     List<InterviewQuestion> questions = interview.getInterviewQuestions();
+
+                    // 질문이 없거나 첫 질문에 답변이 없는 인터뷰는 스킵
+                    if (questions.isEmpty() || questions.get(0).getInterviewAnswer() == null) {
+                        return null;
+                    }
 
                     // 첫 질문에 해당하는 답변을 대표 답변으로 지정
                     String representAnswer = questions.get(0).getInterviewAnswer().getAnswerText();
