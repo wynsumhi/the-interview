@@ -30,7 +30,7 @@ const STEPS = [
 export default function HowSection() {
   return (
     <section id="how" className={styles.section}>
-      <div style={{ maxWidth: "var(--max-w)", margin: "0 auto" }}>
+      <div className={styles.inner}>
 
         <div className={styles.header}>
           <span className={styles.sectionNum}>02</span>

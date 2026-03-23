@@ -1,7 +1,7 @@
 .section {
   position: relative;
   background: var(--deep);
-  padding: 128px var(--px);
+  padding: 128px 0;
   overflow: hidden;
 }
 
@@ -23,6 +23,7 @@
   z-index: 1;
   max-width: var(--max-w);
   margin: 0 auto;
+  padding: 0 var(--px);
 }
 
 /* ─── 헤더 ─── */
@@ -99,7 +100,8 @@
 
 /* ─── Responsive ─── */
 @media (max-width: 1024px) {
-  .section { padding: 96px var(--px-mobile); }
+  .section { padding: 96px 0; }
+  .inner { padding: 0 var(--px-mobile); }
   .grid { grid-template-columns: 1fr; gap: 32px; }
   .h2 { font-size: 52px; }
   .decoText { font-size: 64px; }
