@@ -1,0 +1,47 @@
+/* ── 페이지 래퍼: 자연스러운 세로 스크롤 ── */
+.page {
+  min-height: 100vh;
+  background: #202020;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── 스티키 헤더 ── */
+.stickyHeader {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 20px 48px;
+  background: #202020;
+  /* 스크롤 시 콘텐츠와 자연스럽게 분리되는 하단 경계 */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.headerTitle {
+  font-family: var(--font-montserrat);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.headerCount {
+  font-family: var(--font-montserrat);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* ── 카드 캔버스: 절대 위치 카드들의 기준점 ── */
+.canvas {
+  position: relative;
+  /* 가장 낮은 카드(top 500 + height 340) + 여유 패딩 */
+  min-height: 960px;
+  width: 100%;
+  padding-bottom: 80px;
+}

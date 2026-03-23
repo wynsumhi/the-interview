@@ -21,7 +21,7 @@
   border: 1px solid rgba(0, 0, 0, 0.18);
   padding: 14px 16px 12px;
   box-sizing: border-box;
-  position: relative;   /* slot의 absolute 기준점 */
+  position: relative; /* slot의 absolute 기준점 */
   overflow: hidden;
 }
 
@@ -68,48 +68,54 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 8px;
+  gap: 14px;
   overflow: hidden;
 }
 
 /* ── 질문 줄 ── */
 .question {
-  font-size: 0.62rem;
   line-height: 1.5;
   color: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: baseline;
-  gap: 5px;
+  gap: 6px;
 }
 
 /* ── 답변 줄 ── */
 .answer {
-  font-size: 0.62rem;
   line-height: 1.5;
-  color: rgba(0, 0, 0, 0.76);
+  color: rgba(0, 0, 0, 0.82);
   display: flex;
   align-items: baseline;
-  gap: 5px;
+  gap: 6px;
 }
 
 /* ── Q. / A. 레이블: Montserrat ── */
 .entryLabel {
   font-family: var(--font-montserrat);
-  font-size: 0.58rem;
+  font-size: 1rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   flex-shrink: 0;
-  /* Montserrat cap-height 보정: Pretendard 와 베이스라인 맞춤 */
   line-height: 1;
-  padding-top: 0.1em;
+  padding-top: 0.12em; /* Montserrat cap-height 보정 */
 }
 
-/* ── 한국어 본문: Pretendard ── */
+/* ── 질문 한국어 본문: Pretendard ── */
 .entryText {
-  font-family: var(--font-sans); /* Pretendard */
-  font-size: 0.62rem;
+  font-family: var(--font-sans);
+  font-size: 1rem;
   font-weight: 500;
-  line-height: 1.5;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+/* ── 답변 한국어 본문: Julietta (focal point) ── */
+.answer .entryText {
+  font-family: var(--font-julietta);
+  font-size: 1rem;
+  font-weight: normal;
+  line-height: 1.6;
   word-break: keep-all;
 }
 
