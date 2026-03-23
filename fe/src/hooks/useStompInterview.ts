@@ -3,12 +3,22 @@ import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import type { FollowUpQuestionDTO } from "@/services/interview";
 
-// WebSocket으로 전송하는 음성 데이터 규격
-interface AudioMessageRequest {
+// 실시간 STT 청크 전송 규격 - /app/interview/audio/chunk
+// chunkIndex: 0-based 순번으로 서버 측 순서 보장 및 누락 감지에 사용
+interface ChunkMessageRequest {
   interviewId: number;
   questionId: number;
-  audioData: string; // Base64 인코딩
-  isFinal: boolean;
+  audioData: string; // Base64 인코딩된 1-3초 오디오 조각
+  chunkIndex: number;
+}
+
+// 최종 오디오 전송 규격 - /app/interview/audio/next 또는 /exitV2
+// totalChunk: 서버 동기화 오류 방지를 위해 String 타입으로 전송
+interface FinalMessageRequest {
+  interviewId: number;
+  questionId: number;
+  audioData: string; // Base64 인코딩된 전체 응답 오디오 (감정 분석용)
+  totalChunk: string;
 }
 
 export function useStompInterview() {
@@ -63,10 +73,26 @@ export function useStompInterview() {
     []
   );
 
-  // 녹음된 음성을 STOMP로 전송
-  const sendAudio = useCallback((payload: AudioMessageRequest) => {
+  // 1-3초 단위 실시간 STT 청크 전송 (/app/interview/audio/chunk)
+  const sendChunk = useCallback((payload: ChunkMessageRequest) => {
     clientRef.current?.publish({
-      destination: "/app/interview/audio",
+      destination: "/app/interview/audio/chunk",
+      body: JSON.stringify(payload),
+    });
+  }, []);
+
+  // 전체 응답 오디오 전송 - 꼬리질문 생성 트리거 (/app/interview/audio/next)
+  const sendNext = useCallback((payload: FinalMessageRequest) => {
+    clientRef.current?.publish({
+      destination: "/app/interview/audio/next",
+      body: JSON.stringify(payload),
+    });
+  }, []);
+
+  // 인터뷰 종료 시 전체 오디오 전송 - 감정 분석용 (/app/interview/audio/exitV2)
+  const sendExit = useCallback((payload: FinalMessageRequest) => {
+    clientRef.current?.publish({
+      destination: "/app/interview/audio/exitV2",
       body: JSON.stringify(payload),
     });
   }, []);
@@ -77,5 +103,5 @@ export function useStompInterview() {
     clientRef.current = null;
   }, []);
 
-  return { connect, sendAudio, disconnect };
+  return { connect, sendChunk, sendNext, sendExit, disconnect };
 }
