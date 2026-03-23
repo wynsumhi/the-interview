@@ -136,7 +136,7 @@ def refine_answer_for_magazine_endpoint(
     반환된 결과는 백엔드가 `refined_answer_text` 컬럼에 저장한다.
     """
 
-    result = refine_answer_for_magazine(answer=request.answer)
+    result = refine_answer_for_magazine(stt_text=request.stt_text)
     return MagazineRefinementResponse.model_validate(result)
 
 

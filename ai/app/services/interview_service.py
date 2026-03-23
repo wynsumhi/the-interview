@@ -134,13 +134,13 @@ def generate_magazine_title(
 
 
 def refine_answer_for_magazine(
-    answer: str,
+    stt_text: str,
     max_tokens: int = 300,
 ) -> dict[str, str]:
     """구어체 인터뷰 답변을 매거진 기사에 어울리는 문어체로 정제한다."""
 
     refined = create_message(
-        messages=[{"role": "user", "content": answer}],
+        messages=[{"role": "user", "content": stt_text}],
         system=MAGAZINE_GENERATION_SYSTEM_PROMPT,
         max_tokens=max_tokens,
     )

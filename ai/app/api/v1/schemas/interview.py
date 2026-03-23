@@ -177,7 +177,7 @@ class MagazineRefinementRequest(BaseModel):
     AI 서버는 사용자의 말투와 개성을 유지하면서 문어체로 다듬은 결과를 반환한다.
     """
 
-    answer: str
+    stt_text: str
 
 
 class MagazineRefinementResponse(BaseModel):
