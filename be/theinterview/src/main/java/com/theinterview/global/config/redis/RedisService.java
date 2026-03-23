@@ -2,6 +2,7 @@ package com.theinterview.global.config.redis;
 
 import java.time.Duration;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -68,9 +69,10 @@ public class RedisService {
         // ZSet(Sorted Set) 오퍼레이션 호출
         ZSetOperations<String, String> zSetOps = redisTemplate.opsForZSet();
 
+        // 인덱스 번호까지 같이 저장(value 겹침 방지)
+        String valueWithIndex = (int) chunkIndex + ":" + chunkText;
         // add(key, value, score) - score 기준으로 자동 오름차순 정렬
-        zSetOps.add(key, chunkText, chunkIndex);
-
+        zSetOps.add(key, valueWithIndex, chunkIndex);
         log.info("Redis Sorted Set에 청크 저장 완료 - Key: {}, Index: {}", key, chunkIndex);
     }
 
@@ -90,8 +92,10 @@ public class RedisService {
             return "";
         }
 
-        // 문자열을 하나로 이어붙여 반환함
-        return String.join(" ", orderedChunks);
+        // 문자열을 하나로 이어붙여 반환함(저장할 때 붙였던 인덱스 번호를 제외함)
+        return orderedChunks.stream()
+                .map(chunk -> chunk.substring(chunk.indexOf(":") + 1))
+                .collect(Collectors.joining(" "));
     }
 
     // redis에 저장되어 있는 청크 수를 확인하는 메서드

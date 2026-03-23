@@ -1,5 +1,7 @@
 package com.theinterview.domain.interview.facade;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
@@ -11,10 +13,15 @@ import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
 import com.theinterview.global.util.DomainFindUtils;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.Base64;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @Component
 @RequiredArgsConstructor
@@ -25,6 +32,8 @@ public class InterviewFacade {
     private final AiUtils aiUtils;
     private final RedisService redisService;
     private final DomainFindUtils domainFindUtils;
+
+    private final ObjectMapper objectMapper;
 
     // DB 상태 변경 -> AI 파이프라인 호출 -> DB 저장 -> DB 상태 변경의 무거운 파이프라인을 분리하기 위한 메서드
     public FollowUpQuestionDTO processOneQnA(AudioMessageRequest request) throws IOException {
@@ -67,7 +76,10 @@ public class InterviewFacade {
      *
      * @return
      */
-    public String generateNextQuestionFacade(Integer interviewId, Integer questionId) {
+
+
+    public Mono<FollowUpQuestionDTO> generateNextQuestionFacade(Integer interviewId,
+            Integer questionId, long start) {
 
         log.info("Facade 레이어 도착");
 
@@ -75,24 +87,58 @@ public class InterviewFacade {
         String redisKey =
                 "interviewId:" + interviewId + "questionId:" + questionId;
 
+        AiPipelineReadyDto aiPipelineReadyDto = parseDtoFromJson(
+                redisService.getValues(redisKey + "aiPipelineReadyDto"));
+
         // 2. 미리 필요한 데이터 redis 조회
         String savedPath = redisService.getValues(redisKey + "savedPath");
         String answerText = redisService.getOrderedChunks(redisKey + "chunks");
 
-        // 3. 서비스 레이어를 호출하여 필요 도메인 데이터를 가져옴(짧은 트랜잭션)
-        AiPipelineReadyDto aiPipelineReadyDto = interviewService.getReadyDto(
-                interviewId,
-                questionId);
-
         log.info("AI 파이프라인 호출 시작");
         // 3. AI 파이프라인 호출(여기서 비동기 호출 사용)
-        // 아직 AI 파이프라인 만들어지지 않음
+        return Mono.fromCallable(() -> Files.readAllBytes(Paths.get(savedPath)))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(audioBytes ->
+                        aiUtils.callFastApiForNextQuestionV2(audioBytes,
+                                aiPipelineReadyDto.getSequence(),
+                                aiPipelineReadyDto.getNickname(),
+                                aiPipelineReadyDto.getPreviousQuestion(),
+                                aiPipelineReadyDto.getIsFirstFinished(),
+                                answerText))
+                .flatMap(aiPipelineResponse -> {
+                    // DB 저장, dto Redis 캐싱
+                    return Mono.fromCallable(() -> {
+                        Integer nextQuestionId = interviewService.saveQuestionAndAnswer(interviewId,
+                                questionId, aiPipelineResponse.getQuestionText(), savedPath,
+                                answerText);
 
-        // 4. DB 저장 로직(트랜잭션) -> DB에 저장하는 로직 자체는 어렵지 않음 subscribe 체인 안에서 해결하면 될 듯
-        interviewService.saveQuestionAndAnswer(interviewId, questionId,
-                "임시 꼬리질문 텍스트", savedPath, answerText);
+                        // redis에 저장하기 위한 데이터 준비
+                        String dto = objectMapper.writeValueAsString(
+                                AiPipelineReadyDto.builder()
+                                        .previousQuestion(aiPipelineResponse.getQuestionText())
+                                        .isFirstFinished(aiPipelineReadyDto.getIsFirstFinished())
+                                        .nickname(aiPipelineReadyDto.getNickname())
+                                        .sequence(aiPipelineReadyDto.getSequence() + 1)
+                                        .build());
+                        String newRedisKey =
+                                "interviewId:" + interviewId + "questionId:" + nextQuestionId;
+                        redisService.setValues(newRedisKey + "aiPipelineReadyDto", dto,
+                                Duration.ofMinutes(5));
 
-        // 최종 응답 -> 다음 질문 전송
-        return "임시 꼬리질문 텍스트";
+                        log.info("요청 및 반환 종료. 걸린 시간: {}", System.currentTimeMillis() - start);
+                        return new FollowUpQuestionDTO(aiPipelineResponse, interviewId,
+                                nextQuestionId);
+                    }).subscribeOn(Schedulers.boundedElastic());
+                });
+    }
+
+    // 역직렬화 헬퍼 메서드
+    private AiPipelineReadyDto parseDtoFromJson(String json) {
+        try {
+            return objectMapper.readValue(json, AiPipelineReadyDto.class);
+        } catch (JsonProcessingException e) {
+            log.info("역직렬화 중 오류 발생");
+            throw new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }
