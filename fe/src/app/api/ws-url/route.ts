@@ -1,13 +1,17 @@
-// ── WebSocket 연결 전환 방법 ────────────────────────────────────────────────
-// 로컬 테스트:    아래 "http://localhost:8080" 줄의 주석을 해제하고
-//                process.env.API_URL 줄을 주석 처리
-// 프로덕션 배포:  process.env.API_URL 줄을 활성화하고 localhost 줄을 주석 처리
-//                (.env.local 또는 배포 환경변수의 API_URL 값을 사용)
-// ✅ 현재 상태: 원격 프로덕션 서버 (j14a307.p.ssafy.io) 에 연결됨
+// ── WebSocket baseURL 전략 ───────────────────────────────────────────────────
+// 빈 문자열("")을 반환하면 SockJS가 상대 경로(/api/ws-connect)로 연결하여
+// Next.js 서버(localhost:3000)가 프록시 역할을 담당합니다.
+//
+// next.config.ts의 rewrites:
+//   /api/ws-connect/:path*  →  ${API_URL}/api/ws-connect/:path*
+//
+// 이 방식을 사용하면 브라우저가 j14a307.p.ssafy.io 에 직접 요청을 보내지 않으므로
+// CORS 정책 위반 없이 WebSocket 연결이 가능합니다.
+// ✅ 현재 상태: Next.js 프록시 경유 → j14a307.p.ssafy.io (CORS 우회)
 // ─────────────────────────────────────────────────────────────────────────────
 export function GET() {
-  const apiUrl =
-    // "http://localhost:8080";                        // 로컬 테스트용
-    process.env.API_URL ?? "https://j14a307.p.ssafy.io"; // 프로덕션 서버 (환경변수 우선)
+  // 빈 문자열 반환: SockJS URL = "" + "/api/ws-connect" = "/api/ws-connect" (상대 경로)
+  // → Next.js 리라이트가 프로덕션 서버로 프록시 처리
+  const apiUrl = "";
   return Response.json({ apiUrl });
 }
