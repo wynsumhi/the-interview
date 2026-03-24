@@ -116,6 +116,13 @@ function ConversationContent() {
         ttsAudioBase64: data.ttsAudioBase64,
       };
 
+      // [DIAG] 마이크 스트림 상태 검증
+      const tracks = stream.getAudioTracks();
+      console.log("[DIAG] 마이크 트랙 수:", tracks.length);
+      tracks.forEach((t, i) =>
+        console.log(`[DIAG] 트랙[${i}] label="${t.label}" enabled=${t.enabled} readyState=${t.readyState}`)
+      );
+
       streamRef.current = stream;
       const AudioContextClass =
         window.AudioContext || (window as any).webkitAudioContext;
@@ -221,12 +228,18 @@ function ConversationContent() {
     // questionRef.current를 호출 시점에 읽어 최신 questionId를 사용
     const chunkRecorder = new MediaRecorder(streamRef.current);
     chunkRecorder.ondataavailable = async (e) => {
-      if (e.data.size === 0) return;
+      // [DIAG] 청크 Blob 크기 검증
+      console.log(`[DIAG] chunkRecorder.ondataavailable — blob.size=${e.data.size}bytes`);
+      if (e.data.size === 0) { console.warn("[DIAG] ⚠ 청크 Blob 크기 0 — 마이크 스트림이 비활성 상태일 수 있음"); return; }
       // 비동기 변환 전에 인덱스를 동기적으로 확보해 순번 보장
-      const index = chunkIndexRef.current++;
+      // 서버는 1-based index를 기대하므로 pre-increment로 1부터 시작
+      const index = ++chunkIndexRef.current;
       const audioData = await blobToBase64(e.data);
+      // [DIAG] Base64 결과 검증
+      console.log(`[DIAG] chunk[${index}] base64 길이=${audioData.length} 앞부분="${audioData.substring(0, 20)}..."`);
       const question = questionRef.current;
       if (!question) return;
+      console.log(`[DIAG] sendChunk → interviewId=${question.interviewId} questionId=${question.questionId} chunkIndex=${index}`);
       sendChunk({
         interviewId: question.interviewId,
         questionId: question.questionId,
@@ -241,11 +254,18 @@ function ConversationContent() {
     // onstop 시점에 totalChunk(String)와 함께 /next 또는 /exitV2로 전송
     const fullRecorder = new MediaRecorder(streamRef.current);
     fullRecorder.ondataavailable = (e) => {
+      // [DIAG] fullRecorder 누적 Blob 검증
+      console.log(`[DIAG] fullRecorder.ondataavailable — blob.size=${e.data.size}bytes`);
       if (e.data.size > 0) fullChunksRef.current.push(e.data);
     };
     fullRecorder.onstop = async () => {
       const blob = new Blob(fullChunksRef.current, { type: "audio/webm" });
+      // [DIAG] 최종 Blob 크기 검증
+      console.log(`[DIAG] fullRecorder.onstop — 누적 chunks=${fullChunksRef.current.length} finalBlob.size=${blob.size}bytes totalChunk="${String(chunkIndexRef.current)}"(type=${typeof String(chunkIndexRef.current)})`);
+      if (blob.size === 0) { console.error("[DIAG] ✗ finalBlob 크기 0 — 오디오 데이터 없음"); }
       const audioData = await blobToBase64(blob);
+      // [DIAG] 최종 Base64 검증
+      console.log(`[DIAG] final base64 길이=${audioData.length} 앞부분="${audioData.substring(0, 20)}..."`);
       const question = questionRef.current;
       if (!question) return;
 
@@ -258,8 +278,10 @@ function ConversationContent() {
       };
 
       if (finalDestRef.current === "exit") {
+        console.log(`[DIAG] sendExit → interviewId=${question.interviewId} questionId=${question.questionId} totalChunk="${payload.totalChunk}"`);
         sendExit(payload);
       } else {
+        console.log(`[DIAG] sendNext → interviewId=${question.interviewId} questionId=${question.questionId} totalChunk="${payload.totalChunk}"`);
         sendNext(payload);
         setStatus("WAITING_AI");
       }
