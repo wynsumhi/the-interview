@@ -17,11 +17,16 @@ public interface InterviewAnswerRepository extends JpaRepository<InterviewAnswer
     void deleteAllByInterviewQuestionId(Integer questionId);
 
     // User의 UUID를 이용해서 인터뷰 답변을 조회하고 해당 답변의 공개 범위가 true인것만 가져옴
+    // userUuid로 공유 가능한 답변 포스트잇 목록을 조회한다
+    // - 질문, 인터뷰, 작성자 회원까지 함께 fetch 한다
+    // - 답변 shareRange 가 true 인 항목만 조회한다
+    // - 최신 포스트잇이 먼저 보이도록 createdAt 내림차순 정렬한다
     @Query("SELECT ia FROM InterviewAnswer ia " +
             "JOIN FETCH ia.interviewQuestion iq " +
             "JOIN FETCH iq.interview i " +
-            "JOIN i.member m " +
-            "WHERE m.userUuid = :userUUID AND ia.shareRange = true")
+            "JOIN FETCH i.member m " +
+            "WHERE m.userUuid = :userUUID AND ia.shareRange = true " +
+            "ORDER BY ia.createdAt DESC")
     Slice<InterviewAnswer> findAllByMemberUUIDAndShared(@Param("userUUID") String userUUID,
             Pageable pageable);
 
