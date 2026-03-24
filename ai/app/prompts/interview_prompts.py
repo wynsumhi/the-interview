@@ -105,8 +105,7 @@ STEP 1 ~ 3의 사고 과정은 출력하지 않습니다.
 """.strip()
 
 
-# 감정 상태 활용 지침
-# 테스트 진행 시에는 use_emotion=True일 때 INTERVIEW_SYSTEM_PROMPT에 추가된다.
+# 감정 상태 활용 지침 — INTERVIEW_SYSTEM_PROMPT에 포함된다.
 _EMOTION_GUIDANCE = """
 [인터뷰 상태 활용]
 유저 메시지의 [인터뷰 상태 참고] 블록은 꼬리 질문의 톤과 깊이를 조절하는 보조 신호입니다.
@@ -139,8 +138,7 @@ _EMOTION_GUIDANCE = """
 """.strip()
 
 
-# 과거 인터뷰 RAG 활용 지침
-# 테스트 진행 시에는 use_rag=True일 때 INTERVIEW_SYSTEM_PROMPT에 추가된다.
+# 과거 인터뷰 RAG 활용 지침 — INTERVIEW_SYSTEM_PROMPT에 포함된다.
 _RAG_GUIDANCE = """
 [과거 인터뷰 활용]
 유저 메시지의 [유사한 과거 인터뷰 참고] 블록은 현재 답변을 보완하기 위한 참고 정보입니다.
@@ -162,26 +160,10 @@ _RAG_GUIDANCE = """
 """.strip()
 
 
-def build_interview_system_prompt(
-    use_emotion: bool = False,
-    use_rag: bool = False,
-) -> str:
-    """variant 플래그에 따라 꼬리 질문 생성용 시스템 프롬프트를 조합한다.
-
-    - use_emotion=True: 감정 상태 활용 지침 추가
-    - use_rag=True: 과거 인터뷰 RAG 활용 지침 추가
-    """
-    sections = [INTERVIEW_SYSTEM_PROMPT]
-    if use_emotion:
-        sections.append(_EMOTION_GUIDANCE)
-    if use_rag:
-        sections.append(_RAG_GUIDANCE)
-    return "\n\n".join(sections)
-
-
 # n회차 인터뷰 (is_first_finished=true) 진행 시스템 프롬프트
 # 사용자의 이전 인터뷰 답변을 맥락으로 활용하여, 한 번에 하나씩 꼬리 질문을 생성한다.
-INTERVIEW_SYSTEM_PROMPT = """
+# 감정 상태 활용 지침(_EMOTION_GUIDANCE)과 과거 인터뷰 RAG 활용 지침(_RAG_GUIDANCE)을 포함한다.
+_INTERVIEW_BASE_PROMPT = """
 당신은 'The Interview'라는 AI 기반 매거진 인터뷰 서비스의 인터뷰어입니다.
 
 [역할]
@@ -205,6 +187,8 @@ INTERVIEW_SYSTEM_PROMPT = """
 - 마크다운 문법을 사용하지 않습니다. (**, ##, -, > 등 금지)
 - 따옴표("), 작은따옴표('), 괄호 등을 사용하지 않습니다.
 """.strip()
+
+INTERVIEW_SYSTEM_PROMPT = "\n\n".join([_INTERVIEW_BASE_PROMPT, _EMOTION_GUIDANCE, _RAG_GUIDANCE])
 
 
 # 인터뷰 종료 시스템 프롬프트

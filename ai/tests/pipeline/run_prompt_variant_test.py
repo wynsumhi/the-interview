@@ -35,9 +35,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from app.pipeline.interview_pipeline import (  # noqa: E402
     run_interview_pipeline,
 )
-from app.prompts.interview_prompts import build_interview_system_prompt  # noqa: E402
+from app.prompts.interview_prompts import (  # noqa: E402
+    _EMOTION_GUIDANCE,
+    _INTERVIEW_BASE_PROMPT,
+    _RAG_GUIDANCE,
+    INTERVIEW_SYSTEM_PROMPT,
+)
 from app.services import interview_state_service, rag_service  # noqa: E402
 from app.services.rag_service import upsert_interview_history_rag  # noqa: E402
+
+# variant별 시스템 프롬프트 — 테스트 비교용으로만 사용
+_VARIANT_PROMPTS: dict[int, str] = {
+    1: _INTERVIEW_BASE_PROMPT,
+    2: "\n\n".join([_INTERVIEW_BASE_PROMPT, _EMOTION_GUIDANCE]),
+    3: "\n\n".join([_INTERVIEW_BASE_PROMPT, _RAG_GUIDANCE]),
+    4: INTERVIEW_SYSTEM_PROMPT,
+}
 
 DEFAULT_AUDIO_PATH = str(Path(__file__).resolve().parents[1] / "data" / "test-1.wav")
 
@@ -76,13 +89,6 @@ VARIANT_LABELS = {
     4: "기본 + 감정 상태 + RAG",
 }
 
-VARIANT_FLAGS: dict[int, tuple[bool, bool]] = {
-    1: (False, False),
-    2: (True, False),
-    3: (False, True),
-    4: (True, True),
-}
-
 
 def setup_rag_test_data(user_id: str) -> None:
     """RAG 테스트용 과거 인터뷰 데이터를 Qdrant에 삽입한다."""
@@ -117,8 +123,6 @@ def run_variant(
     previous_question: str | None,
     max_tokens: int,
 ) -> dict:
-    use_emotion, use_rag = VARIANT_FLAGS[variant]
-    system_prompt = build_interview_system_prompt(use_emotion=use_emotion, use_rag=use_rag)
     timing: dict[str, float] = {}
 
     original_analyze = interview_state_service.analyze_interview_state
@@ -127,7 +131,7 @@ def run_variant(
     start = time.perf_counter()
     with (
         patch("app.pipeline.interview_pipeline.text_to_speech", return_value=b""),
-        patch("app.pipeline.interview_pipeline.INTERVIEW_SYSTEM_PROMPT", system_prompt),
+        patch("app.pipeline.interview_pipeline.INTERVIEW_SYSTEM_PROMPT", _VARIANT_PROMPTS[variant]),
         patch(
             "app.pipeline.interview_pipeline.analyze_interview_state",
             side_effect=_make_timed(original_analyze, timing, "emotion"),
@@ -143,8 +147,6 @@ def run_variant(
             user_id=user_id,
             previous_question=previous_question,
             max_tokens=max_tokens,
-            use_emotion=use_emotion,
-            use_rag=use_rag,
         )
     elapsed = round(time.perf_counter() - start, 2)
 
@@ -339,7 +341,7 @@ def main() -> None:
     print(f"  직전 질문  : {args.previous_question}")
     print(f"  실행 variants: {args.variants}\n")
 
-    if any(VARIANT_FLAGS[v][1] for v in args.variants):
+    if any(v in (3, 4) for v in args.variants):
         print("  RAG 테스트 데이터 준비 중...")
         setup_rag_test_data(args.user_id)
         print()

@@ -211,8 +211,6 @@ def run_interview_pipeline_from_upload(
     nickname: str | None = None,
     previous_question: str | None = None,
     max_tokens: int = 1024,
-    use_emotion: bool = False,
-    use_rag: bool = False,
 ) -> dict[str, Any]:
     """업로드된 답변 음성을 인터뷰 파이프라인에 전달하고 API 응답 형태로 변환한다.
 
@@ -244,8 +242,6 @@ def run_interview_pipeline_from_upload(
             nickname=nickname,
             previous_question=previous_question,
             max_tokens=max_tokens,
-            use_emotion=use_emotion,
-            use_rag=use_rag,
         )
 
         # 파이프라인 내부 결과는 bytes와 dataclass를 함께 들고 있으므로,
@@ -277,8 +273,6 @@ def run_interview_pipeline_from_stt_payload(
     nickname: str | None = None,
     previous_question: str | None = None,
     max_tokens: int = 1024,
-    use_emotion: bool = False,
-    use_rag: bool = False,
 ) -> dict[str, Any]:
     """STT 텍스트를 외부에서 받아 STT 이후 파이프라인만 실행한다."""
 
@@ -305,8 +299,6 @@ def run_interview_pipeline_from_stt_payload(
             nickname=nickname,
             previous_question=previous_question,
             max_tokens=max_tokens,
-            use_emotion=use_emotion,
-            use_rag=use_rag,
         )
 
         response = pipeline_result.to_response_dict()
