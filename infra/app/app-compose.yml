@@ -43,35 +43,35 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512G
+          memory: 512M
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  fastapi:
-    build:
-      context: ../../ai
-      dockerfile: Dockerfile
-    image: theinterview-fastapi:latest
-    container_name: fastapi
-    restart: on-failure
-    env_file:
-      - .env
-    environment:
-      - TZ=Asia/Seoul
-    networks:
-      - theinterview-net
-    deploy:
-      resources:
-        limits:
-          memory: 3G
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+#  fastapi:
+#    build:
+#      context: ../../ai
+#      dockerfile: Dockerfile
+#    image: theinterview-fastapi:latest
+#    container_name: fastapi
+#    restart: on-failure
+#    env_file:
+#      - .env
+#    environment:
+#      - TZ=Asia/Seoul
+#    networks:
+#      - theinterview-net
+#    deploy:
+#      resources:
+#        limits:
+#          memory: 3G
+#    logging:
+#      driver: "json-file"
+#      options:
+#        max-size: "10m"
+#        max-file: "3"
 
 networks:
   theinterview-net:

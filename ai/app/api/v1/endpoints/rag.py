@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.v1.schemas.rag import (
     InterviewRAGDeleteRequest,
@@ -8,13 +8,14 @@ from app.api.v1.schemas.rag import (
     InterviewRAGUpsertRequest,
     InterviewRAGUpsertResponse,
 )
+from app.core.auth import require_scopes
 from app.services.rag_service import (
     delete_interview_history_rag,
     reindex_interview_history_rag,
     upsert_interview_history_rag,
 )
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_scopes("rag:write"))])
 
 
 @router.post(

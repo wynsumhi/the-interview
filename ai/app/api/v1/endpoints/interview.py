@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.api.v1.schemas import (
     InterviewClosingRequest,
@@ -15,6 +15,7 @@ from app.api.v1.schemas import (
     NextOpeningRequest,
     NextOpeningResponse,
 )
+from app.core.auth import require_scopes
 from app.services.interview_service import (
     generate_closing_message,
     generate_interview_start_tts,
@@ -26,7 +27,7 @@ from app.services.interview_service import (
     save_interview_state_temp,
 )
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_scopes("ai:invoke"))])
 
 _VARIANT_FLAGS: dict[int, tuple[bool, bool]] = {
     1: (False, False),  # 기본 프롬프트만
