@@ -38,4 +38,4 @@ file:
 
 # fastAPI 호출 경로
 fastapi:
-  base-path: "http://fastapi:8000"
+  base-path: ${FASTAPI_SERVER_URL}
