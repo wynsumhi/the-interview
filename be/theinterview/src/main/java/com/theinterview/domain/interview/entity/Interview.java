@@ -61,6 +61,9 @@ public class Interview {
     @Column(name = "share_range", nullable = false)
     private Boolean shareRange;
 
+    @Column(name = "share_link", length = 300)
+    private String shareLink;
+
     @OneToMany(mappedBy = "interview")
     @OrderBy("sequence ASC") // 시퀀스 순서대로 오름차순으로 가져옴
     private List<InterviewQuestion> interviewQuestions;
@@ -87,5 +90,16 @@ public class Interview {
     public void interviewFinished(String title) {
         this.status = InterviewStatus.FINISHED;
         this.title = title;
+    }
+
+    // 인터뷰 공개범위 수정
+    public void setShareRange(Boolean isShared) {
+        this.shareRange = isShared;
+
+        if (isShared) {
+            this.shareLink = java.util.UUID.randomUUID().toString();
+        } else {
+            this.shareLink = null;
+        }
     }
 }
