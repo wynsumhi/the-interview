@@ -101,7 +101,6 @@ def _build_first_interview_messages(
 
 def run_interview_pipeline(
     audio_file_path: str,
-    answer_id: int,
     is_first_finished: bool,
     user_id: str | None = None,
     sequence: int | None = None,
@@ -115,7 +114,6 @@ def run_interview_pipeline(
     return run_interview_pipeline_from_stt_text(
         audio_file_path=audio_file_path,
         stt_text=stt_text,
-        answer_id=answer_id,
         is_first_finished=is_first_finished,
         user_id=user_id,
         sequence=sequence,
@@ -128,7 +126,6 @@ def run_interview_pipeline(
 def run_interview_pipeline_from_stt_text(
     audio_file_path: str,
     stt_text: str,
-    answer_id: int,
     is_first_finished: bool,
     user_id: str | None = None,
     sequence: int | None = None,
@@ -140,7 +137,7 @@ def run_interview_pipeline_from_stt_text(
 
     guardrail_payload = build_guardrail_payload(stt_text)
     interview_state = analyze_interview_state(audio_file_path, stt_text)
-    interview_state_db = build_interview_state_db_payload(answer_id, interview_state)
+    interview_state_db = build_interview_state_db_payload(interview_state)
     interview_state_prompt = build_interview_state_prompt_payload(interview_state)
 
     # 첫 인터뷰의 마지막 답변까지 도달하면 추가 질문은 만들지 않는다.
