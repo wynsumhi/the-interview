@@ -1,9 +1,10 @@
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.api.v1.schemas import SpeechToTextResponse
+from app.core.auth import require_scopes
 from app.services.stt_service import speech_to_text_from_upload
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_scopes("stt:invoke"))])
 
 
 @router.post(

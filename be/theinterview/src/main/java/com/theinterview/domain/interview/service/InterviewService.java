@@ -16,12 +16,21 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.BookmarkSetting;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRange;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewExploreDetail;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewExploreResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistory;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItBoardResponse;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItDetail;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
+import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewDetail;
+import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewResponseDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.entity.Interview;
 import com.theinterview.domain.interview.entity.InterviewAnswer;
@@ -35,6 +44,7 @@ import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
 import com.theinterview.global.util.DomainFindUtils;
 import com.theinterview.global.util.FileDeleteUtils;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,9 +55,12 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
@@ -70,9 +83,6 @@ public class InterviewService {
 
     @Value("${file.audio.base-path}")
     private String answerAudioPath;
-
-    @Value("${file.audio.base-url}")
-    private String answerAudioUrl;
 
     private final ObjectMapper objectMapper;
 
@@ -485,21 +495,23 @@ public class InterviewService {
                             .findByInterviewQuestionId(question.getId())
                             .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
 
-                    String dbUrlConverter = answer.getAnswerAudioUrl()
+                    String dbUrl = answer.getAnswerAudioUrl()
                             .substring(answer.getAnswerAudioUrl().lastIndexOf("/") + 1);
+                    String dbUrlConverter = dbUrl.substring(0, dbUrl.lastIndexOf("."));
 
                     return InterviewHistoryDetail.builder()
+                            .interviewAnswerId(answer.getId())
                             .interviewQuestion(question.getQuestionText())
                             .interviewText(answer.getAnswerText())
-                            .interviewVoice(
-                                    answerAudioUrl + "/" + memberId + "/" + interviewId + "/"
-                                            + dbUrlConverter)
+                            .interviewVoice(dbUrlConverter)
+                            .interviewQAShare(answer.getShareRange())
                             .build();
                 }).toList();
 
         return InterviewHistoryDetailDTO.builder()
                 .interviewTitle(interview.getTitle())
                 .interviewDate(interview.getCreatedAt().toLocalDate())
+                .interviewShare(interview.getShareRange())
                 .interview(details)
                 .build();
     }
@@ -576,5 +588,221 @@ public class InterviewService {
                 .nickname(member.getNickname())
                 .sequence(question.getSequence() + 1)
                 .build();
+    }
+
+    @Transactional
+    public void setInterviewShareRange(String userEmail, Integer interviewId,
+            InterviewShareRange request) {
+        // 사용자 정보 조회
+        Member member = memberRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        // 인터뷰 조회
+        Interview interview = interviewRepository.findById(interviewId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+
+        // 요청한 사용자와 인터뷰 진행한 사용자가 다른 경우
+        if (!interview.getMember().getId().equals(member.getId())) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        // Request로 오는 값이 true라면 shareRange 수정 후 UUID 생성 / false라면 shareRange 수정 후 UUID 삭제
+        interview.setShareRange(request.getInterviewShareRange());
+    }
+
+    // 인터뷰 상세페이지 공유 링크 발급
+    public InterviewShareLink getInterviewShareLink(String userEmail, Integer interviewId) {
+        // 사용자 정보 조회
+        Member member = memberRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        // 인터뷰 조회
+        Interview interview = interviewRepository.findById(interviewId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+
+        // 요청한 사용자와 인터뷰 진행한 사용자가 다른 경우
+        if (!interview.getMember().getId().equals(member.getId())) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        // ShareLink가 없거나 공개범위가 비공개면 예외처리
+        if (interview.getShareLink() == null || Boolean.FALSE.equals(interview.getShareRange())) {
+            throw new GeneralException(ErrorStatus.SHARE_NOT_ENABLED);
+        }
+        return InterviewShareLink.builder()
+                .shareLink("https://j14a307.p.ssafy.io/interview/share/" + interview.getShareLink())
+                .build();
+    }
+
+    // 공유된 인터뷰 조회
+    // 인터뷰 히스토리 상세조회
+    public SharedInterviewResponseDTO getSharedInterviewDetail(String shareUuid) {
+        // UUID로 인터뷰 조회
+        Interview interview = interviewRepository.findByShareLink(shareUuid)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+
+        // 공유 상태가 true인지 확인
+        if (!Boolean.TRUE.equals(interview.getShareRange())) {
+            throw new GeneralException(ErrorStatus.SHARE_NOT_ENABLED);
+        }
+
+        // 인터뷰 질문 조회
+        List<InterviewQuestion> questions = interviewQuestionRepository.findAllByInterviewIdOrderBySequence(
+                interview.getId());
+
+        // 질문에 맵핑되는 답변 조회
+        List<SharedInterviewDetail> details = questions.stream()
+                .map(question -> {
+                    InterviewAnswer answer = interviewAnswerRepository
+                            .findByInterviewQuestionId(question.getId())
+                            .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
+
+                    String dbUrl = answer.getAnswerAudioUrl()
+                            .substring(answer.getAnswerAudioUrl().lastIndexOf("/") + 1);
+                    String dbUrlConverter = dbUrl.substring(0, dbUrl.lastIndexOf("."));
+
+                    return SharedInterviewDetail.builder()
+                            .interviewQuestion(question.getQuestionText())
+                            .interviewText(answer.getAnswerText())
+                            .interviewVoice(dbUrlConverter)
+                            .build();
+                }).toList();
+
+        return SharedInterviewResponseDTO.builder()
+                .interviewTitle(interview.getTitle())
+                .interviewDate(interview.getCreatedAt().toLocalDate())
+                .interview(details)
+                .build();
+    }
+
+    // 사용자 공유 페이지 ( 포스트 잇 )
+    public InterviewPostItBoardResponse getSharedPostItBoard(String userUuid, Integer page) {
+        // 12개씩 가져오며 업데이트 날짜를 기준으로 가져옴
+        Pageable pageable = PageRequest.of(page, 12, Sort.by("createdAt").descending());
+        Slice<InterviewAnswer> answerSlice = interviewAnswerRepository.findAllByMemberUUIDAndShared(
+                userUuid, pageable);
+
+        List<InterviewPostItDetail> postItList = answerSlice.getContent().stream()
+                .map(answer -> {
+                    // 계층 구조를 따라 Interview 객체 추출
+                    Interview interview = answer.getInterviewQuestion().getInterview();
+
+                    // 공유 링크 조립
+                    String fullUrl = (interview.getShareLink() != null)
+                            ? "https://j14a307.p.ssafy.io/interview/share/"
+                            + interview.getShareLink()
+                            : null;
+
+                    return InterviewPostItDetail.builder()
+                            // TODO: 키워드를 아직 생성하지 않아서 임의로 데이터 전달
+                            //.answerKeyword(answer.getAnswerKeyword())
+                            .answerKeyword("Hello!")
+                            .interviewQuestion(answer.getInterviewQuestion().getQuestionText())
+                            .interviewAnswer(answer.getAnswerText())
+                            .interviewUrl(fullUrl)
+                            .build();
+                })
+                .toList();
+
+        return InterviewPostItBoardResponse.builder()
+                .currentPage(page)
+                .postIt(postItList)
+                .hasNext(answerSlice.hasNext())
+                .build();
+    }
+
+    // 인터뷰 탐색하기
+    public InterviewExploreResponse getInterviewExplore(Integer page) {
+        // 인터뷰의 상태가 FINISHED인 정보만 5개씩 가져옴
+        Pageable pageable = PageRequest.of(page, 12);
+        Slice<Interview> interviews = interviewRepository.findAllByStatus(
+                InterviewStatus.FINISHED, pageable);
+
+        List<InterviewExploreDetail> detailList = interviews.getContent().stream()
+                .map(interview -> {
+                    // 해당 인터뷰에 해당하는 질문들을 가져옴
+                    List<InterviewQuestion> questions = interview.getInterviewQuestions();
+
+                    // 질문이 없거나 첫 질문에 답변이 없는 인터뷰는 스킵
+                    if (questions.isEmpty() || questions.get(0).getInterviewAnswer() == null) {
+                        return null;
+                    }
+
+                    // 첫 질문에 해당하는 답변을 대표 답변으로 지정
+                    String representAnswer = questions.get(0).getInterviewAnswer().getAnswerText();
+                    Integer answerCount = questions.size();
+
+                    return InterviewExploreDetail.builder()
+                            .interviewAnswerCount(answerCount)
+                            .interviewDate(interview.getCreatedAt().toLocalDate())
+                            .interviewTitle(interview.getTitle())
+                            .answerText(representAnswer)
+                            // TODO : 이미지화 시키기 위한, 감정 지표에 대한 [] 내용 추후 수정필요
+                            .fusedScores("임의 데이터")
+                            .build();
+                })
+                .toList();
+
+        return InterviewExploreResponse.builder()
+                .interviews(detailList)
+                .hasNext(interviews.hasNext())
+                .currentPage(page)
+                .build();
+    }
+
+    // 인터뷰 북마크 추가/삭제
+    @Transactional
+    public void setBookmark(String userEmail, Integer interviewId, BookmarkSetting request) {
+        // 사용자 정보 조회
+        Member member = memberRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
+
+        // 인터뷰 조회
+        Interview interview = interviewRepository.findById(interviewId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.INTERVIEW_NOT_FOUND));
+
+        // 요청한 사용자와 인터뷰 진행한 사용자가 다른 경우
+        if (!interview.getMember().getId().equals(member.getId())) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        // 특정 답변 조회
+        InterviewAnswer interviewAnswer = interviewAnswerRepository.findById(
+                        request.getInterviewAnswerID())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
+
+        // Request로 오는 값이 true라면 shareRange 수정 / false라면 shareRange 수정
+        interviewAnswer.updateShareRange(request.getInterviewShareRange());
+    }
+
+    // 사용자 인터뷰 오디오 재생
+    public Resource getVoiceResource(String email, String voiceUuid) {
+        // DB에 UUID에 해당하는 정보가 있는지 조회
+        InterviewAnswer answer = interviewAnswerRepository.findByVoiceUuidInPath(voiceUuid)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.VOICE_NOT_FOUND));
+
+        // 이메일이 존재하고, 해당 답변의 주인 이메일과 일치하는지 확인
+        Member owner = answer.getInterviewQuestion().getInterview().getMember();
+        boolean isOwner = (email != null) && owner.getEmail().equals(email);
+
+        // 공개 설정이 되어 있지 않고, 주인도 아니라면 예외처리
+        if (!answer.getShareRange() && !isOwner) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        Integer memberId = owner.getId();
+        Integer interviewId = answer.getInterviewQuestion().getInterview().getId();
+
+        String fullPath = Paths.get(answerAudioPath, memberId.toString(), interviewId.toString(),
+                voiceUuid + ".webm").toString();
+
+        File file = new File(fullPath);
+        Resource resource = new FileSystemResource(file);
+
+        if (!resource.exists()) {
+            throw new GeneralException(ErrorStatus.VOICE_NOT_FOUND);
+        }
+
+        return resource;
     }
 }

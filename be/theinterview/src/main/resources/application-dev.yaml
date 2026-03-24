@@ -34,9 +34,9 @@ jwt:
 # 사용자 답변 음성 파일 저장 경로(배포)
 file:
   audio:
-    base-url: "https://j14a307.p.ssafy.io/theInterview/history"
-    base-path: "/app/data/theInterview/history"
+    base-path: ${SERVER_AUDIO_PATH}
 
 # fastAPI 호출 경로
 fastapi:
   base-path: "http://fastapi:8000"
+  service-token: ${FASTAPI_SERVICE_TOKEN:}

@@ -42,6 +42,26 @@ pip install -r requirements.txt
 
 uvicorn app.main:app --reload
 
+## Auth
+
+Protected endpoints support `Authorization: Bearer <token>`.
+
+- Public: `/`, `/api/v1/ai/health`
+- Protected: `/api/v1/ai/interview/*`, `/api/v1/ai/stt`, `/api/v1/ai/interview/rag/*`
+
+Environment variables:
+
+- `AUTH_ENABLED`
+- `AUTH_TOKENS`
+
+`AUTH_TOKENS` format:
+
+```text
+token-a|ai:invoke,stt:invoke;token-b|rag:write;admin-token|*
+```
+
+If `AUTH_ENABLED` is omitted, auth is enabled automatically when `AUTH_TOKENS` is set.
+
 ## Python Code Convention
 
 ### Install
