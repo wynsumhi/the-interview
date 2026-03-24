@@ -86,17 +86,13 @@ pipeline {
 
 		// 환경변수
 		stage('Prepare Env') {
-			when {
-				expression {
-					return !shouldSkip
-				}
-			}
 			steps {
 				// Jenkins Credentials에서 .env 파일을 app에 복사시킴
 				withCredentials([
 					file(credentialsId: 'ENV_FILE', variable: 'ENV'),
 				]) {
 					sh 'cp $ENV infra/app/.env'
+					sh 'cat infra/app/.env'
 				}
 			}
 		}
