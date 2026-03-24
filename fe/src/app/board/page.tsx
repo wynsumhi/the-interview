@@ -1,7 +1,15 @@
+"use client";
+
+// useState: 어떤 탭이 선택됐는지 기억할 때 use
+import { useState } from "react";
 import MemoCard from "@/components/board/MemoCard";
 import type { QnaPreview } from "@/components/board/MemoCard";
 import styles from "./page.module.css";
 
+// 탭 종류를 타입으로 정해두면 오타를 방지할 수 있어요
+type TabType = "my" | "questions";
+
+// TODO: 실제 API 연결 후 제거할 임시 데이터 type
 const MEMOS: {
   id: number;
   category: string;
@@ -83,7 +91,10 @@ const MEMOS: {
   },
 ];
 
-export default function MemoPage() {
+export default function BoardPage() {
+  // 현재 선택된 탭을 저장해요. 처음엔 "my" 탭이 열려 있어요
+  const [activeTab, setActiveTab] = useState<TabType>("my");
+
   return (
     <div className={styles.page}>
       <header className={styles.stickyHeader}>
@@ -91,13 +102,35 @@ export default function MemoPage() {
           <span className={styles.headerTitle}>나의 핀</span>
           <span className={styles.headerCount}>{MEMOS.length} items</span>
         </div>
+
+        {/* 탭 버튼: 클릭하면 activeTab이 바뀌어요 */}
+        <div className={styles.tabBar}>
+          <button
+            className={`${styles.tab} ${activeTab === "my" ? styles.tabActive : ""}`}
+            onClick={() => setActiveTab("my")}
+          >
+            My Q&amp;A Memos
+          </button>
+          <button
+            className={`${styles.tab} ${activeTab === "questions" ? styles.tabActive : ""}`}
+            onClick={() => setActiveTab("questions")}
+          >
+            Question Memos
+          </button>
+        </div>
       </header>
 
-      <div className={styles.canvas}>
-        {MEMOS.map((memo) => (
-          <MemoCard key={memo.id} {...memo} />
-        ))}
-      </div>
+      {/* activeTab 값에 따라 다른 캔버스를 보여줘요 */}
+      {activeTab === "my" ? (
+        <div className={styles.canvas}>
+          {MEMOS.map((memo) => (
+            <MemoCard key={memo.id} {...memo} />
+          ))}
+        </div>
+      ) : (
+        // TODO: 다른 사람이 남긴 질문 포스트잇 API 연결 후 채워요
+        <div className={styles.canvas} />
+      )}
     </div>
   );
 }
