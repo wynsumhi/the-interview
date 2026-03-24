@@ -58,14 +58,17 @@ def _build_regular_messages(
     stt_text: str,
     prompt_payload: InterviewStatePromptPayload,
     rag_context: str = "",
+    use_emotion: bool = False,
 ) -> list[dict[str, str]]:
     """일반 인터뷰 단계에서 사용할 사용자 메시지를 구성한다.
 
-    기존 상태 프롬프트는 유지하고,
-    필요하면 유사한 과거 인터뷰 히스토리를 참고 블록으로 덧붙인다.
+    use_emotion이 True일 때만 상태 신호 블록을 포함하고,
+    rag_context가 있을 때만 과거 인터뷰 참고 블록을 포함한다.
     """
 
-    sections = [prompt_payload.formatted_prompt]
+    sections = []
+    if use_emotion:
+        sections.append(prompt_payload.formatted_prompt)
     if rag_context:
         sections.append(f"[유사한 과거 인터뷰 참고]\n{rag_context}")
     sections.append(f"[사용자 답변]\n{stt_text}")
@@ -107,6 +110,8 @@ def run_interview_pipeline(
     nickname: str | None = None,
     previous_question: str | None = None,
     max_tokens: int = 1024,
+    use_emotion: bool = False,
+    use_rag: bool = False,
 ) -> InterviewPipelineResult:
     """STT부터 상태 분석, 꼬리질문 생성, TTS까지 한 번에 실행한다."""
 
@@ -120,6 +125,8 @@ def run_interview_pipeline(
         nickname=nickname,
         previous_question=previous_question,
         max_tokens=max_tokens,
+        use_emotion=use_emotion,
+        use_rag=use_rag,
     )
 
 
@@ -132,6 +139,8 @@ def run_interview_pipeline_from_stt_text(
     nickname: str | None = None,
     previous_question: str | None = None,
     max_tokens: int = 1024,
+    use_emotion: bool = False,
+    use_rag: bool = False,
 ) -> InterviewPipelineResult:
     """이미 확보한 STT 텍스트를 기준으로 나머지 인터뷰 단계를 실행한다."""
 
@@ -163,7 +172,7 @@ def run_interview_pipeline_from_stt_text(
         )
     else:
         rag_context = ""
-        if (user_id or "").strip() and (previous_question or "").strip():
+        if use_rag and (user_id or "").strip() and (previous_question or "").strip():
             retrieved_turns = retrieve_similar_interview_history(
                 user_id=user_id or "",
                 current_question=previous_question or "",
@@ -176,6 +185,7 @@ def run_interview_pipeline_from_stt_text(
             stt_text=guardrail_payload.masked_text,
             prompt_payload=interview_state_prompt,
             rag_context=rag_context,
+            use_emotion=use_emotion,
         )
 
     llm_text = create_message(

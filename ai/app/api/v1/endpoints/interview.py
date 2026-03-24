@@ -28,6 +28,18 @@ from app.services.interview_service import (
 
 router = APIRouter()
 
+_VARIANT_FLAGS: dict[int, tuple[bool, bool]] = {
+    1: (False, False),  # 기본 프롬프트만
+    2: (True, False),  # 기본 + 감정
+    3: (False, True),  # 기본 + RAG
+    4: (True, True),  # 기본 + 감정 + RAG
+}
+
+
+def _prompt_variant_flags(prompt_variant: int) -> tuple[bool, bool]:
+    """prompt_variant 번호를 (use_emotion, use_rag) 플래그 쌍으로 변환한다."""
+    return _VARIANT_FLAGS.get(prompt_variant, (False, False))
+
 
 @router.post(
     "/start-tts",
@@ -151,6 +163,7 @@ def run_interview_pipeline_endpoint(
     nickname: str | None = Form(default=None),
     previous_question: str | None = Form(default=None),
     max_tokens: int = Form(default=1024),
+    prompt_variant: int = Form(default=1),
 ) -> InterviewPipelineResponse:
     """답변 음성을 받아 인터뷰 파이프라인 전체를 실행하는 핵심 엔드포인트다.
 
@@ -179,6 +192,7 @@ def run_interview_pipeline_endpoint(
     API 계층에서는 이를 400 응답으로 변환해 클라이언트에 전달한다.
     """
 
+    use_emotion, use_rag = _prompt_variant_flags(prompt_variant)
     try:
         result = run_interview_pipeline_from_upload(
             audio_file=audio_file,
@@ -188,6 +202,8 @@ def run_interview_pipeline_endpoint(
             nickname=nickname,
             previous_question=previous_question,
             max_tokens=max_tokens,
+            use_emotion=use_emotion,
+            use_rag=use_rag,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -212,9 +228,11 @@ def run_interview_pipeline_after_stt_endpoint(
     nickname: str | None = Form(default=None),
     previous_question: str | None = Form(default=None),
     max_tokens: int = Form(default=1024),
+    prompt_variant: int = Form(default=1),
 ) -> InterviewPipelineResponse:
     """외부 STT 결과를 받아 STT 이후 인터뷰 파이프라인만 실행한다."""
 
+    use_emotion, use_rag = _prompt_variant_flags(prompt_variant)
     try:
         result = run_interview_pipeline_from_stt_payload(
             audio_file=audio_file,
@@ -225,6 +243,8 @@ def run_interview_pipeline_after_stt_endpoint(
             nickname=nickname,
             previous_question=previous_question,
             max_tokens=max_tokens,
+            use_emotion=use_emotion,
+            use_rag=use_rag,
         )
     except ValueError as exc:
         raise HTTPException(
