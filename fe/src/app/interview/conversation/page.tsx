@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useStompInterview } from "@/hooks/useStompInterview";
-import { createInterview, exitInterview } from "@/services/interview";
+import { createInterview, exitInterviewV2 } from "@/services/interview";
 import type { FollowUpQuestionDTO } from "@/services/interview";
 import styles from "./page.module.css";
 
@@ -65,10 +65,13 @@ function ConversationContent() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   // ── 듀얼 MediaRecorder ──────────────────────────────────────────────────
-  // chunkRecorder: 2초 간격으로 STT 청크를 /app/interview/audio/chunk로 전송
+  // chunkRecorder: Stop-and-Start 사이클로 STT 청크를 /app/interview/audio/chunk로 전송
+  //   → 매 2초마다 stop() 후 새 인스턴스로 start() → 각 청크가 독립 WebM(EBML 헤더 포함)
   // fullRecorder:  전체 답변 오디오를 누적해 감정 분석 및 /next|/exitV2로 전송
   const chunkRecorderRef = useRef<MediaRecorder | null>(null);
   const fullRecorderRef = useRef<MediaRecorder | null>(null);
+  // Stop-and-Start 사이클 활성 여부 — false로 설정하면 다음 사이클 시작을 차단
+  const chunkCycleActiveRef = useRef(false);
   // 청크 순번 - 각 녹음 세션 시작 시 0으로 초기화 (서버 측 동기화 기준)
   const chunkIndexRef = useRef<number>(0);
   // fullRecorder 누적 버퍼
@@ -80,7 +83,7 @@ function ConversationContent() {
   const animationFrameRef = useRef<number | null>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  const { connect, sendChunk, sendNext, sendExit, disconnect } = useStompInterview();
+  const { connect, sendChunk, sendNext, disconnect } = useStompInterview();
 
   useEffect(() => {
     statusRef.current = status;
@@ -229,32 +232,48 @@ function ConversationContent() {
     fullChunksRef.current = [];
     finalDestRef.current = "next";
 
-    // ── chunkRecorder: 2초 간격으로 STT 청크 전송 ──────────────────────
-    // timeslice=2000 으로 ondataavailable이 2초마다 자동 트리거됨
-    // questionRef.current를 호출 시점에 읽어 최신 questionId를 사용
-    const chunkRecorder = new MediaRecorder(streamRef.current, { mimeType: RECORDER_MIME });
-    chunkRecorder.ondataavailable = async (e) => {
-      // [DIAG] 청크 Blob 크기 검증
-      console.log(`[DIAG] chunkRecorder.ondataavailable — blob.size=${e.data.size}bytes`);
-      if (e.data.size === 0) { console.warn("[DIAG] ⚠ 청크 Blob 크기 0 — 마이크 스트림이 비활성 상태일 수 있음"); return; }
-      // 비동기 변환 전에 인덱스를 동기적으로 확보해 순번 보장
-      // 서버는 1-based index를 기대하므로 pre-increment로 1부터 시작
-      const index = ++chunkIndexRef.current;
-      const audioData = await blobToBase64(e.data);
-      // [DIAG] Base64 결과 검증
-      console.log(`[DIAG] chunk[${index}] base64 길이=${audioData.length} 앞부분="${audioData.substring(0, 20)}..."`);
-      const question = questionRef.current;
-      if (!question) return;
-      console.log(`[DIAG] sendChunk → interviewId=${question.interviewId} questionId=${question.questionId} chunkIndex=${index}`);
-      sendChunk({
-        interviewId: question.interviewId,
-        questionId: question.questionId,
-        audioData,
-        chunkIndex: index,
-      });
+    // ── chunkRecorder: Stop-and-Start 사이클 ──────────────────────────
+    // timeslice 대신 2초마다 stop() → 새 인스턴스로 start() 반복
+    // → 각 청크가 EBML 헤더를 포함한 독립 WebM 파일 → Whisper가 단독으로 디코딩 가능
+    chunkCycleActiveRef.current = true;
+
+    const startChunkCycle = () => {
+      if (!streamRef.current || !chunkCycleActiveRef.current) return;
+
+      const recorder = new MediaRecorder(streamRef.current, { mimeType: RECORDER_MIME });
+
+      recorder.ondataavailable = async (e) => {
+        console.log(`[DIAG] chunkRecorder.ondataavailable — blob.size=${e.data.size}bytes`);
+        if (e.data.size === 0) { console.warn("[DIAG] ⚠ 청크 Blob 크기 0"); return; }
+        const index = ++chunkIndexRef.current;
+        const audioData = await blobToBase64(e.data);
+        console.log(`[DIAG] chunk[${index}] base64 길이=${audioData.length} 앞부분="${audioData.substring(0, 20)}..."`);
+        const question = questionRef.current;
+        if (!question) return;
+        console.log(`[DIAG] sendChunk → interviewId=${question.interviewId} questionId=${question.questionId} chunkIndex=${index}`);
+        sendChunk({
+          interviewId: question.interviewId,
+          questionId: question.questionId,
+          audioData,
+          chunkIndex: index,
+        });
+      };
+
+      // stop() 후 사이클이 아직 활성이면 새 인스턴스로 재시작
+      recorder.onstop = () => {
+        if (chunkCycleActiveRef.current) startChunkCycle();
+      };
+
+      recorder.start();
+      chunkRecorderRef.current = recorder;
+
+      // 3초 후 중단 → ondataavailable(완전한 WebM) + onstop(재시작 여부 결정) 순서로 트리거됨
+      setTimeout(() => {
+        if (recorder.state === "recording") recorder.stop();
+      }, 3000);
     };
-    chunkRecorder.start(2000);
-    chunkRecorderRef.current = chunkRecorder;
+
+    startChunkCycle();
 
     // ── fullRecorder: 전체 답변 오디오 누적 ────────────────────────────
     // onstop 시점에 totalChunk(String)와 함께 /next 또는 /exitV2로 전송
@@ -278,14 +297,14 @@ function ConversationContent() {
       const payload = {
         interviewId: question.interviewId,
         questionId: question.questionId,
-        audioData,
+        answerAudio: audioData, // BE TotalChunkRequest.answerAudio (byte[]) 필드명과 일치
         // totalChunk는 String 타입으로 전송해야 서버 측 동기화 오류를 방지
         totalChunk: String(chunkIndexRef.current),
       };
 
       if (finalDestRef.current === "exit") {
-        console.log(`[DIAG] sendExit → interviewId=${question.interviewId} questionId=${question.questionId} totalChunk="${payload.totalChunk}"`);
-        sendExit(payload);
+        console.log(`[DIAG] exitInterviewV2 → interviewId=${question.interviewId} questionId=${question.questionId} totalChunk="${payload.totalChunk}"`);
+        await exitInterviewV2(payload);
       } else {
         console.log(`[DIAG] sendNext → interviewId=${question.interviewId} questionId=${question.questionId} totalChunk="${payload.totalChunk}"`);
         sendNext(payload);
@@ -294,7 +313,23 @@ function ConversationContent() {
     };
     fullRecorder.start();
     fullRecorderRef.current = fullRecorder;
-  }, [sendChunk, sendNext, sendExit]);
+  }, [sendChunk, sendNext]);
+
+  // ── 순서 보장 중단 시퀀스 ────────────────────────────────────────────────
+  // 1) chunkRecorder.stop() → 마지막 ondataavailable 트리거 (Base64 변환 + sendChunk)
+  // 2) 300ms 대기 → 마지막 청크가 WebSocket으로 전송 완료될 때까지 여유 시간 확보
+  // 3) fullRecorder.stop() → onstop에서 totalChunk와 함께 /next|/exitV2 전송
+  //    이 시점에 서버는 이미 모든 chunkIndex(1~totalChunk)를 수신한 상태여야 함
+  const stopRecording = useCallback(() => {
+    // 사이클 차단 → onstop에서 재시작 방지
+    chunkCycleActiveRef.current = false;
+    // 현재 진행 중인 청크 강제 완료 → ondataavailable로 마지막 WebM 청크 전송
+    chunkRecorderRef.current?.stop();
+    // 마지막 청크 전송 완료 후 fullRecorder 중단
+    setTimeout(() => {
+      fullRecorderRef.current?.stop();
+    }, 300);
+  }, []);
 
   const startVad = useCallback(() => {
     if (!analyserRef.current) return;
@@ -315,8 +350,7 @@ function ConversationContent() {
         if (!silenceTimerRef.current) {
           silenceTimerRef.current = setTimeout(() => {
             if (statusRef.current === "USER_RECORDING") {
-              chunkRecorderRef.current?.stop();
-              fullRecorderRef.current?.stop();
+              stopRecording();
             }
           }, SILENCE_DELAY_MS);
         }
@@ -329,7 +363,7 @@ function ConversationContent() {
       animationFrameRef.current = requestAnimationFrame(loop);
     };
     loop();
-  }, []);
+  }, [stopRecording]);
 
   const handleSubmit = () => {
     if (statusRef.current !== "USER_RECORDING") return;
@@ -337,8 +371,7 @@ function ConversationContent() {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
-    chunkRecorderRef.current?.stop();
-    fullRecorderRef.current?.stop();
+    stopRecording();
   };
 
   // 인터뷰 종료 버튼 핸들러
@@ -353,7 +386,8 @@ function ConversationContent() {
       // 종료 경로로 설정: fullRecorder.onstop이 sendExit를 호출
       finalDestRef.current = "exit";
 
-      // chunkRecorder: 마지막 조각 전송 생략 (exit 시 불필요)
+      // chunkRecorder: 사이클 차단 + 마지막 조각 전송 생략 (exit 시 STT 불필요)
+      chunkCycleActiveRef.current = false;
       if (chunkRecorderRef.current) {
         chunkRecorderRef.current.ondataavailable = null;
         chunkRecorderRef.current.stop();
@@ -384,19 +418,9 @@ function ConversationContent() {
     // WebSocket을 끊어 백엔드로부터의 메시지 수신 차단
     disconnect();
 
-    const question = questionRef.current;
-    try {
-      if (question) {
-        // 서버에 종료 신호 전송 → AI가 요약 제목 생성해 반환 (현재는 사용하지 않고 archive로 이동)
-        await exitInterview(question.interviewId, question.questionId);
-      }
-    } catch (err) {
-      // 종료 API 실패해도 로컬 cleanup 후 이동
-      console.error("인터뷰 종료 요청 실패:", err);
-    } finally {
-      cleanup();
-      router.push("/archive");
-    }
+    // exitInterviewV2는 fullRecorder.onstop에서 이미 호출됨
+    cleanup();
+    router.push("/archive");
   };
 
   const stopVad = () => {
