@@ -40,12 +40,6 @@ class InterviewPipelineResult:
     llm_text: str
     tts_audio: bytes
 
-    @staticmethod
-    def _serialize_interview_state_db(payload: InterviewStateDbPayload) -> dict[str, object]:
-        serialized = asdict(payload)
-        serialized.pop("answer_id", None)
-        return serialized
-
     def to_response_dict(self) -> dict[str, object]:
         """서비스 계층에서 바로 API 응답으로 바꿀 수 있게 dict로 직렬화한다."""
 
@@ -53,7 +47,7 @@ class InterviewPipelineResult:
             "stt_text": self.stt_text,
             "masked_stt_text": self.masked_stt_text,
             "pii_masking_duration_seconds": self.pii_masking_duration_seconds,
-            "interview_state_db": self._serialize_interview_state_db(self.interview_state_db),
+            "interview_state_db": asdict(self.interview_state_db),
             "interview_state_prompt": asdict(self.interview_state_prompt),
             "question_text": self.llm_text,
             "tts_audio": self.tts_audio,
@@ -107,7 +101,6 @@ def _build_first_interview_messages(
 
 def run_interview_pipeline(
     audio_file_path: str,
-    answer_id: int,
     is_first_finished: bool,
     user_id: str | None = None,
     sequence: int | None = None,
@@ -121,7 +114,6 @@ def run_interview_pipeline(
     return run_interview_pipeline_from_stt_text(
         audio_file_path=audio_file_path,
         stt_text=stt_text,
-        answer_id=answer_id,
         is_first_finished=is_first_finished,
         user_id=user_id,
         sequence=sequence,
@@ -134,7 +126,6 @@ def run_interview_pipeline(
 def run_interview_pipeline_from_stt_text(
     audio_file_path: str,
     stt_text: str,
-    answer_id: int,
     is_first_finished: bool,
     user_id: str | None = None,
     sequence: int | None = None,
@@ -146,7 +137,7 @@ def run_interview_pipeline_from_stt_text(
 
     guardrail_payload = build_guardrail_payload(stt_text)
     interview_state = analyze_interview_state(audio_file_path, stt_text)
-    interview_state_db = build_interview_state_db_payload(answer_id, interview_state)
+    interview_state_db = build_interview_state_db_payload(interview_state)
     interview_state_prompt = build_interview_state_prompt_payload(interview_state)
 
     # 첫 인터뷰의 마지막 답변까지 도달하면 추가 질문은 만들지 않는다.

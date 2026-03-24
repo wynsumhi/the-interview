@@ -116,7 +116,6 @@ class InterviewStateSaveRequest(BaseModel):
     현재 필드 구성은 `InterviewStateDbPayloadResponse`와 동일하게 맞춰 두었다.
     """
 
-    answer_id: int
     top_state: str
     fused_scores: dict[str, float]
     audio_features: AudioFeaturesResponse

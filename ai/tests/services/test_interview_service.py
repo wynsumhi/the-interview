@@ -86,7 +86,6 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
     args, kwargs = pipeline_mock.call_args
     assert args
     assert kwargs == {
-        "answer_id": 0,
         "is_first_finished": False,
         "user_id": "user-123",
         "sequence": None,
