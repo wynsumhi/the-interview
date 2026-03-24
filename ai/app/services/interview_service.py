@@ -256,6 +256,7 @@ def run_interview_pipeline_from_upload(
             "question_text": response["question_text"],
             "tts_audio_base64": base64.b64encode(response["tts_audio"]).decode("ascii"),
             "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
+            "refined_answer": response["refined_answer"],
         }
     finally:
         audio_file.file.close()
@@ -310,6 +311,7 @@ def run_interview_pipeline_from_stt_payload(
             "question_text": response["question_text"],
             "tts_audio_base64": base64.b64encode(response["tts_audio"]).decode("ascii"),
             "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
+            "refined_answer": response["refined_answer"],
         }
     finally:
         audio_file.file.close()

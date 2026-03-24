@@ -106,6 +106,7 @@ class InterviewPipelineResponse(BaseModel):
     question_text: str
     tts_audio_base64: str
     tts_audio_mime_type: str = "audio/wav"
+    refined_answer: str
 
 
 class InterviewStateSaveRequest(BaseModel):
@@ -166,22 +167,6 @@ class InterviewClosingResponse(BaseModel):
     closing_message: str
     tts_audio_base64: str
     tts_audio_mime_type: str = "audio/wav"
-
-
-class MagazineRefinementRequest(BaseModel):
-    """구어체 인터뷰 답변을 매거진용 문어체로 정제하는 요청 본문이다.
-
-    백엔드가 개별 답변 텍스트(STT 원본)를 전달하면,
-    AI 서버는 사용자의 말투와 개성을 유지하면서 문어체로 다듬은 결과를 반환한다.
-    """
-
-    stt_text: str
-
-
-class MagazineRefinementResponse(BaseModel):
-    """정제된 매거진용 답변 응답 스키마다."""
-
-    refined_answer: str
 
 
 class KeywordRequest(BaseModel):
