@@ -72,13 +72,13 @@ export async function deleteInterview(interviewId: number): Promise<void> {
   }
 }
 
-// POST /api/v1/interview/exit - 인터뷰 강제 종료
-// 서버가 현재까지의 대화를 바탕으로 AI 요약 제목을 생성해 반환
-export async function exitInterview(
-  interviewId: number,
-  questionId: number,
-): Promise<string> {
-  const res = await instance.post("/interview/exit", { interviewId, questionId }, { timeout: 60000 });
-  // 응답 구조: { result: "AI가 생성한 인터뷰 제목" }
-  return res.data.result;
+// POST /api/v1/interview/exitV2 - 인터뷰 종료 버튼
+// 전체 답변 오디오(answerAudio)와 청크 수(totalChunk)를 함께 전송해 감정 분석 및 요약 처리
+export async function exitInterviewV2(payload: {
+  interviewId: number;
+  questionId: number;
+  answerAudio: string; // Base64 인코딩된 전체 답변 오디오
+  totalChunk: string;
+}): Promise<void> {
+  await instance.post("/interview/exitV2", payload, { timeout: 60000 });
 }
