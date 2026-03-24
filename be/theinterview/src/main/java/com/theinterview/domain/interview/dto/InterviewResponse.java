@@ -234,7 +234,8 @@ public abstract class InterviewResponse {
                             answer.getInterviewQuestion().getInterview().getShareLink() == null
                                     ? null
                                     : "https://j14a307.p.ssafy.io/interview/share/"
-                                    + answer.getInterviewQuestion().getInterview().getShareLink())
+                                            + answer.getInterviewQuestion().getInterview()
+                                            .getShareLink())
                     .build();
         }
     }
@@ -259,9 +260,11 @@ public abstract class InterviewResponse {
     public static class InterviewExploreDetail {
 
         private Integer interviewAnswerCount;
+        private Integer interviewId;
         private LocalDate interviewDate;
         private String interviewTitle;
         private String answerText;
         private String fusedScores;
+        private String shareUuid;
     }
 }
