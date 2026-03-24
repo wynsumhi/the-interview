@@ -9,11 +9,13 @@ services:
           memory: 1G
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - /home/ubuntu/monitoring/data/prometheus-data:/prometheus
     environment:
       - TZ=Asia/Seoul
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'# 데이터 30일 유지
       - '--web.external-url=https://j14a307.p.ssafy.io/infra/prometheus/'
       - '--web.route-prefix=/'
     networks:
