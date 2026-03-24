@@ -9,6 +9,7 @@ from app.services.tts_service import text_to_speech
 
 def test_speech_to_text_logs_elapsed_time_and_text() -> None:
     with (
+        patch("app.services.stt_service.is_no_speech_audio_file", return_value=False),
         patch("app.services.stt_service.transcribe_audio_file", return_value="candidate answer"),
         patch("app.services.stt_service.time.perf_counter", side_effect=[10.0, 10.25]),
         patch("app.services.stt_service.logger.info") as logger_mock,
@@ -17,9 +18,10 @@ def test_speech_to_text_logs_elapsed_time_and_text() -> None:
 
     assert result == "candidate answer"
     logger_mock.assert_called_once_with(
-        "[STT] completed in %.3fs path=%s text=%s",
+        "[STT] completed in %.3fs path=%s raw_text=%s sanitized_text=%s",
         0.25,
         "sample.webm",
+        "candidate answer",
         "candidate answer",
     )
 
