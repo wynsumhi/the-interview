@@ -39,3 +39,4 @@ file:
 # fastAPI 호출 경로
 fastapi:
   base-path: ${FASTAPI_SERVER_URL}
+  service-token: ${FASTAPI_SERVICE_TOKEN:}

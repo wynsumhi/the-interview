@@ -28,6 +28,14 @@ DEFAULT_EMBEDDING_BASE_URL = os.getenv(
 DEFAULT_EMBEDDING_API_KEY = os.getenv("DEFAULT_EMBEDDING_API_KEY", GMS_KEY)
 DEFAULT_EMBEDDING_TIMEOUT_SECONDS = float(os.getenv("DEFAULT_EMBEDDING_TIMEOUT_SECONDS", "10.0"))
 
+# `token|scope1,scope2;token2|scope3` 형식의 간단한 서비스 간 인증 설정값이다.
+AUTH_TOKENS = os.getenv("AUTH_TOKENS", "")
+# AUTH_ENABLED를 명시하지 않으면, 토큰이 설정된 경우에만 자동으로 인증을 활성화한다.
+AUTH_ENABLED = os.getenv(
+    "AUTH_ENABLED",
+    "true" if AUTH_TOKENS.strip() else "false",
+).lower() == "true"
+
 QDRANT_URL = os.getenv("QDRANT_URL", "")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 QDRANT_COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME", "interview_history")

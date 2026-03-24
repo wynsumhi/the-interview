@@ -106,6 +106,7 @@ class InterviewPipelineResponse(BaseModel):
     question_text: str
     tts_audio_base64: str
     tts_audio_mime_type: str = "audio/wav"
+    refined_answer: str
 
 
 class InterviewStateSaveRequest(BaseModel):
