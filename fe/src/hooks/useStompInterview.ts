@@ -12,12 +12,13 @@ interface ChunkMessageRequest {
   chunkIndex: number;
 }
 
-// 최종 오디오 전송 규격 - /app/interview/audio/next 또는 /exitV2
+// 최종 오디오 전송 규격 - /app/next
+// answerAudio: BE TotalChunkRequest.answerAudio (byte[]) — Jackson이 Base64 문자열을 자동 역직렬화
 // totalChunk: 서버 동기화 오류 방지를 위해 String 타입으로 전송
 interface FinalMessageRequest {
   interviewId: number;
   questionId: number;
-  audioData: string; // Base64 인코딩된 전체 응답 오디오 (감정 분석용)
+  answerAudio: string; // Base64 인코딩된 전체 응답 오디오 — BE 필드명 answerAudio와 일치
   totalChunk: string;
 }
 
@@ -48,13 +49,10 @@ export function useStompInterview() {
         },
         onConnect: () => {
           // 재연결 시에도 구독을 다시 등록해야 메시지를 수신할 수 있음
-          client.subscribe(
-            `/topic/interview/room/${interviewId}`,
-            (message) => {
-              const dto: FollowUpQuestionDTO = JSON.parse(message.body);
-              onMessage(dto);
-            },
-          );
+          client.subscribe(`/topic/interview/tmp/${interviewId}`, (message) => {
+            const dto: FollowUpQuestionDTO = JSON.parse(message.body);
+            onMessage(dto);
+          });
           // 최초 연결 시에만 onConnect 콜백 실행
           // 재연결 시 실행하면 setStatus("AI_SPEAKING")가 재호출되어 인터뷰 흐름이 초기화됨
           if (isFirstConnect) {
@@ -81,18 +79,11 @@ export function useStompInterview() {
     });
   }, []);
 
-  // 전체 응답 오디오 전송 - 꼬리질문 생성 트리거 (/app/interview/audio/next)
+  // 전체 응답 오디오 전송 - 꼬리질문 생성 트리거
+  // BE @MessageMapping("/next") → 실제 STOMP 목적지: /app/next
   const sendNext = useCallback((payload: FinalMessageRequest) => {
     clientRef.current?.publish({
-      destination: "/app/interview/audio/next",
-      body: JSON.stringify(payload),
-    });
-  }, []);
-
-  // 인터뷰 종료 시 전체 오디오 전송 - 감정 분석용 (/app/interview/audio/exitV2)
-  const sendExit = useCallback((payload: FinalMessageRequest) => {
-    clientRef.current?.publish({
-      destination: "/app/interview/audio/exitV2",
+      destination: "/app/next",
       body: JSON.stringify(payload),
     });
   }, []);
@@ -103,5 +94,5 @@ export function useStompInterview() {
     clientRef.current = null;
   }, []);
 
-  return { connect, sendChunk, sendNext, sendExit, disconnect };
+  return { connect, sendChunk, sendNext, disconnect };
 }
