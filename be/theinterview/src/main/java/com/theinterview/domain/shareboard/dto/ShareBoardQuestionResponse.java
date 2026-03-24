@@ -94,7 +94,7 @@ public abstract class ShareBoardQuestionResponse {
                     // 질문 상태
                     .status(question.getStatus())
                     // 프론트에서 바로 보여줄 상태 라벨
-                    .statusLabel(getStatusLabel(question.getStatus()))
+                    .statusLabel(ShareBoardQuestionResponse.getStatusLabel(question.getStatus()))
                     // 시작된 인터뷰가 있으면 인터뷰 ID 노출
                     .startedInterviewId(
                             question.getStartedInterview() == null ? null
