@@ -1,11 +1,17 @@
 package com.theinterview.domain.interview.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.theinterview.domain.interview.dto.InterviewRequest.BookmarkSetting;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRange;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewStartRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.TotalChunkRequest;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewExploreResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItBoardResponse;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
+import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewResponseDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.facade.InterviewFacade;
 import com.theinterview.domain.interview.service.InterviewService;
@@ -19,6 +25,10 @@ import java.io.IOException;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -134,6 +144,88 @@ public class InterviewController {
         interviewService.deleteInterview(interviewId, member.getId());
 
         return ApiResponse.OK;
+    }
 
+    // 인터뷰 상세페이지 공개 범위 설정
+    @PostMapping("/{interviewId}/share/set")
+    public ApiResponse<Void> setInterviewShareRange(
+            @PathVariable(name = "interviewId") Integer interviewId,
+            @RequestBody InterviewShareRange request,
+            @AuthenticationPrincipal User user
+    ) {
+        String email = user.getUsername();
+        interviewService.setInterviewShareRange(email, interviewId, request);
+        return ApiResponse.OK;
+    }
+
+    // 인터뷰 상세페이지 공유 링크 발급
+    @GetMapping("/{interviewId}/share")
+    public ApiResponse<InterviewShareLink> getInterviewShareLink(
+            @PathVariable(name = "interviewId") Integer interviewId,
+            @AuthenticationPrincipal User user
+    ) {
+        String email = user.getUsername();
+        InterviewShareLink interviewShareLinkDTO = interviewService.getInterviewShareLink(email,
+                interviewId);
+        return ApiResponse.onSuccess(interviewShareLinkDTO);
+    }
+
+    // 공유된 인터뷰 조회
+    @GetMapping("/share/{shareUuid}")
+    public ApiResponse<SharedInterviewResponseDTO> getSharedInterviewDetail(
+            @PathVariable(name = "shareUuid") String shareUuid
+    ) {
+        SharedInterviewResponseDTO sharedInterviewResponseDTO = interviewService.getSharedInterviewDetail(
+                shareUuid);
+        return ApiResponse.onSuccess(sharedInterviewResponseDTO);
+    }
+
+    // 사용자 공유 페이지 ( 포스트 잇 )
+    @GetMapping("/share/user/{userUuid}")
+    public ApiResponse<InterviewPostItBoardResponse> getSharedPostItBoard(
+            @PathVariable(name = "userUuid") String userUuid,
+            @RequestParam(defaultValue = "0") Integer page
+    ) {
+        InterviewPostItBoardResponse interviewPostItBoardResponseDTO = interviewService.getSharedPostItBoard(
+                userUuid, page);
+        return ApiResponse.onSuccess(interviewPostItBoardResponseDTO);
+    }
+
+    // 인터뷰 탐색하기 조회
+    @GetMapping("/explore")
+    public ApiResponse<InterviewExploreResponse> getInterviewExplore(
+            @RequestParam(defaultValue = "0") Integer page
+    ) {
+        InterviewExploreResponse interviewExploreResponseDTO = interviewService.getInterviewExplore(
+                page);
+        return ApiResponse.onSuccess(interviewExploreResponseDTO);
+    }
+
+    // 인터뷰 북마크 추가/삭제
+    @PostMapping("/{interviewId}/share/bookmark")
+    public ApiResponse<Void> setBookmark(
+            @PathVariable(name = "interviewId") Integer interviewId,
+            @RequestBody BookmarkSetting request,
+            @AuthenticationPrincipal User user
+    ) {
+        String email = user.getUsername();
+        interviewService.setBookmark(email, interviewId, request);
+        return ApiResponse.OK;
+    }
+
+    // 사용자 인터뷰 오디오 재생
+    @GetMapping("/sound/play/{voiceUuid}")
+    public ResponseEntity<Resource> serveVoice(
+            @PathVariable String voiceUuid,
+            @AuthenticationPrincipal User user
+    ) {
+        // 음원 듣기는 공개 범위를 True로 두는경우 회원이 아니여도 가능하기 때문에 로그인 정보를 조회하고 null이라면 Null로 전달
+        String email = (user != null) ? user.getUsername() : null;
+        Resource resource = interviewService.getVoiceResource(email, voiceUuid);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("audio/mpeg")) // 브라우저에게 오디오임을 알림
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline") // 브라우저 내에서 즉시 재생
+                .body(resource);
     }
 }

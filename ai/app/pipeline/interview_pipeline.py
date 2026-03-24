@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import concurrent.futures
 from dataclasses import asdict, dataclass
 
 from app.pipeline.pii_masking import build_guardrail_payload
@@ -7,6 +8,7 @@ from app.prompts.interview_prompts import (
     FIRST_INTERVIEW_QUESTION_MAP,
     FIRST_INTERVIEW_SYSTEM_PROMPT,
     INTERVIEW_SYSTEM_PROMPT,
+    MAGAZINE_GENERATION_SYSTEM_PROMPT,
 )
 from app.services.interview_state_service import (
     InterviewStateDbPayload,
@@ -39,6 +41,7 @@ class InterviewPipelineResult:
     interview_state_prompt: InterviewStatePromptPayload
     llm_text: str
     tts_audio: bytes
+    refined_answer: str
 
     def to_response_dict(self) -> dict[str, object]:
         """서비스 계층에서 바로 API 응답으로 바꿀 수 있게 dict로 직렬화한다."""
@@ -51,6 +54,7 @@ class InterviewPipelineResult:
             "interview_state_prompt": asdict(self.interview_state_prompt),
             "question_text": self.llm_text,
             "tts_audio": self.tts_audio,
+            "refined_answer": self.refined_answer,
         }
 
 
@@ -149,8 +153,16 @@ def run_interview_pipeline_from_stt_text(
     interview_state_db = build_interview_state_db_payload(interview_state)
     interview_state_prompt = build_interview_state_prompt_payload(interview_state)
 
+    _magazine_kwargs = {
+        "messages": [{"role": "user", "content": stt_text}],
+        "system": MAGAZINE_GENERATION_SYSTEM_PROMPT,
+        "max_tokens": 300,
+    }
+
     # 첫 인터뷰의 마지막 답변까지 도달하면 추가 질문은 만들지 않는다.
+    # 매거진 정제는 마지막 답변에도 그대로 수행한다.
     if not is_first_finished and (sequence or 1) >= 6:
+        refined_answer = create_message(**_magazine_kwargs)
         return InterviewPipelineResult(
             stt_text=stt_text,
             masked_stt_text=guardrail_payload.masked_text,
@@ -159,6 +171,7 @@ def run_interview_pipeline_from_stt_text(
             interview_state_prompt=interview_state_prompt,
             llm_text="",
             tts_audio=b"",
+            refined_answer=refined_answer,
         )
 
     if not is_first_finished:
@@ -188,11 +201,19 @@ def run_interview_pipeline_from_stt_text(
             use_emotion=use_emotion,
         )
 
-    llm_text = create_message(
-        messages=messages,
-        system=system,
-        max_tokens=max_tokens,
-    )
+    # 후속 질문 생성과 매거진 정제를 병렬로 실행한다.
+    # 두 작업 모두 LLM 호출이므로 ThreadPoolExecutor로 동시에 처리한다.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        question_future = executor.submit(
+            create_message,
+            messages=messages,
+            system=system,
+            max_tokens=max_tokens,
+        )
+        magazine_future = executor.submit(create_message, **_magazine_kwargs)
+        llm_text = question_future.result()
+        refined_answer = magazine_future.result()
+
     tts_audio = text_to_speech(llm_text)
 
     return InterviewPipelineResult(
@@ -203,4 +224,5 @@ def run_interview_pipeline_from_stt_text(
         interview_state_prompt=interview_state_prompt,
         llm_text=llm_text,
         tts_audio=tts_audio,
+        refined_answer=refined_answer,
     )

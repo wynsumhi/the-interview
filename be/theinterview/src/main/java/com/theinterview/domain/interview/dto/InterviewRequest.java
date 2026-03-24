@@ -54,4 +54,20 @@ public abstract class InterviewRequest {
         private String totalChunk;  // 총 청크 수
         private byte[] answerAudio; // 사용자의 답변 음성 원본
     }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    public static class InterviewShareRange {
+
+        private Boolean interviewShareRange; // 인터튜 상세조회 공개범위 설정
+    }
+
+    // 인터뷰 북마크 추가/삭제
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    public static class BookmarkSetting {
+
+        private Boolean interviewShareRange; // 인터튜 북마크 공개범위 설정
+        private Integer interviewAnswerID; // 인터뷰 북마크 설정을 위한 답변 ID
+    }
 }

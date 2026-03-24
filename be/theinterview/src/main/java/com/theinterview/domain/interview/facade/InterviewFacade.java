@@ -30,6 +30,7 @@ import java.util.Base64;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.View;
 import reactor.core.publisher.Mono;
@@ -47,7 +48,7 @@ public class InterviewFacade {
 
     private final ObjectMapper objectMapper;
     private final View error;
-
+    private final SimpMessagingTemplate messagingTemplate;
 
     // 인터뷰 첫 질문 TTS 변환을 위해 호춯되는 파서드
     public Mono<WebSocketConnectResponse> issueWebSocketId(String email)
@@ -161,7 +162,16 @@ public class InterviewFacade {
                                                 .interviewId(interviewId)
                                                 .questionId(questionId)
                                                 .build())
-                                        .then(Mono.empty()));
+                                        .then(Mono.fromRunnable(() ->
+                                                messagingTemplate.convertAndSend( // 프론트에 종료되었다고 응답
+                                                        "/topic/interview/tmp/" + interviewId,
+                                                        FollowUpQuestionDTO.builder()
+                                                                .interviewId(interviewId)
+                                                                .questionId(questionId)
+                                                                .isExit(true) // 여기만 응답에 포함
+                                                                .build()
+                                                )))
+                                );
 
                     }
                     // 3. AI 파이프라인 호출(여기서 비동기 호출 사용)
