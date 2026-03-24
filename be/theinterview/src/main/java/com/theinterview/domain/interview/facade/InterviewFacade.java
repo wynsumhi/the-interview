@@ -2,6 +2,8 @@ package com.theinterview.domain.interview.facade;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.theinterview.domain.interview.dto.AiRagDto;
+import com.theinterview.domain.interview.dto.AiRagDto.DeleteRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
@@ -28,6 +30,7 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -269,8 +272,36 @@ public class InterviewFacade {
                                         redisService.deleteValues(
                                                 "interviewId:" + request.getInterviewId() + "isSaving");
                                     }).subscribeOn(Schedulers.boundedElastic())
-                            ).retry(3);
+                            ).retry(3)
+                            // 파이프라인 완료 후 RAG 적재
+                            .doOnSuccess(ignored ->
+                                    aiUtils.callFastApiForRagUpsert(AiRagDto.UpsertRequest.builder()
+                                                    .userId(String.valueOf(answerTts.getMember().getId()))
+                                                    .interviewId(String.valueOf(request.getInterviewId()))
+                                                    .turns(answerTts.getTurns())
+                                                    .metadata(Map.of("title", "인터뷰"))
+                                                    .build())
+                                            .doOnError(e -> log.error("RAG upsert 실패: {}",
+                                                    e.getMessage()))
+                                            .subscribe());  // 별도 subscribe로 체인과 분리
                 })
                 .then(); // Mono<Void> 반영
+    }
+
+    // 인터뷰가 삭제되고, rag에서도 관련 값 삭제를 위해 호출되는 facade
+    public void deleteInterviewFacade(String email, Integer interviewId) {
+
+        // 1. 필요 도메인 엔티티 조회
+        Member member = domainFindUtils.getMemberByEmail(email);
+
+        // 2. DB에서 제거
+        interviewService.deleteInterview(interviewId, member.getId());
+
+        // 3. rag 제거 유틸 호출
+        aiUtils.callFastApiForRagDelete(DeleteRequest.builder()
+                        .interviewId(String.valueOf(interviewId))
+                        .userId(String.valueOf(member.getId()))
+                        .build())
+                .subscribe();
     }
 }

@@ -6,6 +6,8 @@ import com.theinterview.domain.interview.Repository.InterviewAnswerRepository;
 import com.theinterview.domain.interview.Repository.InterviewQuestionRepository;
 import com.theinterview.domain.interview.Repository.InterviewRepository;
 import com.theinterview.domain.interview.Repository.QuestionCandidateRepository;
+import com.theinterview.domain.interview.dto.AiRagDto;
+import com.theinterview.domain.interview.dto.AiRagDto.Turn;
 import com.theinterview.domain.interview.dto.FacadeInnerDto.AnswerTts;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
@@ -50,7 +52,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -292,6 +296,9 @@ public class InterviewService {
         String aiRequest = "";
         int counting = 1;
 
+        // rag 저장에 사용할 turn dto
+        List<Turn> turns = new ArrayList<>();
+
         List<InterviewQuestion> interviewQuestions = interview.getInterviewQuestions();
         for (InterviewQuestion interviewQuestion : interviewQuestions) {
             InterviewAnswer interviewAnswer = interviewQuestion.getInterviewAnswer();
@@ -307,6 +314,17 @@ public class InterviewService {
                             + "\n"
                             + "\n";
 
+            // turns 객체 조립
+            turns.add(AiRagDto.Turn.builder()
+                    .questionId(String.valueOf(interviewQuestion.getId()))
+                    .answerId(String.valueOf(interviewAnswer.getId()))
+                    .question(interviewQuestion.getQuestionText())
+                    .answer(interviewAnswer.getAnswerText())
+                    .turnIndex(counting)
+                    // todo: 메타데이터(감정) merge 되면 추가
+                    .metadata(Map.of())
+                    .build());
+
             counting += 1;
 
         }
@@ -314,6 +332,7 @@ public class InterviewService {
         return AnswerTts.builder()
                 .QnACouple(aiRequest)
                 .member(member)
+                .turns(turns)
                 .build();
     }
 

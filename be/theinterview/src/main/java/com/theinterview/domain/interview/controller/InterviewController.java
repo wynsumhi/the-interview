@@ -1,6 +1,7 @@
 package com.theinterview.domain.interview.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.theinterview.domain.interview.dto.AiRagDto.DeleteRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.BookmarkSetting;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRange;
@@ -14,6 +15,7 @@ import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLin
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewResponseDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.facade.InterviewFacade;
+import com.theinterview.domain.interview.service.AiUtils;
 import com.theinterview.domain.interview.service.InterviewService;
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.repository.MemberRepository;
@@ -50,6 +52,7 @@ public class InterviewController {
     private final MemberRepository memberRepository;
     private final RedisService redisService;
     private final InterviewFacade interviewFacade;
+    private final AiUtils aiUtils;
 
     // 웹소켓 연결 및 구독할 인터뷰 방의 번호(interviewID) 및 첫 질문의 번호(questionId)를 발급
     @PostMapping
@@ -142,6 +145,13 @@ public class InterviewController {
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
         interviewService.deleteInterview(interviewId, member.getId());
+
+        // 삭제가 완료되고 나면 rag에서도 삭제 메서드 호출
+        aiUtils.callFastApiForRagDelete(DeleteRequest.builder()
+                        .userId(String.valueOf(member.getId()))
+                        .interviewId(String.valueOf(interviewId))
+                        .build())
+                .subscribe();
 
         return ApiResponse.OK;
     }
