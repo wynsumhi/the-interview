@@ -65,8 +65,8 @@ def _build_regular_messages(
 ) -> list[dict[str, str]]:
     """일반 인터뷰 단계에서 사용할 사용자 메시지를 구성한다.
 
-    기존 상태 프롬프트는 유지하고,
-    필요하면 유사한 과거 인터뷰 히스토리를 참고 블록으로 덧붙인다.
+    감정 상태 블록은 항상 포함하고,
+    rag_context가 있을 때만 과거 인터뷰 참고 블록을 포함하여 LLM에 전달한다.
     """
 
     sections = [prompt_payload.formatted_prompt]
