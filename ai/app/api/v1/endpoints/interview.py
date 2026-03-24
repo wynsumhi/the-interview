@@ -167,7 +167,6 @@ def generate_keyword_endpoint(
     summary="Run interview pipeline",
 )
 def run_interview_pipeline_endpoint(
-    answer_id: int = Form(...),
     audio_file: UploadFile = File(...),
     is_first_finished: bool = Form(default=False),
     user_id: str | None = Form(default=None),
@@ -187,9 +186,6 @@ def run_interview_pipeline_endpoint(
     6. TTS 생성
 
     주요 입력값 의미는 다음과 같다.
-    - `answer_id`
-      이번 답변을 백엔드 DB 레코드와 연결하기 위한 식별자다.
-      인터뷰 상태 DB 저장 payload에도 그대로 포함된다.
     - `audio_file`
       사용자의 실제 답변 음성 파일이다.
       현재는 `webm`만 허용한다.
@@ -209,7 +205,6 @@ def run_interview_pipeline_endpoint(
     try:
         result = run_interview_pipeline_from_upload(
             audio_file=audio_file,
-            answer_id=answer_id,
             is_first_finished=is_first_finished,
             user_id=user_id,
             sequence=sequence,

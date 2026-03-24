@@ -285,8 +285,17 @@
             const infoEl = document.getElementById('roomInfo');
             infoEl.style.display = 'block';
             updateRoomInfo();
-
+            
+            // 방 생성 성공 후 첫 질문 TTS 렌더링
+renderResponse({
+    followUpQuestion: payload.interviewTitle,
+    interviewId: payload.interviewId,
+    questionId: payload.questionId,
+    ttsAudioBase64: payload.ttsAudioBase64
+});
+addLog(`첫 질문: ${payload.interviewTitle}`, 'success');
             addLog(`방 생성 성공 — interviewId: ${currentInterviewId}, questionId: ${currentQuestionId}`, 'success');
+
             connectWebSocket(token);
 
         } catch (e) {

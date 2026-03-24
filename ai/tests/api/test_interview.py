@@ -11,7 +11,6 @@ NEW_USER_QUESTION = "안녕하세요 민수님, 오늘 시간 내주셔서 감�
 
 def build_interview_state_db_response() -> dict[str, object]:
     return {
-        "answer_id": 123,
         "top_state": "calm",
         "fused_scores": {
             "calm": 0.75,
@@ -32,9 +31,7 @@ def build_interview_state_db_response() -> dict[str, object]:
 
 
 def build_temp_interview_state_db_response() -> dict[str, object]:
-    response = build_interview_state_db_response()
-    response["answer_id"] = 0
-    return response
+    return build_interview_state_db_response()
 
 
 def build_interview_state_prompt_response() -> dict[str, object]:
@@ -121,7 +118,7 @@ def test_interview_pipeline_returns_follow_up_tts_and_state_payloads() -> None:
         response = client.post(
             "/api/v1/ai/interview/pipeline",
             files={"audio_file": ("answer.webm", BytesIO(b"webm-audio"), "audio/webm")},
-            data={"answer_id": "123", "is_first_finished": "false", "max_tokens": "256"},
+            data={"is_first_finished": "false", "max_tokens": "256"},
         )
 
     assert response.status_code == 200
@@ -188,7 +185,6 @@ def test_interview_pipeline_rejects_non_webm_upload() -> None:
     response = client.post(
         "/api/v1/ai/interview/pipeline",
         files={"audio_file": ("answer.wav", BytesIO(b"wav-audio"), "audio/wav")},
-        data={"answer_id": "123"},
     )
 
     assert response.status_code == 400

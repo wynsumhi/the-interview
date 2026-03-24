@@ -9,7 +9,6 @@ import com.theinterview.domain.interview.Repository.QuestionCandidateRepository;
 import com.theinterview.domain.interview.dto.FacadeInnerDto.AnswerTts;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
-import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
@@ -79,53 +78,31 @@ public class InterviewService {
 
     // interview 진행 관련 메서드 ----------------------------------------------------------------------------------------------------------------
 
-    // 웹소켓 연결 전, 클라이언트가 구독 할 인터뷰 pk를 발급하고, 첫 질문 텍스트를 TTS로 변환하여 전달함
-    // todo: facade 패턴 도입을 통해 메서드 분리 필요(커넥션 풀 고갈 문제 고려)
+    // 사용자의 첫 질문 요청이 시작되면 인터뷰 객체와 첫번째 질문을 만들어 반환함
     @Transactional
-    public WebSocketConnectResponse issueWebSocketId(String email) throws JsonProcessingException {
+    public WebSocketConnectResponse saveInterviewAndQuestion(Member member,
+            AiStartTtsResponse aiStartTtsResponse)
+            throws JsonProcessingException {
 
-        Member member = memberRepository.findByEmail(email)
-                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
-
-        String dbQuestion = null;
-
-        // 최초 사용자, 기존 사용자 분기처리
-        if (member.getIsFirstFinished()) {
-            // n + 1 문제 발생 지점 todo: 처리 필요
-            List<QuestionCandidate> questionCandidates = member.getQuestionCandidates();
-            QuestionCandidate questionCandidate = questionCandidates.get(0);
-            // 기존 사용자 처리
-            dbQuestion = questionCandidate.getQuestionText();
-        }
-
-        // 시작 질문 및 TTS 변환 요청
-        AiStartTtsResponse aiStartTtsResponse = aiUtils.callFastApiForStartTts(AiStartTtsRequest
-                .builder()
-                .dbQuestion(dbQuestion)
-                .nickname(member.getNickname())
-                .isFirstFinished(member.getIsFirstFinished())
-                .build());
-
-        // 새로운 인터뷰 세션 생성 및 DB에 저장(todo: 첫 질문 생성 로직 완료 시 첫 사용자 여부에 따라 분기처리 필요)
+        // interview 객체 생성
         Interview interview = interviewRepository.save(Interview.builder()
                 .member(member)
-                .shareRange(true)
+                .shareRange(true) // 기본 공개 설정
                 .title(aiStartTtsResponse.getQuestionText())
                 .status(InterviewStatus.BEFORE_START)
                 .build());
         log.info("인터뷰 세션 생성 성공 interviewId: {}", interview.getId());
 
-        // 인터뷰 시작 처리
+        // 인터뷰 진행중으로 상태 변경
         interview.interviewInProgress();
 
-        // 생성된 질문 DB에 삽입
+        // 첫 질문 DB에 저장
         InterviewQuestion question = interviewQuestionRepository.save(InterviewQuestion.builder()
                 .interview(interview)
                 .sequence(1)
                 .questionText(interview.getTitle())
                 .build());
 
-        // 꼬리 질문 생성 시 필요한 데이터를 redis에서 조회하기 위해 redis에 저장
         AiPipelineReadyDto dto = AiPipelineReadyDto.builder()
                 .sequence(1)
                 .nickname(member.getNickname())
@@ -136,9 +113,8 @@ public class InterviewService {
         String redisKey = "interviewId:" + interview.getId() + "questionId:" + question.getId()
                 + "aiPipelineReadyDto";
 
-        String dtoJson = objectMapper.writeValueAsString(dto);
-
-        redisService.setValues(redisKey, dtoJson, Duration.ofMinutes(3));
+        redisService.setValues(redisKey, objectMapper.writeValueAsString(dto),
+                Duration.ofMinutes(3));
 
         return WebSocketConnectResponse.builder()
                 .interviewId(interview.getId())
@@ -212,6 +188,18 @@ public class InterviewService {
                         .build());
 
         return saveQuestion.getId();
+    }
+
+    @Transactional
+    public void saveAnswer(InterviewQuestion interviewQuestion, String answerText,
+            String savedPath) {
+
+        // DB에 사용자의 마지막 답변 저장
+        interviewAnswerRepository.save(InterviewAnswer.builder()
+                .interviewQuestion(interviewQuestion)
+                .answerText(answerText)
+                .answerAudioUrl(savedPath)
+                .build());
     }
 
     /**
@@ -350,7 +338,7 @@ public class InterviewService {
     }
 
     // 인터뷰 종료 메서드
-    // todo: facade 패턴 도입을 통해 메서드 분리 필요(커넥션 풀 고갈 문제 고려)
+    // todo: 실시간 STT 청크 프론트 로직 완료되면 삭제
     @Transactional
     public String exitInterview(InterviewExitRequest request, String email) {
         // 필요한 인자 -> 사용자, 지금 인터뷰 객체, 지금 질문 객체
@@ -396,7 +384,7 @@ public class InterviewService {
         AiNextOpeningResponse aiNextOpeningResponse = aiUtils.callFastApiForNextOpening(
                 AiNextOpeningRequest.builder().interviewContext(aiRequest).nickname(
                         member.getNickname()).build());
-        // todo: AI 제목 생성 로직 merge 되면 사용
+
         log.info("이번 인터뷰 제목 요약 AI 호출");
         AiTitleResponse aiTitleResponse = aiUtils.callFastApiForInterviewTitle(
                 AiTitleRequest.builder().interviewContext(aiRequest).build());

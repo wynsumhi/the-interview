@@ -43,7 +43,6 @@ class InterviewStateDbPayloadResponse(BaseModel):
     텍스트/음성 개별 상태는 내부 계산에는 사용하지만, 현재 저장 최소 집합에서는 제외한다.
     """
 
-    answer_id: int
     top_state: str
     fused_scores: dict[str, float]
     audio_features: AudioFeaturesResponse
@@ -117,7 +116,6 @@ class InterviewStateSaveRequest(BaseModel):
     현재 필드 구성은 `InterviewStateDbPayloadResponse`와 동일하게 맞춰 두었다.
     """
 
-    answer_id: int
     top_state: str
     fused_scores: dict[str, float]
     audio_features: AudioFeaturesResponse

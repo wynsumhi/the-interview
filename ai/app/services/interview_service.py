@@ -28,7 +28,6 @@ ALLOWED_AUDIO_EXTENSIONS = {".webm"}
 
 # JSON 응답에서 TTS 오디오 타입을 명시할 때 사용하는 기본 MIME 타입이다.
 DEFAULT_AUDIO_MIME_TYPE = "audio/wav"
-TEMP_INTERVIEW_STATE_ANSWER_ID = 0
 
 # 신규 사용자의 첫 인터뷰 시작 시 사용하는 기본 질문 템플릿이다.
 # 이후 백엔드에서 별도 질문을 넘겨주기 전까지는 이 문장을 TTS로 읽는다.
@@ -206,7 +205,6 @@ def save_interview_state_temp(request: dict[str, Any]) -> dict[str, Any]:
 
 def run_interview_pipeline_from_upload(
     audio_file: UploadFile,
-    answer_id: int,
     is_first_finished: bool = False,
     user_id: str | None = None,
     sequence: int | None = None,
@@ -238,7 +236,6 @@ def run_interview_pipeline_from_upload(
 
         pipeline_result = run_interview_pipeline(
             str(temp_file_path),
-            answer_id=answer_id,
             is_first_finished=is_first_finished,
             user_id=user_id,
             sequence=sequence,
@@ -295,7 +292,6 @@ def run_interview_pipeline_from_stt_payload(
         pipeline_result = run_interview_pipeline_from_stt_text(
             str(temp_file_path),
             stt_text=normalized_stt_text,
-            answer_id=TEMP_INTERVIEW_STATE_ANSWER_ID,
             is_first_finished=is_first_finished,
             user_id=user_id,
             sequence=sequence,

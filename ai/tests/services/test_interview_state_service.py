@@ -71,9 +71,8 @@ def test_build_interview_state_db_payload_keeps_fused_scores_and_audio_features(
     sf.write(audio_path, samples, 16000)
     state = analyze_interview_state(str(audio_path), "프로젝트를 진행하고 바쁘게 지내고 있어요.")
 
-    payload = build_interview_state_db_payload(123, state)
+    payload = build_interview_state_db_payload(state)
 
-    assert payload.answer_id == 123
     assert payload.top_state == state.fused_signal.top_state
     assert payload.fused_scores == state.fused_signal.scores
     assert payload.audio_features == state.audio_features
