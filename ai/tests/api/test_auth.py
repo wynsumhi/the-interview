@@ -68,6 +68,21 @@ def test_interview_endpoint_accepts_valid_token_scope() -> None:
     assert response.status_code == 200
 
 
+def test_stt_endpoint_rejects_invalid_token() -> None:
+    with (
+        patch("app.core.auth.settings.AUTH_ENABLED", True),
+        patch("app.core.auth.settings.AUTH_TOKENS", "client-token|stt:invoke"),
+    ):
+        response = client.post(
+            "/api/v1/ai/stt",
+            files={"audio_file": ("answer.webm", BytesIO(b"webm-audio"), "audio/webm")},
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid bearer token."}
+
+
 def test_stt_endpoint_accepts_wildcard_scope_token() -> None:
     with (
         patch("app.core.auth.settings.AUTH_ENABLED", True),
@@ -81,6 +96,68 @@ def test_stt_endpoint_accepts_wildcard_scope_token() -> None:
             "/api/v1/ai/stt",
             files={"audio_file": ("answer.webm", BytesIO(b"webm-audio"), "audio/webm")},
             headers={"Authorization": "Bearer admin-token"},
+        )
+
+    assert response.status_code == 200
+
+
+def test_rag_endpoint_rejects_token_without_required_scope() -> None:
+    with (
+        patch("app.core.auth.settings.AUTH_ENABLED", True),
+        patch("app.core.auth.settings.AUTH_TOKENS", "client-token|ai:invoke"),
+    ):
+        response = client.post(
+            "/api/v1/ai/interview/rag/upsert",
+            json={
+                "user_id": "user-123",
+                "interview_id": "magazine-interview-001",
+                "turns": [
+                    {
+                        "question_id": "question-001",
+                        "answer_id": "answer-001",
+                        "question": "question",
+                        "answer": "answer",
+                        "turn_index": 1,
+                    }
+                ],
+            },
+            headers={"Authorization": "Bearer client-token"},
+        )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Missing required scope: rag:write"}
+
+
+def test_rag_endpoint_accepts_valid_rag_scope() -> None:
+    with (
+        patch("app.core.auth.settings.AUTH_ENABLED", True),
+        patch("app.core.auth.settings.AUTH_TOKENS", "client-token|rag:write"),
+        patch(
+            "app.api.v1.endpoints.rag.upsert_interview_history_rag",
+            return_value={
+                "status": "completed",
+                "message": "Interview history RAG upsert completed.",
+                "collection_name": "interview_history",
+                "indexed_count": 1,
+            },
+        ),
+    ):
+        response = client.post(
+            "/api/v1/ai/interview/rag/upsert",
+            json={
+                "user_id": "user-123",
+                "interview_id": "magazine-interview-001",
+                "turns": [
+                    {
+                        "question_id": "question-001",
+                        "answer_id": "answer-001",
+                        "question": "question",
+                        "answer": "answer",
+                        "turn_index": 1,
+                    }
+                ],
+            },
+            headers={"Authorization": "Bearer client-token"},
         )
 
     assert response.status_code == 200
