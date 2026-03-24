@@ -131,8 +131,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    #ports:
-    #  - "3100:3100"
+    ports:
+      - "3100:3100"
 
   promtail:
     image: grafana/promtail:latest
