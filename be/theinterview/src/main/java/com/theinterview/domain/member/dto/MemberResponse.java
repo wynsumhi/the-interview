@@ -19,11 +19,13 @@ public abstract class MemberResponse {
         private Integer memberId;
         private String email;
         private String nickname;
+        private String userUuid;
 
         public MemberInfoDTO(Member member) {
             this.memberId = member.getId();
             this.email = member.getEmail();
             this.nickname = member.getNickname();
+            this.userUuid = member.getUserUuid();
         }
     }
 
@@ -42,6 +44,6 @@ public abstract class MemberResponse {
         @JsonIgnore
         private long accessTokenValidityTime;
     }
-    
+
 
 }
