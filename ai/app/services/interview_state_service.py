@@ -125,11 +125,10 @@ class InterviewStateResult:
 class InterviewStateDbPayload:
     """백엔드 DB 저장에 바로 사용할 인터뷰 상태 payload다.
 
-    현재 저장 계약은 `answer_id`, `top_state`, `fused_scores`, `audio_features`만 유지한다.
+    현재 저장 계약은 `top_state`, `fused_scores`, `audio_features`만 유지한다.
     텍스트/음성 개별 상태는 내부 계산에는 쓰지만 DB 저장 최소 집합에서는 제외한다.
     """
 
-    answer_id: int
     top_state: str
     fused_scores: dict[str, float]
     audio_features: AudioFeatures
@@ -441,13 +440,11 @@ def analyze_interview_state(audio_file_path: str, transcript: str) -> InterviewS
 
 
 def build_interview_state_db_payload(
-    answer_id: int,
     interview_state: InterviewStateResult,
 ) -> InterviewStateDbPayload:
     """상세 분석 결과에서 DB 저장용 최소 payload만 추려낸다."""
 
     return InterviewStateDbPayload(
-        answer_id=answer_id,
         top_state=interview_state.fused_signal.top_state,
         fused_scores=interview_state.fused_signal.scores,
         audio_features=interview_state.audio_features,
