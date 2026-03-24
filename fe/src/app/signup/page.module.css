@@ -114,7 +114,7 @@
   font-size: 12px;
   color: var(--charcoal);
   line-height: 1.7;
-  background-color: var(--bg);
+  background-color: #ffffff;
 }
 
 .consentContent h4 {
@@ -143,6 +143,7 @@
 }
 
 .submitBtn {
+  width: 100%;
   background: var(--fg);
   color: white;
   padding: 16px;
