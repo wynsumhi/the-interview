@@ -15,6 +15,7 @@ from app.pipeline.interview_pipeline import (
 from app.prompts.interview_prompts import (
     INTERVIEW_CLOSING_SYSTEM_PROMPT,
     KEYWORD_GENERATION_SYSTEM_PROMPT,
+    MAGAZINE_GENERATION_SYSTEM_PROMPT,
     NEXT_OPENING_SYSTEM_PROMPT,
     TITLE_GENERATION_SYSTEM_PROMPT,
 )
@@ -131,6 +132,20 @@ def generate_magazine_title(
     return {"title": title}
 
 
+def refine_answer_for_magazine(
+    stt_text: str,
+    max_tokens: int = 300,
+) -> dict[str, str]:
+    """구어체 인터뷰 답변을 매거진 기사에 어울리는 문어체로 정제한다."""
+
+    refined = create_message(
+        messages=[{"role": "user", "content": stt_text}],
+        system=MAGAZINE_GENERATION_SYSTEM_PROMPT,
+        max_tokens=max_tokens,
+    )
+    return {"refined_answer": refined}
+
+
 def generate_closing_message(
     interview_context: str,
     nickname: str,
@@ -241,6 +256,7 @@ def run_interview_pipeline_from_upload(
             "question_text": response["question_text"],
             "tts_audio_base64": base64.b64encode(response["tts_audio"]).decode("ascii"),
             "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
+            "refined_answer": response["refined_answer"],
         }
     finally:
         audio_file.file.close()
@@ -295,6 +311,7 @@ def run_interview_pipeline_from_stt_payload(
             "question_text": response["question_text"],
             "tts_audio_base64": base64.b64encode(response["tts_audio"]).decode("ascii"),
             "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
+            "refined_answer": response["refined_answer"],
         }
     finally:
         audio_file.file.close()
