@@ -12,7 +12,12 @@ from app.pipeline.interview_pipeline import (
     run_interview_pipeline,
     run_interview_pipeline_from_stt_text,
 )
-from app.prompts.interview_prompts import NEXT_OPENING_SYSTEM_PROMPT, TITLE_GENERATION_SYSTEM_PROMPT
+from app.prompts.interview_prompts import (
+    INTERVIEW_CLOSING_SYSTEM_PROMPT,
+    KEYWORD_GENERATION_SYSTEM_PROMPT,
+    NEXT_OPENING_SYSTEM_PROMPT,
+    TITLE_GENERATION_SYSTEM_PROMPT,
+)
 from app.services.llm_service import create_message
 from app.services.tts_service import text_to_speech
 
@@ -22,7 +27,6 @@ ALLOWED_AUDIO_EXTENSIONS = {".webm"}
 
 # JSON 응답에서 TTS 오디오 타입을 명시할 때 사용하는 기본 MIME 타입이다.
 DEFAULT_AUDIO_MIME_TYPE = "audio/wav"
-TEMP_INTERVIEW_STATE_ANSWER_ID = 0
 
 # 신규 사용자의 첫 인터뷰 시작 시 사용하는 기본 질문 템플릿이다.
 # 이후 백엔드에서 별도 질문을 넘겨주기 전까지는 이 문장을 TTS로 읽는다.
@@ -127,6 +131,49 @@ def generate_magazine_title(
     return {"title": title}
 
 
+def generate_closing_message(
+    interview_context: str,
+    nickname: str,
+    max_tokens: int = 128,
+) -> dict[str, str]:
+    """인터뷰 종료 시점에 자연스러운 마무리 메시지를 생성하고 TTS 오디오를 함께 반환한다."""
+
+    system = (
+        f"사용자의 닉네임은 '{nickname}'입니다.\n"
+        f"사용자를 호칭할 때는 반드시 이 닉네임만 사용하십시오.\n"
+        f"대화 맥락에 등장하는 다른 이름, 별명, 호칭은 절대 사용하지 마십시오.\n"
+        f"입력 대화에 포함된 이름이라도 모두 무시하고, '{nickname}'만 사용하십시오.\n\n"
+        + INTERVIEW_CLOSING_SYSTEM_PROMPT
+    )
+    closing = create_message(
+        messages=[{"role": "user", "content": interview_context}],
+        system=system,
+        max_tokens=max_tokens,
+    )
+    tts_audio = text_to_speech(closing)
+
+    return {
+        "closing_message": closing,
+        "tts_audio_base64": base64.b64encode(tts_audio).decode("ascii"),
+        "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
+    }
+
+
+def generate_keyword(
+    question: str,
+    answer: str,
+    max_tokens: int = 32,
+) -> dict[str, str]:
+    """질문-답변 쌍을 바탕으로 북마크 키워드를 생성한다."""
+
+    keyword = create_message(
+        messages=[{"role": "user", "content": f"Q: {question}\nA: {answer}"}],
+        system=KEYWORD_GENERATION_SYSTEM_PROMPT,
+        max_tokens=max_tokens,
+    )
+    return {"keyword": keyword}
+
+
 def save_interview_state_temp(request: dict[str, Any]) -> dict[str, Any]:
     """임시 인터뷰 상태 저장 요청을 그대로 감싸서 반환한다.
 
@@ -143,7 +190,6 @@ def save_interview_state_temp(request: dict[str, Any]) -> dict[str, Any]:
 
 def run_interview_pipeline_from_upload(
     audio_file: UploadFile,
-    answer_id: int,
     is_first_finished: bool = False,
     user_id: str | None = None,
     sequence: int | None = None,
@@ -175,7 +221,6 @@ def run_interview_pipeline_from_upload(
 
         pipeline_result = run_interview_pipeline(
             str(temp_file_path),
-            answer_id=answer_id,
             is_first_finished=is_first_finished,
             user_id=user_id,
             sequence=sequence,
@@ -232,7 +277,6 @@ def run_interview_pipeline_from_stt_payload(
         pipeline_result = run_interview_pipeline_from_stt_text(
             str(temp_file_path),
             stt_text=normalized_stt_text,
-            answer_id=TEMP_INTERVIEW_STATE_ANSWER_ID,
             is_first_finished=is_first_finished,
             user_id=user_id,
             sequence=sequence,

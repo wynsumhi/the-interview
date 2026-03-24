@@ -47,6 +47,8 @@ public class StompHandler implements ChannelInterceptor {
                     Authentication authentication = jwtProvider.getAuthentication(token);
                     // 연결하려는 웹소켓 세션의 주인을 명시함
                     accessor.setUser(authentication);
+                    // 세션에 email 정보 저장
+                    accessor.getSessionAttributes().put("email", authentication.getName());
                     log.info("웹소켓 연결됨 사용자: {}", authentication.getName());
                 } else {
                     // 토큰이 가짜거나 만료되었다면 예외 발생

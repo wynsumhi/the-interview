@@ -191,24 +191,19 @@ public class AiUtils {
     }
 
     // 인터뷰 첫 시작 질문 TTS 반환을 위해 AI 서버 호출 메서드
-    public AiStartTtsResponse callFastApiForStartTts(AiStartTtsRequest request
+    public Mono<AiStartTtsResponse> callFastApiForStartTts(AiStartTtsRequest request
     ) {
 
         log.info("AI 서버와 TTS 통신 시작 uri: {}", "/api/v1/ai/interview/start-tts");
-        // AI 서버 호출
-        AiStartTtsResponse response = webClient.post()
+        return webClient.post()
                 .uri("/api/v1/ai/interview/start-tts")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(AiStartTtsResponse.class)
-                .block();
-
-        if (response != null) {
-            log.info("AI 서버와 TTS 통신 완료. 반환된 텍스트: {}", response.getQuestionText());
-        }
-
-        return response;
+                .doOnNext(aiStartTtsResponse -> log.info("AI 서버와 TTS 통신 완료. 반환된 텍스트: {}",
+                        aiStartTtsResponse.getQuestionText()))
+                .doOnError(e -> log.error("TTS 통신 실패: {}", e.getMessage()));
     }
 
     // 종료를 위해 AI 서버를 호출하여 제목 요약
@@ -257,6 +252,51 @@ public class AiUtils {
                 })
                 .bodyToMono(AiNextOpeningResponse.class)
                 .block();
+    }
+
+    // 종료를 위해 AI 서버를 호출하여 제목 요약
+    public Mono<AiTitleResponse> callFastApiForInterviewTitleV2(AiTitleRequest request) {
+        log.info("제목 생성 요청 시작");
+
+        return webClient.post()
+                .uri("/api/v1/ai/interview/title")
+                .bodyValue(request)
+                .retrieve()
+                // 4xx 에러 처리 (문서에 명시된 422 에러 등)
+                .onStatus(status -> status.is4xxClientError(), clientResponse -> {
+                    log.error("FastAPI 클라이언트 에러 발생 (4xx): {}", clientResponse.statusCode());
+                    // ErrorStatus.FAST_API_ERROR 등 본인 프로젝트에 맞는 에러 코드로 수정하세요
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                // 5xx 에러 처리 (FastAPI 서버가 죽었거나 모델에서 에러 났을 때)
+                .onStatus(status -> status.is5xxServerError(), clientResponse -> {
+                    log.error("FastAPI 서버 에러 발생 (5xx): {}", clientResponse.statusCode());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                // JSON 응답을 AiTitleResponse 객체로 역직렬화
+                .bodyToMono(AiTitleResponse.class);
+    }
+
+    // 종료를 위해 AI 서버를 호출하여 다음 시작 질문을 생성
+    public Mono<AiNextOpeningResponse> callFastApiForNextOpeningV2(AiNextOpeningRequest request) {
+        log.info("FastAPI 다음 회차 시작 질문 생성 요청 시작");
+
+        return webClient.post()
+                .uri("/api/v1/ai/interview/next-opening") // [cite: 19]
+                .bodyValue(request)
+                .retrieve()
+                // 4xx 에러 처리 (문서에 명시된 422 누락 에러 등 방어)
+                .onStatus(status -> status.is4xxClientError(), clientResponse -> {
+                    log.error("FastAPI 클라이언트 에러 발생 (4xx): {}, 조합된 텍스트: {}",
+                            clientResponse.statusCode(), request.getInterviewContext());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                // 5xx 에러 처리
+                .onStatus(status -> status.is5xxServerError(), clientResponse -> {
+                    log.error("FastAPI 서버 에러 발생 (5xx): {}", clientResponse.statusCode());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                .bodyToMono(AiNextOpeningResponse.class);
     }
 
     // RAG 호출 관련 메서드 -----------------------------------------------------------------------------------------------------

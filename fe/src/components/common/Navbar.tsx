@@ -67,6 +67,7 @@ export default function Navbar() {
     <nav className={styles.nav}>
       <div className={styles.backdrop} />
 
+      <div className={styles.navInner}>
       {/* 로고: 로그인 여부에 따라 목적지 변경 */}
       <Link href={isLoggedIn ? "/board" : "/"} className={styles.logo}>
         The interview
@@ -135,6 +136,7 @@ export default function Navbar() {
             </Link>
           </>
         )}
+      </div>
       </div>
     </nav>
   );

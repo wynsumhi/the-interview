@@ -1,7 +1,7 @@
 .section {
   position: relative;
   overflow: hidden;
-  padding: 160px var(--px);
+  padding: 160px 0;
 }
 
 .bg {
@@ -26,6 +26,7 @@
   z-index: 1;
   max-width: var(--max-w);
   margin: 0 auto;
+  padding: 0 var(--px);
   text-align: center;
 }
 
@@ -85,7 +86,8 @@
 
 /* ─── Responsive ─── */
 @media (max-width: 1024px) {
-  .section { padding: 120px var(--px-mobile); }
+  .section { padding: 120px 0; }
+  .inner { padding: 0 var(--px-mobile); }
   .h2, .h2Handwriting { font-size: 56px; }
 }
 

@@ -50,9 +50,8 @@ class TestInterviewPipeline(unittest.TestCase):
         )
 
     @staticmethod
-    def _build_state_db(answer_id: int) -> InterviewStateDbPayload:
+    def _build_state_db() -> InterviewStateDbPayload:
         return InterviewStateDbPayload(
-            answer_id=answer_id,
             top_state="calm",
             fused_scores={"calm": 0.7, "tense": 0.3},
             audio_features=AudioFeatures(
@@ -87,7 +86,7 @@ class TestInterviewPipeline(unittest.TestCase):
             audio_file = Path(tmp_dir) / "sample.wav"
             audio_file.write_bytes(b"fake-audio")
 
-            interview_state_db = self._build_state_db(123)
+            interview_state_db = self._build_state_db()
             interview_state_prompt = self._build_state_prompt("[state prompt]\n- top_state: calm")
 
             with (
@@ -129,7 +128,6 @@ class TestInterviewPipeline(unittest.TestCase):
             ):
                 result = run_interview_pipeline(
                     str(audio_file),
-                    answer_id=123,
                     is_first_finished=True,
                     max_tokens=256,
                 )
@@ -149,7 +147,7 @@ class TestInterviewPipeline(unittest.TestCase):
             stt_mock.assert_called_once_with(str(audio_file))
             guardrail_mock.assert_called_once_with("candidate answer")
             state_mock.assert_called_once_with(str(audio_file), "candidate answer")
-            db_mock.assert_called_once_with(123, state_mock.return_value)
+            db_mock.assert_called_once_with(state_mock.return_value)
             prompt_mock.assert_called_once_with(state_mock.return_value)
             llm_mock.assert_called_once()
             llm_kwargs = llm_mock.call_args.kwargs
@@ -165,7 +163,7 @@ class TestInterviewPipeline(unittest.TestCase):
             audio_file = Path(tmp_dir) / "sample.wav"
             audio_file.write_bytes(b"fake-audio")
 
-            interview_state_db = self._build_state_db(321)
+            interview_state_db = self._build_state_db()
             interview_state_prompt = self._build_state_prompt("[state prompt]\n- top_state: calm")
 
             with (
@@ -205,7 +203,6 @@ class TestInterviewPipeline(unittest.TestCase):
                 result = run_interview_pipeline_from_stt_text(
                     str(audio_file),
                     stt_text="external stt answer",
-                    answer_id=321,
                     is_first_finished=True,
                     max_tokens=128,
                 )
@@ -225,7 +222,7 @@ class TestInterviewPipeline(unittest.TestCase):
             stt_mock.assert_not_called()
             guardrail_mock.assert_called_once_with("external stt answer")
             state_mock.assert_called_once_with(str(audio_file), "external stt answer")
-            db_mock.assert_called_once_with(321, state_mock.return_value)
+            db_mock.assert_called_once_with(state_mock.return_value)
             prompt_mock.assert_called_once_with(state_mock.return_value)
             llm_mock.assert_called_once()
             llm_kwargs = llm_mock.call_args.kwargs
@@ -241,7 +238,7 @@ class TestInterviewPipeline(unittest.TestCase):
             audio_file = Path(tmp_dir) / "sample.wav"
             audio_file.write_bytes(b"fake-audio")
 
-            interview_state_db = self._build_state_db(321)
+            interview_state_db = self._build_state_db()
             interview_state_prompt = self._build_state_prompt("[state prompt]")
 
             with (
@@ -288,7 +285,6 @@ class TestInterviewPipeline(unittest.TestCase):
                 run_interview_pipeline_from_stt_text(
                     str(audio_file),
                     stt_text="external stt answer",
-                    answer_id=321,
                     is_first_finished=True,
                     user_id="user-123",
                     previous_question="current question",

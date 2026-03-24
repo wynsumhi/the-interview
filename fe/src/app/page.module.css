@@ -1,12 +1,13 @@
 .footer {
   background: var(--deep);
-  padding: 48px var(--px);
+  padding: 48px 0;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .footerInner {
   max-width: var(--max-w);
   margin: 0 auto;
+  padding: 0 var(--px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -27,6 +28,7 @@
 }
 
 @media (max-width: 640px) {
-  .footer { padding: 40px var(--px-mobile); }
+  .footer { padding: 40px 0; }
+  .footerInner { padding: 0 var(--px-mobile); }
   .footerInner { flex-direction: column; text-align: center; }
 }

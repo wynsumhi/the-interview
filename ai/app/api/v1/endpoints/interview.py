@@ -1,18 +1,24 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
 from app.api.v1.schemas import (
+    InterviewClosingRequest,
+    InterviewClosingResponse,
     InterviewPipelineResponse,
     InterviewStartTTSRequest,
     InterviewStartTTSResponse,
     InterviewStateSaveRequest,
     InterviewStateSaveResponse,
+    KeywordRequest,
+    KeywordResponse,
     MagazineTitleRequest,
     MagazineTitleResponse,
     NextOpeningRequest,
     NextOpeningResponse,
 )
 from app.services.interview_service import (
+    generate_closing_message,
     generate_interview_start_tts,
+    generate_keyword,
     generate_magazine_title,
     generate_next_opening_question,
     run_interview_pipeline_from_stt_payload,
@@ -112,12 +118,32 @@ def generate_magazine_title_endpoint(
 
 
 @router.post(
+    "/keyword",
+    response_model=KeywordResponse,
+    summary="Generate bookmark keyword from Q&A pair",
+)
+def generate_keyword_endpoint(
+    request: KeywordRequest,
+) -> KeywordResponse:
+    """북마크로 등록할 질문-답변 쌍에서 대표 키워드를 생성하는 엔드포인트다.
+
+    사용자가 북마크한 질문-답변 쌍을 받아,
+    해당 답변을 가장 잘 대표하는 짧은 영문 키워드(2–5단어)를 생성해 반환한다.
+    """
+
+    result = generate_keyword(
+        question=request.question,
+        answer=request.answer,
+    )
+    return KeywordResponse.model_validate(result)
+
+
+@router.post(
     "/pipeline",
     response_model=InterviewPipelineResponse,
     summary="Run interview pipeline",
 )
 def run_interview_pipeline_endpoint(
-    answer_id: int = Form(...),
     audio_file: UploadFile = File(...),
     is_first_finished: bool = Form(default=False),
     user_id: str | None = Form(default=None),
@@ -137,9 +163,6 @@ def run_interview_pipeline_endpoint(
     6. TTS 생성
 
     주요 입력값 의미는 다음과 같다.
-    - `answer_id`
-      이번 답변을 백엔드 DB 레코드와 연결하기 위한 식별자다.
-      인터뷰 상태 DB 저장 payload에도 그대로 포함된다.
     - `audio_file`
       사용자의 실제 답변 음성 파일이다.
       현재는 `webm`만 허용한다.
@@ -159,7 +182,6 @@ def run_interview_pipeline_endpoint(
     try:
         result = run_interview_pipeline_from_upload(
             audio_file=audio_file,
-            answer_id=answer_id,
             is_first_finished=is_first_finished,
             user_id=user_id,
             sequence=sequence,
@@ -211,6 +233,28 @@ def run_interview_pipeline_after_stt_endpoint(
         ) from exc
 
     return InterviewPipelineResponse.model_validate(result)
+
+
+@router.post(
+    "/closing",
+    response_model=InterviewClosingResponse,
+    summary="Generate interview closing message and TTS",
+)
+def generate_closing_message_endpoint(
+    request: InterviewClosingRequest,
+) -> InterviewClosingResponse:
+    """사용자가 종료 버튼을 눌렀을 때 인터뷰 마무리 멘트를 생성하고 TTS로 변환하는 엔드포인트다.
+
+    백엔드가 지금까지의 인터뷰 대화 내용을 `interview_context`로 전달하면,
+    AI 서버는 대화 흐름을 자연스럽게 마무리하는 짧은 종료 멘트를 생성한 뒤
+    TTS로 변환해 텍스트와 오디오를 함께 반환한다.
+    """
+
+    result = generate_closing_message(
+        interview_context=request.interview_context,
+        nickname=request.nickname,
+    )
+    return InterviewClosingResponse.model_validate(result)
 
 
 @router.post(

@@ -5,6 +5,7 @@ import com.theinterview.domain.interview.dto.InterviewRequest.BookmarkSetting;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRange;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewStartRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.TotalChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewExploreResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
@@ -12,12 +13,16 @@ import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItBo
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewResponseDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
+import com.theinterview.domain.interview.facade.InterviewFacade;
 import com.theinterview.domain.interview.service.InterviewService;
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.repository.MemberRepository;
+import com.theinterview.global.config.redis.RedisService;
 import com.theinterview.global.response.ApiResponse;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
+import java.io.IOException;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
@@ -43,6 +48,8 @@ public class InterviewController {
 
     private final InterviewService interviewService;
     private final MemberRepository memberRepository;
+    private final RedisService redisService;
+    private final InterviewFacade interviewFacade;
 
     // 웹소켓 연결 및 구독할 인터뷰 방의 번호(interviewID) 및 첫 질문의 번호(questionId)를 발급
     @PostMapping
@@ -51,8 +58,10 @@ public class InterviewController {
             @AuthenticationPrincipal User user
     ) throws JsonProcessingException {
         String email = user.getUsername();
-        // 서비스 레이어 호출
-        return ApiResponse.onSuccess(interviewService.issueWebSocketId(email));
+        // 파서드 레이어 호출
+        return ApiResponse.onSuccess(
+                interviewFacade.issueWebSocketId(email)
+                        .block()); // 여기에서 톰캣 스레드가 멈춤(마치 기존의 async 처럼 동작함)
     }
 
 
@@ -64,6 +73,35 @@ public class InterviewController {
         String email = user.getUsername();
         // 서비스 레이어 호출
         return ApiResponse.onSuccess(interviewService.exitInterview(request, email));
+    }
+
+    @PostMapping("/exitV2")
+    public ApiResponse<Void> exitInterviewV2(
+            @RequestBody TotalChunkRequest request,
+            @AuthenticationPrincipal User user
+    ) throws IOException {
+
+        // 락 체크 및 예외 처리(이미 저장중인 인터뷰 있는지 확인)
+        if (redisService.hasKey("interviewId:" + request.getInterviewId() + "lock")) {
+            throw new GeneralException(ErrorStatus.QUESTION_NOT_SAVED);
+        }
+
+        String redisKey =
+                "interviewId:" + request.getInterviewId() + "questionId:" + request.getQuestionId();
+        // redis 저장 중 표시
+        redisService.setValues("interviewId:" + request.getInterviewId() + "isExit",
+                "true", Duration.ofSeconds(20));
+        redisService.setValues("interviewId:" + request.getInterviewId() + "isSaving", "inProgress",
+                Duration.ofSeconds(30));
+
+        // 서버 디렉토리에 음성 파일 저장
+        String savedPath = interviewService.saveAnswerFile(request.getAnswerAudio(),
+                request.getInterviewId());
+
+        // redis 저장 코드 호출
+        interviewService.saveRequiredFlagInRedis(savedPath, redisKey, request.getTotalChunk());
+
+        return ApiResponse.OK;
     }
 
     // 인터뷰 목록 조회

@@ -6,9 +6,9 @@ import com.theinterview.domain.interview.Repository.InterviewAnswerRepository;
 import com.theinterview.domain.interview.Repository.InterviewQuestionRepository;
 import com.theinterview.domain.interview.Repository.InterviewRepository;
 import com.theinterview.domain.interview.Repository.QuestionCandidateRepository;
+import com.theinterview.domain.interview.dto.FacadeInnerDto.AnswerTts;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
-import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
@@ -88,53 +88,31 @@ public class InterviewService {
 
     // interview 진행 관련 메서드 ----------------------------------------------------------------------------------------------------------------
 
-    // 웹소켓 연결 전, 클라이언트가 구독 할 인터뷰 pk를 발급하고, 첫 질문 텍스트를 TTS로 변환하여 전달함
-    // todo: facade 패턴 도입을 통해 메서드 분리 필요(커넥션 풀 고갈 문제 고려)
+    // 사용자의 첫 질문 요청이 시작되면 인터뷰 객체와 첫번째 질문을 만들어 반환함
     @Transactional
-    public WebSocketConnectResponse issueWebSocketId(String email) throws JsonProcessingException {
+    public WebSocketConnectResponse saveInterviewAndQuestion(Member member,
+            AiStartTtsResponse aiStartTtsResponse)
+            throws JsonProcessingException {
 
-        Member member = memberRepository.findByEmail(email)
-                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
-
-        String dbQuestion = null;
-
-        // 최초 사용자, 기존 사용자 분기처리
-        if (member.getIsFirstFinished()) {
-            // n + 1 문제 발생 지점 todo: 처리 필요
-            List<QuestionCandidate> questionCandidates = member.getQuestionCandidates();
-            QuestionCandidate questionCandidate = questionCandidates.get(0);
-            // 기존 사용자 처리
-            dbQuestion = questionCandidate.getQuestionText();
-        }
-
-        // 시작 질문 및 TTS 변환 요청
-        AiStartTtsResponse aiStartTtsResponse = aiUtils.callFastApiForStartTts(AiStartTtsRequest
-                .builder()
-                .dbQuestion(dbQuestion)
-                .nickname(member.getNickname())
-                .isFirstFinished(member.getIsFirstFinished())
-                .build());
-
-        // 새로운 인터뷰 세션 생성 및 DB에 저장(todo: 첫 질문 생성 로직 완료 시 첫 사용자 여부에 따라 분기처리 필요)
+        // interview 객체 생성
         Interview interview = interviewRepository.save(Interview.builder()
                 .member(member)
-                .shareRange(true)
+                .shareRange(true) // 기본 공개 설정
                 .title(aiStartTtsResponse.getQuestionText())
                 .status(InterviewStatus.BEFORE_START)
                 .build());
         log.info("인터뷰 세션 생성 성공 interviewId: {}", interview.getId());
 
-        // 인터뷰 시작 처리
+        // 인터뷰 진행중으로 상태 변경
         interview.interviewInProgress();
 
-        // 생성된 질문 DB에 삽입
+        // 첫 질문 DB에 저장
         InterviewQuestion question = interviewQuestionRepository.save(InterviewQuestion.builder()
                 .interview(interview)
                 .sequence(1)
                 .questionText(interview.getTitle())
                 .build());
 
-        // 꼬리 질문 생성 시 필요한 데이터를 redis에서 조회하기 위해 redis에 저장
         AiPipelineReadyDto dto = AiPipelineReadyDto.builder()
                 .sequence(1)
                 .nickname(member.getNickname())
@@ -145,9 +123,8 @@ public class InterviewService {
         String redisKey = "interviewId:" + interview.getId() + "questionId:" + question.getId()
                 + "aiPipelineReadyDto";
 
-        String dtoJson = objectMapper.writeValueAsString(dto);
-
-        redisService.setValues(redisKey, dtoJson, Duration.ofMinutes(3));
+        redisService.setValues(redisKey, objectMapper.writeValueAsString(dto),
+                Duration.ofMinutes(3));
 
         return WebSocketConnectResponse.builder()
                 .interviewId(interview.getId())
@@ -223,6 +200,18 @@ public class InterviewService {
         return saveQuestion.getId();
     }
 
+    @Transactional
+    public void saveAnswer(InterviewQuestion interviewQuestion, String answerText,
+            String savedPath) {
+
+        // DB에 사용자의 마지막 답변 저장
+        interviewAnswerRepository.save(InterviewAnswer.builder()
+                .interviewQuestion(interviewQuestion)
+                .answerText(answerText)
+                .answerAudioUrl(savedPath)
+                .build());
+    }
+
     /**
      * AI 서버와의 꼬리 질문 생성을 위한 성공적인 통신 이후 관련 반환값들을 DB에 반영하고 DB 락을 해제함 퍼사드에서 호출됨
      */
@@ -283,8 +272,83 @@ public class InterviewService {
     }
 
 
+    // 인터뷰 종료 시 facade에서 호출되는 메서드
+    // 다음 질문 생성과 제목 생성을 위해 해당 인터뷰에서의 사용자의 이전 질문과 답변 쌍을 조합하여 반환함
+    @Transactional
+    public AnswerTts findDomainMakeQnACouple(String email, Integer interviewId) {
+
+        // 필요 도메인 조회
+        Interview interview = domainFindUtils.getInterviewById(interviewId);
+
+        Member member = interview.getMember();
+        // 권한 확인
+        if (!member.getEmail().equals(email)) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        // 해당 인터뷰에서의 모둔 사용자 질문과 답변 쌍 조합
+        // 저장 진행중인 질문이 없다면 아래 로직을 실행함
+        // 인터뷰의 모든 질문과 답변을 불러와서 조립
+        String aiRequest = "";
+        int counting = 1;
+
+        List<InterviewQuestion> interviewQuestions = interview.getInterviewQuestions();
+        for (InterviewQuestion interviewQuestion : interviewQuestions) {
+            InterviewAnswer interviewAnswer = interviewQuestion.getInterviewAnswer();
+            // 사용자가 마지막에 답변하지 않고 인터뷰를 종료 했을 경우
+            if (interviewAnswer == null) {
+                // 해당 질문은 DB에서 삭제함
+                interviewQuestionRepository.delete(interviewQuestion);
+                continue;
+            }
+            aiRequest =
+                    aiRequest + "Q" + counting + interviewQuestion.getQuestionText() + "\n" + "A"
+                            + counting + interviewAnswer.getAnswerText()
+                            + "\n"
+                            + "\n";
+
+            counting += 1;
+
+        }
+
+        return AnswerTts.builder()
+                .QnACouple(aiRequest)
+                .member(member)
+                .build();
+    }
+
+    // 인터뷰 종료 시 facade에서 호출되는 메서드
+    // 다음 질문과 제목이 AI에게서 생성이 완료되면 DB에 해당 값을 저장하기 위해 호출됨
+    @Transactional
+    public void saveExitAiResponse(Integer interviewId, String title,
+            String nextStartQuestion) {
+
+        // DB에 해당 값들을 모두 저장함
+        Interview interview = domainFindUtils.getInterviewById(interviewId);
+
+        Member member = interview.getMember();
+
+        questionCandidateRepository.save(QuestionCandidate.builder()
+                .member(member)
+                .questionText(nextStartQuestion)
+                .build());
+
+        // 완료처리
+        member.completeFirstInterview();
+        interview.interviewFinished(title);
+    }
+
+    public void saveRequiredFlagInRedis(String savedPath, String redisKey, String totalChunk) {
+
+        // 여기서 바로 총 청크 수를 저장함
+        redisService.setValues(redisKey + "totalChunks", totalChunk,
+                Duration.ofMinutes(3)); // 유효 기간 3분
+        // 음성 파일 저장 경로 redis에 저장
+        redisService.setValues(redisKey + "savedPath", savedPath, Duration.ofMinutes(3));
+    }
+
     // 인터뷰 종료 메서드
-    // todo: facade 패턴 도입을 통해 메서드 분리 필요(커넥션 풀 고갈 문제 고려)
+    // todo: 실시간 STT 청크 프론트 로직 완료되면 삭제
     @Transactional
     public String exitInterview(InterviewExitRequest request, String email) {
         // 필요한 인자 -> 사용자, 지금 인터뷰 객체, 지금 질문 객체
@@ -330,7 +394,7 @@ public class InterviewService {
         AiNextOpeningResponse aiNextOpeningResponse = aiUtils.callFastApiForNextOpening(
                 AiNextOpeningRequest.builder().interviewContext(aiRequest).nickname(
                         member.getNickname()).build());
-        // todo: AI 제목 생성 로직 merge 되면 사용
+
         log.info("이번 인터뷰 제목 요약 AI 호출");
         AiTitleResponse aiTitleResponse = aiUtils.callFastApiForInterviewTitle(
                 AiTitleRequest.builder().interviewContext(aiRequest).build());
@@ -481,32 +545,33 @@ public class InterviewService {
 
         // 비동기 청킹 요청 및 구독을 통해 해당 메서드에 대한 return이 발생하면 여기서 잡아, redis 저장 로직을 수행함
         return aiUtils.callFastApiForSttChunk(request).map(sttChunkResponse -> {
-            // redis 키 저장
-            String redisKey = "interviewId:" + request.getInterviewId() + "questionId:"
-                    + request.getQuestionId();
-            // redis에 청크된 STT 결과, 인덱스 저장
-            redisService.addChunkToSortedSet(
-                    redisKey + "chunks",
-                    sttChunkResponse.getChunkText(),
-                    request.getChuckIndex()
-            );
-            log.info("청킹된 오디오 조각 STT 변환 성공 및 redis에 저장 저장된 텍스트: {}",
-                    sttChunkResponse.getChunkText());
+                    // redis 키 저장
+                    String redisKey = "interviewId:" + request.getInterviewId() + "questionId:"
+                            + request.getQuestionId();
+                    // redis에 청크된 STT 결과, 인덱스 저장
+                    redisService.addChunkToSortedSet(
+                            redisKey + "chunks",
+                            sttChunkResponse.getChunkText(),
+                            request.getChunkIndex()
+                    );
+                    log.info("청킹된 오디오 조각 STT 변환 성공 및 redis에 저장 저장된 텍스트: {}",
+                            sttChunkResponse.getChunkText());
 
-            // 청킹이 완료되었다면 해당 질문이 다음 버튼이 눌렸는지 redis에 키를 조회해서 확인함
-            if (redisService.hasKey(redisKey + "totalChunks")) {
-                // redis에 저장되어 있는 총 청크 수를 조회함
-                int totalChunks = Integer.parseInt(
-                        redisService.getValues(redisKey + "totalChunks"));
-                // 만약 같다면 종료 처리 가능
-                log.info("총 청크 개수{}", totalChunks);
-                log.info("저장된 청크 개수: {}", redisService.savedChunkCount(redisKey + "chunks"));
-                if (totalChunks == redisService.savedChunkCount(redisKey + "chunks")) {
-                    return true;
-                }
-            }
-            return false;
-        }).onErrorReturn(false);
+                    // 청킹이 완료되었다면 해당 질문이 다음 버튼이 눌렸는지 redis에 키를 조회해서 확인함
+                    if (redisService.hasKey(redisKey + "totalChunks")) {
+                        // redis에 저장되어 있는 총 청크 수를 조회함
+                        int totalChunks = Integer.parseInt(
+                                redisService.getValues(redisKey + "totalChunks"));
+                        // 만약 같다면 종료 처리 가능
+                        log.info("총 청크 개수{}", totalChunks);
+                        log.info("저장된 청크 개수: {}", redisService.savedChunkCount(redisKey + "chunks"));
+                        if (totalChunks == redisService.savedChunkCount(redisKey + "chunks")) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }).doOnError(e -> log.error("청크 변환 실패: {}", e.getMessage()))
+                .onErrorReturn(false);
     }
 
     // Facade 레이어에서 필요한 정보를 DTO에 담아 반환하는 헬퍼 메서드
