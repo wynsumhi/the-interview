@@ -31,6 +31,7 @@ export default function SignupPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    voiceConsent: "",
     general: "", // 서버에서 온 에러 메시지
   });
 
@@ -45,6 +46,7 @@ export default function SignupPage() {
       email: "",
       password: "",
       confirmPassword: "",
+      voiceConsent: "",
       general: "",
     };
     let isValid = true;
@@ -59,6 +61,12 @@ export default function SignupPage() {
     // 비밀번호 일치 검사
     if (password !== confirmPassword) {
       newErrors.confirmPassword = "비밀번호가 일치하지 않습니다.";
+      isValid = false;
+    }
+
+    // 음성 데이터 활용 동의 검사
+    if (!voiceConsent) {
+      newErrors.voiceConsent = "개인정보 및 음성정보 활용에 동의해주세요.";
       isValid = false;
     }
 
@@ -297,6 +305,9 @@ export default function SignupPage() {
               </div>
             )}
           </div>
+          {errors.voiceConsent && (
+            <span className={styles.error}>{errors.voiceConsent}</span>
+          )}
 
           <div className={styles.submitGroup}>
             {/* 서버에서 온 에러 메시지 (이메일 중복 등) */}
