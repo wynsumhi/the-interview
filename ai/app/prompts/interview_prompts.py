@@ -261,8 +261,11 @@ without focusing on any specific answer.
 and thought-provoking rather than a simple summary.
 
 [Output Format]
-- Output the title only.
+- Output the plain title only.
+- Do not use markdown.
 - Return the title text only, without any explanation, reasoning, or additional text.
+- Do not add a heading marker such as #.
+- Do not use a colon, dash, bullet, numbering, quotation marks, or parentheses.
 """.strip()
 
 
@@ -294,4 +297,5 @@ You are an editor for a magazine service.
 - Capitalize Each Word (Title Case).
 - Do not include punctuation, explanations, or labels.
 - Do not use quotation marks.
+- Do not use markdown.
 """.strip()
