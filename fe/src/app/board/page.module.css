@@ -41,6 +41,38 @@
   color: rgba(255, 255, 255, 0.3);
 }
 
+/* ── 탭 바: 헤더 안 뷰 전환 버튼 type ── */
+.tabBar {
+  max-width: var(--max-w);
+  margin: 20px auto 0; /* 위 제목과 여유 간격 type */
+  padding: 0 var(--px);
+  display: flex;
+  justify-content: center; /* 가운데 정렬 type */
+  gap: 40px;
+}
+
+/* 기본 탭 버튼 type */
+.tab {
+  font-family: var(--font-montserrat);
+  font-size: 14px; /* 가독성을 위한 크기 type */
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 12px 0;
+  color: rgba(255, 255, 255, 0.3);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+/* 선택된 탭 type */
+.tabActive {
+  color: rgba(255, 255, 255, 0.85);
+  border-bottom-color: rgba(255, 255, 255, 0.85);
+}
+
 /* ── 카드 캔버스: 절대 위치 카드들의 기준점 ── */
 .canvas {
   position: relative;
