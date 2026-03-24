@@ -20,5 +20,6 @@ def transcribe_audio_file(
             file=audio_file,
             model=model,
             language=language,
+            temperature=0,
         )
     return response.text
