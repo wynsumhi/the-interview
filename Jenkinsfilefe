@@ -92,6 +92,7 @@ pipeline {
 					file(credentialsId: 'ENV_FILE', variable: 'ENV'),
 				]) {
 					sh 'cp $ENV infra/app/.env'
+					sh 'cat infra/app/.env'
 				}
 			}
 		}
