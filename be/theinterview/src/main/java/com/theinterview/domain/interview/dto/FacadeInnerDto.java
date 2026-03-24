@@ -23,4 +23,6 @@ public abstract class FacadeInnerDto {
             this.QnACouple = "저장된 텍스트가 없습니다. 아무 질문을 반환하세요.";
         }
     }
+
+    
 }
