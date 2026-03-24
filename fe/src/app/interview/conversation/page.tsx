@@ -19,6 +19,12 @@ const DEFAULT_HEIGHTS = Array<number>(BAR_COUNT).fill(4);
 const SILENCE_THRESHOLD = 10; // 침묵으로 판단하는 평균 볼륨 기준
 const SILENCE_DELAY_MS = 3000; // 침묵 감지 후 전송까지 대기 시간
 
+// 백엔드(Spring + FFmpeg)가 기대하는 포맷: audio/webm (Opus 코덱 우선)
+// isTypeSupported로 브라우저 지원 여부를 확인한 뒤 가능한 한 고품질 코덱을 선택
+const RECORDER_MIME = typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+  ? "audio/webm;codecs=opus"
+  : "audio/webm"; // 프로덕션 Chrome/Edge는 항상 webm+opus 지원
+
 // 현재 질문 정보
 interface CurrentQuestion {
   interviewId: number;
@@ -226,7 +232,7 @@ function ConversationContent() {
     // ── chunkRecorder: 2초 간격으로 STT 청크 전송 ──────────────────────
     // timeslice=2000 으로 ondataavailable이 2초마다 자동 트리거됨
     // questionRef.current를 호출 시점에 읽어 최신 questionId를 사용
-    const chunkRecorder = new MediaRecorder(streamRef.current);
+    const chunkRecorder = new MediaRecorder(streamRef.current, { mimeType: RECORDER_MIME });
     chunkRecorder.ondataavailable = async (e) => {
       // [DIAG] 청크 Blob 크기 검증
       console.log(`[DIAG] chunkRecorder.ondataavailable — blob.size=${e.data.size}bytes`);
@@ -252,14 +258,14 @@ function ConversationContent() {
 
     // ── fullRecorder: 전체 답변 오디오 누적 ────────────────────────────
     // onstop 시점에 totalChunk(String)와 함께 /next 또는 /exitV2로 전송
-    const fullRecorder = new MediaRecorder(streamRef.current);
+    const fullRecorder = new MediaRecorder(streamRef.current, { mimeType: RECORDER_MIME });
     fullRecorder.ondataavailable = (e) => {
       // [DIAG] fullRecorder 누적 Blob 검증
       console.log(`[DIAG] fullRecorder.ondataavailable — blob.size=${e.data.size}bytes`);
       if (e.data.size > 0) fullChunksRef.current.push(e.data);
     };
     fullRecorder.onstop = async () => {
-      const blob = new Blob(fullChunksRef.current, { type: "audio/webm" });
+      const blob = new Blob(fullChunksRef.current, { type: RECORDER_MIME });
       // [DIAG] 최종 Blob 크기 검증
       console.log(`[DIAG] fullRecorder.onstop — 누적 chunks=${fullChunksRef.current.length} finalBlob.size=${blob.size}bytes totalChunk="${String(chunkIndexRef.current)}"(type=${typeof String(chunkIndexRef.current)})`);
       if (blob.size === 0) { console.error("[DIAG] ✗ finalBlob 크기 0 — 오디오 데이터 없음"); }
