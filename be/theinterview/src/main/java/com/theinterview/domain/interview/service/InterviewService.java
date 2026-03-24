@@ -704,10 +704,10 @@ public class InterviewService {
 
     // 인터뷰 탐색하기
     public InterviewExploreResponse getInterviewExplore(Integer page) {
-        // 인터뷰의 상태가 FINISHED인 정보만 5개씩 가져옴
-        Pageable pageable = PageRequest.of(page, 12);
-        Slice<Interview> interviews = interviewRepository.findAllByStatus(
-                InterviewStatus.FINISHED, pageable);
+        // 인터뷰의 상태가 FINISHED인 정보만 5개씩 가져오며 업데이트 날짜를 기준으로 가져옴
+        Pageable pageable = PageRequest.of(page, 12, Sort.by("updatedAt").descending());
+        Slice<Interview> interviews = interviewRepository.findAllByStatusAndShareRange(
+                InterviewStatus.FINISHED, true, pageable);
 
         List<InterviewExploreDetail> detailList = interviews.getContent().stream()
                 .map(interview -> {
@@ -725,11 +725,13 @@ public class InterviewService {
 
                     return InterviewExploreDetail.builder()
                             .interviewAnswerCount(answerCount)
+                            .interviewId(interview.getId())
                             .interviewDate(interview.getCreatedAt().toLocalDate())
                             .interviewTitle(interview.getTitle())
                             .answerText(representAnswer)
                             // TODO : 이미지화 시키기 위한, 감정 지표에 대한 [] 내용 추후 수정필요
                             .fusedScores("임의 데이터")
+                            .shareUuid(interview.getShareLink())
                             .build();
                 })
                 .toList();
