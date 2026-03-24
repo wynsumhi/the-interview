@@ -13,8 +13,9 @@ public interface InterviewRepository extends JpaRepository<Interview, Integer> {
     Slice<Interview> findAllByMemberIdAndStatus(Integer memberId, InterviewStatus status,
             Pageable pageable);
 
-    // 완료상태인 인터뷰만 가져옵니다.
-    Slice<Interview> findAllByStatus(InterviewStatus status, Pageable pageable);
+    // 완료상태이며 공개범위가 true인 인터뷰만 가져옵니다.
+    Slice<Interview> findAllByStatusAndShareRange(InterviewStatus status, Boolean shareRange,
+            Pageable pageable);
 
     // 특정 사용자 memberId를 이용해서 모든 인터뷰를 가져옵니다.
     List<Interview> findAllByMemberId(Integer memberId);

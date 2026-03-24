@@ -18,6 +18,25 @@ export interface InterviewDetailItem {
 }
 
 // ─────────────────────────────────────────────
+// Explore 목록 API (GET /api/v1/interview/explore?page=N)
+// ─────────────────────────────────────────────
+
+/** Explore 목록의 단일 인터뷰 항목 */
+export interface ExploreInterviewItem {
+  interviewId: number;
+  interviewTitle: string;
+  interviewDate: string;   // "2026-03-15" 형식
+  fusedEmotion: EmotionType; // 대표 감정 (커버 색상 및 아이콘에 사용)
+}
+
+/** GET /api/v1/interview/explore 응답의 result 필드 */
+export interface ExplorePage {
+  currentPage: number;
+  interviews: ExploreInterviewItem[];
+  totalPages: number;
+}
+
+// ─────────────────────────────────────────────
 // 인터뷰 히스토리 목록 API (GET /api/v1/interview?page=N)
 // ─────────────────────────────────────────────
 
