@@ -37,37 +37,44 @@ export default function ExplorePage() {
       </header>
 
       {isLoading && <p className={styles.subtitle}>불러오는 중...</p>}
-      {isError && <p className={styles.subtitle}>목록을 불러오지 못했습니다.</p>}
+      {isError && (
+        <p className={styles.subtitle}>목록을 불러오지 못했습니다.</p>
+      )}
 
       <div className={styles.magazineGrid}>
-        {interviews.map((item) => (
-          <article key={item.interviewId} className={styles.magazineCard}>
-            <Link href={`/magazine/${item.interviewId}`}>
-              <div
-                className={`${styles.cover} ${styles[item.fusedEmotion]}`}
-              >
-                <span className={styles.vol}>VOL.{item.interviewId}</span>
-              </div>
+        {interviews.map((item) => {
+          console.log("[ExplorePage] item →", item);
+          return (
+            <article key={item.interviewId} className={styles.magazineCard}>
+              <Link href={`/magazine/${item.interviewId}`}>
+                <div className={`${styles.cover} ${styles[item.fusedEmotion]}`}>
+                  <span className={styles.vol}>VOL.{item.interviewId}</span>
+                </div>
 
-              <div className={styles.content}>
-                <div className={styles.meta}>
-                  <span className={styles.date}>
-                    {new Date(item.interviewDate).toLocaleDateString()}
-                  </span>
+                <div className={styles.content}>
+                  <div className={styles.meta}>
+                    <span className={styles.date}>
+                      {new Date(item.interviewDate).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <h3 className={styles.magazineTitle}>
+                    {item.interviewTitle}
+                  </h3>
+                  <div className={styles.footer}>
+                    <span className={styles.readMore}>View Magazine →</span>
+                  </div>
                 </div>
-                <h3 className={styles.magazineTitle}>{item.interviewTitle}</h3>
-                <div className={styles.footer}>
-                  <span className={styles.readMore}>View Magazine →</span>
-                </div>
-              </div>
-            </Link>
-          </article>
-        ))}
+              </Link>
+            </article>
+          );
+        })}
       </div>
 
       {/* 무한스크롤 sentinel */}
       <div ref={sentinelRef} />
-      {isFetchingNextPage && <p className={styles.subtitle}>더 불러오는 중...</p>}
+      {isFetchingNextPage && (
+        <p className={styles.subtitle}>더 불러오는 중...</p>
+      )}
     </main>
   );
 }
