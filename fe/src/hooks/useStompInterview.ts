@@ -49,7 +49,7 @@ export function useStompInterview() {
         onConnect: () => {
           // 재연결 시에도 구독을 다시 등록해야 메시지를 수신할 수 있음
           client.subscribe(
-            `/topic/interview/room/${interviewId}`,
+            `/topic/interview/tmp/${interviewId}`,
             (message) => {
               const dto: FollowUpQuestionDTO = JSON.parse(message.body);
               onMessage(dto);
