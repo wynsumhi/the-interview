@@ -12,7 +12,6 @@ from fastapi import UploadFile
 
 def build_interview_state_db_response() -> dict[str, object]:
     return {
-        "answer_id": 123,
         "top_state": "calm",
         "fused_scores": {
             "calm": 0.75,
@@ -68,7 +67,6 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
 
         result = run_interview_pipeline_from_upload(
             upload,
-            answer_id=123,
             user_id="user-123",
             previous_question="current question",
             max_tokens=256,
@@ -88,7 +86,7 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
     args, kwargs = pipeline_mock.call_args
     assert args
     assert kwargs == {
-        "answer_id": 123,
+        "answer_id": 0,
         "is_first_finished": False,
         "user_id": "user-123",
         "sequence": None,
@@ -102,7 +100,7 @@ def test_run_interview_pipeline_from_upload_rejects_invalid_extension() -> None:
     upload = UploadFile(filename="answer.wav", file=BytesIO(b"audio-bytes"))
 
     with pytest.raises(ValueError, match="Only \\.webm audio uploads are supported\\."):
-        run_interview_pipeline_from_upload(upload, answer_id=123)
+        run_interview_pipeline_from_upload(upload)
 
 
 def test_save_interview_state_temp_wraps_request() -> None:

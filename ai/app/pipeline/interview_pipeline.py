@@ -40,6 +40,12 @@ class InterviewPipelineResult:
     llm_text: str
     tts_audio: bytes
 
+    @staticmethod
+    def _serialize_interview_state_db(payload: InterviewStateDbPayload) -> dict[str, object]:
+        serialized = asdict(payload)
+        serialized.pop("answer_id", None)
+        return serialized
+
     def to_response_dict(self) -> dict[str, object]:
         """서비스 계층에서 바로 API 응답으로 바꿀 수 있게 dict로 직렬화한다."""
 
@@ -47,7 +53,7 @@ class InterviewPipelineResult:
             "stt_text": self.stt_text,
             "masked_stt_text": self.masked_stt_text,
             "pii_masking_duration_seconds": self.pii_masking_duration_seconds,
-            "interview_state_db": asdict(self.interview_state_db),
+            "interview_state_db": self._serialize_interview_state_db(self.interview_state_db),
             "interview_state_prompt": asdict(self.interview_state_prompt),
             "question_text": self.llm_text,
             "tts_audio": self.tts_audio,

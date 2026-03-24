@@ -144,7 +144,6 @@ def generate_keyword_endpoint(
     summary="Run interview pipeline",
 )
 def run_interview_pipeline_endpoint(
-    answer_id: int = Form(...),
     audio_file: UploadFile = File(...),
     is_first_finished: bool = Form(default=False),
     user_id: str | None = Form(default=None),
@@ -186,7 +185,6 @@ def run_interview_pipeline_endpoint(
     try:
         result = run_interview_pipeline_from_upload(
             audio_file=audio_file,
-            answer_id=answer_id,
             is_first_finished=is_first_finished,
             user_id=user_id,
             sequence=sequence,

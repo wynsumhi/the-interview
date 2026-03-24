@@ -191,7 +191,7 @@ def save_interview_state_temp(request: dict[str, Any]) -> dict[str, Any]:
 
 def run_interview_pipeline_from_upload(
     audio_file: UploadFile,
-    answer_id: int,
+    answer_id: int = TEMP_INTERVIEW_STATE_ANSWER_ID,
     is_first_finished: bool = False,
     user_id: str | None = None,
     sequence: int | None = None,
