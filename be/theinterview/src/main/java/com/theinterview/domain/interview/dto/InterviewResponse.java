@@ -1,6 +1,7 @@
 package com.theinterview.domain.interview.dto;
 
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import java.time.LocalDate;
@@ -17,6 +18,7 @@ public abstract class InterviewResponse {
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class FollowUpQuestionDTO {  // 다음 버튼을 누르면 응답으로 나갈 데이터를 담을 DTO
 
         private Integer interviewId; // 진행중인 인터뷰 id
@@ -24,6 +26,8 @@ public abstract class InterviewResponse {
         private String sttResult; // 사용자의 답변 문자열
         private String followUpQuestion; // 다음 질문 텍스트
         private String ttsAudioBase64; // 질문 tts
+
+        private Boolean isExit; // 종료 신호 필드
 
         public FollowUpQuestionDTO(AiPipelineResponse aiPipelineResponse, Integer interviewId,
                 Integer questionId) {
