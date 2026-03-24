@@ -677,36 +677,27 @@ public class InterviewService {
 
     // 사용자 공유 페이지 ( 포스트 잇 )
     public InterviewPostItBoardResponse getSharedPostItBoard(String userUuid, Integer page) {
+        // userUuid로 보드 주인 조회
+        Member owner = memberRepository.findByUserUuid(userUuid)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
         // 12개씩 가져오며 업데이트 날짜를 기준으로 가져옴
         Pageable pageable = PageRequest.of(page, 12, Sort.by("createdAt").descending());
         Slice<InterviewAnswer> answerSlice = interviewAnswerRepository.findAllByMemberUUIDAndShared(
                 userUuid, pageable);
 
+        // 북마크된 답변을 포스트잇 DTO 목록으로 변환
         List<InterviewPostItDetail> postItList = answerSlice.getContent().stream()
-                .map(answer -> {
-                    // 계층 구조를 따라 Interview 객체 추출
-                    Interview interview = answer.getInterviewQuestion().getInterview();
-
-                    // 공유 링크 조립
-                    String fullUrl = (interview.getShareLink() != null)
-                            ? "https://j14a307.p.ssafy.io/interview/share/"
-                            + interview.getShareLink()
-                            : null;
-
-                    return InterviewPostItDetail.builder()
-                            // TODO: 키워드를 아직 생성하지 않아서 임의로 데이터 전달
-                            //.answerKeyword(answer.getAnswerKeyword())
-                            .answerKeyword("Hello!")
-                            .interviewQuestion(answer.getInterviewQuestion().getQuestionText())
-                            .interviewAnswer(answer.getAnswerText())
-                            .interviewUrl(fullUrl)
-                            .build();
-                })
+                .map(InterviewPostItDetail::from)
                 .toList();
 
         return InterviewPostItBoardResponse.builder()
+                // 보드 주인 식별 정보
+                .ownerUserUuid(owner.getUserUuid())
+                .ownerMemberId(owner.getId())
+                .ownerNickname(owner.getNickname())
+                // 페이지 정보와 포스트잇 목록
                 .currentPage(page)
-                .postIt(postItList)
+                .postIts(postItList)
                 .hasNext(answerSlice.hasNext())
                 .build();
     }
