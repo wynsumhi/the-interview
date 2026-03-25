@@ -3,7 +3,6 @@ from openai import OpenAI
 from app.core.settings import (
     DEFAULT_STT_LANGUAGE,
     DEFAULT_STT_MODEL,
-    DEFAULT_STT_PROMPT,
     GMS_KEY,
     GMS_OPENAI_BASE_URL,
 )
@@ -19,7 +18,6 @@ def transcribe_audio_file(
     audio_file_path: str,
     model: str = DEFAULT_STT_MODEL,
     language: str = DEFAULT_STT_LANGUAGE,
-    prompt: str = DEFAULT_STT_PROMPT,
 ) -> str:
     # 파일 입출력과 외부 SDK 호출은 이 계층에서 끝내고 텍스트만 반환한다.
     with open(audio_file_path, "rb") as audio_file:
@@ -27,7 +25,6 @@ def transcribe_audio_file(
             file=audio_file,
             model=model,
             language=language,
-            prompt=prompt,
             temperature=0,
         )
     return response.text

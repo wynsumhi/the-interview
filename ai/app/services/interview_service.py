@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import shutil
 import tempfile
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,14 @@ DEFAULT_AUDIO_MIME_TYPE = "audio/wav"
 NEW_USER_START_QUESTION_TEMPLATE = (
     "안녕하세요 {nickname}님, 오늘 시간 내주셔서 감사합니다. 요즘 어떻게 지내시고 계세요?"
 )
+
+
+def _to_plain_dict(value: Any) -> dict[str, Any]:
+    if is_dataclass(value):
+        return asdict(value)
+    if isinstance(value, dict):
+        return value
+    raise TypeError("Expected a dataclass instance or dict.")
 
 
 def validate_audio_upload(audio_file: UploadFile) -> None:
@@ -121,6 +130,7 @@ def generate_next_opening_question(
         messages=[{"role": "user", "content": user_message}],
         system=NEXT_OPENING_SYSTEM_PROMPT,
         max_tokens=max_tokens,
+        label="next_opening_question",
     )
     return {"db_question": db_question}
 
@@ -154,6 +164,7 @@ def refine_answer_for_magazine(
         messages=[{"role": "user", "content": normalized_stt_text}],
         system=MAGAZINE_GENERATION_SYSTEM_PROMPT,
         max_tokens=max_tokens,
+        label="answer_refinement",
     )
     return {"refined_answer": refined}
 
@@ -183,7 +194,7 @@ def analyze_interview_state_from_payload(
             normalized_stt_text,
         )
         return {
-            "interview_state_db": build_interview_state_db_payload(interview_state),
+            "interview_state_db": _to_plain_dict(build_interview_state_db_payload(interview_state)),
         }
     finally:
         audio_file.file.close()
@@ -210,6 +221,7 @@ def generate_closing_message(
         messages=[{"role": "user", "content": interview_context}],
         system=system,
         max_tokens=max_tokens,
+        label="closing_message",
     )
     tts_audio = text_to_speech(closing, voice=voice)
 

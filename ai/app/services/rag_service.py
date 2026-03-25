@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -12,6 +14,8 @@ from app.models.rag import (
 
 DEFAULT_HISTORY_RAG_TOP_K = 3
 DEFAULT_HISTORY_RAG_SCORE_THRESHOLD = 0.35
+
+logger = logging.getLogger("uvicorn.error")
 
 
 @dataclass(frozen=True)
@@ -155,6 +159,7 @@ def retrieve_similar_interview_history(
     if not normalized_user_id or not normalized_question or not normalized_answer or top_k <= 0:
         return []
 
+    started = time.perf_counter()
     embedding_client = embedding_client or OpenAIEmbeddingClient()
     store = store or QdrantInterviewStore()
     try:
@@ -166,7 +171,17 @@ def retrieve_similar_interview_history(
             limit=top_k,
             score_threshold=score_threshold,
         )
-        return [_to_retrieved_turn(result) for result in search_results]
+        retrieved_turns = [_to_retrieved_turn(result) for result in search_results]
+        elapsed = time.perf_counter() - started
+        logger.info(
+            "[RAG:retrieve] completed in %.3fs user_id=%s top_k=%s score_threshold=%.3f hits=%s",
+            elapsed,
+            normalized_user_id,
+            top_k,
+            score_threshold,
+            len(retrieved_turns),
+        )
+        return retrieved_turns
     finally:
         _close_resource(embedding_client)
         _close_resource(store)
@@ -210,6 +225,7 @@ def upsert_interview_history_rag(
     normalized_turns = _normalize_turns(request.get("turns") or [])
     metadata = dict(request.get("metadata", {}))
 
+    started = time.perf_counter()
     embedding_client = embedding_client or OpenAIEmbeddingClient()
     store = store or QdrantInterviewStore()
     try:
@@ -221,6 +237,14 @@ def upsert_interview_history_rag(
         )
         vectors = embedding_client.embed_texts(documents)
         store.upsert(ids=point_ids, vectors=vectors, payloads=payloads)
+        elapsed = time.perf_counter() - started
+        logger.info(
+            "[RAG:upsert] completed in %.3fs user_id=%s interview_id=%s turns=%s",
+            elapsed,
+            user_id,
+            interview_id,
+            len(normalized_turns),
+        )
         return {
             "status": "completed",
             "message": "Interview history RAG upsert completed.",
@@ -241,9 +265,18 @@ def delete_interview_history_rag(
     user_id = _require_field(request, "user_id")
     interview_id = _require_field(request, "interview_id")
 
+    started = time.perf_counter()
     store = store or QdrantInterviewStore()
     try:
         deleted_count = store.delete_by_interview(user_id=user_id, interview_id=interview_id)
+        elapsed = time.perf_counter() - started
+        logger.info(
+            "[RAG:delete] completed in %.3fs user_id=%s interview_id=%s deleted_count=%s",
+            elapsed,
+            user_id,
+            interview_id,
+            deleted_count,
+        )
         return {
             "status": "completed",
             "message": "Interview history RAG delete completed.",
@@ -266,6 +299,7 @@ def reindex_interview_history_rag(
     if not interviews:
         raise ValueError("interviews must contain at least one interview.")
 
+    started = time.perf_counter()
     store = store or QdrantInterviewStore()
     embedding_client = embedding_client or OpenAIEmbeddingClient()
     try:
@@ -288,6 +322,14 @@ def reindex_interview_history_rag(
             store.upsert(ids=point_ids, vectors=vectors, payloads=payloads)
             total_turns += len(normalized_turns)
 
+        elapsed = time.perf_counter() - started
+        logger.info(
+            "[RAG:reindex] completed in %.3fs user_id=%s interviews=%s turns=%s",
+            elapsed,
+            user_id,
+            len(interviews),
+            total_turns,
+        )
         return {
             "status": "completed",
             "message": "Interview history RAG reindex completed.",
