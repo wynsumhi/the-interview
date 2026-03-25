@@ -13,7 +13,8 @@ type InterviewStatus =
   | "CONNECTING" // 초기화 중
   | "AI_SPEAKING" // AI 질문 재생 + 타이핑
   | "USER_RECORDING" // 사용자 답변 녹음 중
-  | "WAITING_AI"; // AI 응답 대기 중
+  | "WAITING_AI" // AI 응답 대기 중
+  | "AUTO_EXITING"; // 마지막 질문 답변 후 자동 종료 처리 중
 
 const BAR_COUNT = 12;
 const DEFAULT_HEIGHTS = Array<number>(BAR_COUNT).fill(4);
@@ -59,6 +60,10 @@ function ConversationContent() {
   const [waveHeights, setWaveHeights] = useState<number[]>(DEFAULT_HEIGHTS);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExiting, setIsExiting] = useState(false);
+  // 서버가 isFirstFinished: true를 보내면 현재 질문이 온보딩 인터뷰의 마지막 질문
+  const [isLastQuestion, setIsLastQuestion] = useState(false);
+  // ref: fullRecorder.onstop 클로저에서 항상 최신 값을 읽기 위해 state와 동기화
+  const isLastQuestionRef = useRef(false);
 
   const questionRef = useRef<CurrentQuestion | null>(null);
   const statusRef = useRef<InterviewStatus>("CONNECTING");
@@ -151,6 +156,9 @@ function ConversationContent() {
         data.interviewId,
         token,
         (dto: FollowUpQuestionDTO) => {
+          const isLast = dto.isFirstFinished ?? false;
+          isLastQuestionRef.current = isLast;
+          setIsLastQuestion(isLast);
           questionRef.current = {
             interviewId: dto.interviewId,
             questionId: dto.questionId,
@@ -222,6 +230,17 @@ function ConversationContent() {
     startRecording();
     startVad();
     return () => stopVad();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  // 마지막 질문 답변 완료 후 자동 종료 처리
+  // exitInterviewV2는 fullRecorder.onstop에서 이미 호출됨 — 여기서는 cleanup + 페이지 이동만 담당
+  useEffect(() => {
+    if (status !== "AUTO_EXITING") return;
+    queryClient.invalidateQueries({ queryKey: ["interviewHistory"] }).then(() => {
+      cleanup();
+      router.push("/archive");
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
@@ -303,9 +322,14 @@ function ConversationContent() {
         totalChunk: String(chunkIndexRef.current),
       };
 
-      if (finalDestRef.current === "exit") {
+      if (finalDestRef.current === "exit" || isLastQuestionRef.current) {
         console.log(`[DIAG] exitInterviewV2 → interviewId=${question.interviewId} questionId=${question.questionId} totalChunk="${payload.totalChunk}"`);
         await exitInterviewV2(payload);
+        // 사용자가 직접 종료 버튼을 누른 경우에는 handleExit가 후속 처리를 담당
+        // 마지막 질문 자동 종료의 경우 AUTO_EXITING으로 상태 전환해 cleanup + 페이지 이동 트리거
+        if (isLastQuestionRef.current && finalDestRef.current !== "exit") {
+          setStatus("AUTO_EXITING");
+        }
       } else {
         console.log(`[DIAG] sendNext → interviewId=${question.interviewId} questionId=${question.questionId} totalChunk="${payload.totalChunk}"`);
         sendNext(payload);
@@ -494,9 +518,9 @@ function ConversationContent() {
           <button
             className={styles.exitBtn}
             onClick={handleExit}
-            disabled={isExiting || status === "WAITING_AI"}
+            disabled={isExiting || status === "WAITING_AI" || status === "AUTO_EXITING"}
           >
-            {isExiting ? "종료 중..." : "인터뷰 종료"}
+            {isExiting || status === "AUTO_EXITING" ? "종료 중..." : "인터뷰 종료"}
           </button>
           <div className={styles.questionBox}>
             <h2 className={styles.questionText}>
@@ -508,7 +532,7 @@ function ConversationContent() {
           </div>
 
           <div className={styles.visualizerArea}>
-            {isFocusMode && (
+            {isFocusMode && !isLastQuestion && (
               <button className={styles.recordingBtn} onClick={handleSubmit}>
                 <div className={styles.blobWrapper}>
                   {/* 사진 느낌의 멀티 컬러 Blob 배경 */}
