@@ -8,6 +8,7 @@ from app.api.v1.schemas import (
     InterviewPipelineResponse,
     InterviewStartTTSRequest,
     InterviewStartTTSResponse,
+    InterviewStateAnalysisResponse,
     InterviewStateSaveRequest,
     InterviewStateSaveResponse,
     KeywordRequest,
@@ -19,6 +20,7 @@ from app.api.v1.schemas import (
 )
 from app.core.auth import require_scopes
 from app.services.interview_service import (
+    analyze_interview_state_from_payload,
     generate_closing_message,
     generate_interview_start_tts,
     generate_keyword,
@@ -263,6 +265,31 @@ def refine_answer_for_magazine_endpoint(
         ) from exc
 
     return InterviewAnswerRefinementResponse.model_validate(result)
+
+
+@router.post(
+    "/state-analysis",
+    response_model=InterviewStateAnalysisResponse,
+    summary="Analyze interview state only",
+)
+def analyze_interview_state_endpoint(
+    stt_text: str = Form(...),
+    audio_file: UploadFile = File(...),
+) -> InterviewStateAnalysisResponse:
+    """외부 STT 결과를 받아 인터뷰 상태 분석만 별도로 수행한다."""
+
+    try:
+        result = analyze_interview_state_from_payload(
+            audio_file=audio_file,
+            stt_text=stt_text,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return InterviewStateAnalysisResponse.model_validate(result)
 
 
 @router.post(

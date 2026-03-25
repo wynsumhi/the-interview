@@ -65,6 +65,12 @@ class InterviewStatePromptResponse(BaseModel):
     formatted_prompt: str
 
 
+class InterviewStateAnalysisResponse(BaseModel):
+    """인터뷰 상태 분석 전용 API 응답 스키마다."""
+
+    interview_state_db: InterviewStateDbPayloadResponse
+
+
 class NextOpeningRequest(BaseModel):
     """다음 회차 인터뷰 첫 질문 생성 요청 본문이다.
 

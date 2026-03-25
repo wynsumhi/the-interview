@@ -2,11 +2,17 @@ import base64
 from io import BytesIO
 from unittest.mock import patch
 
+from app.core import settings
 from app.main import app
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
-NEW_USER_QUESTION = "Welcome question"
+AUTH_TOKEN = settings.AUTH_TOKENS.split("|", 1)[0]
+NEW_USER_QUESTION = "Hello tester, thanks for joining today."
+
+
+def auth_headers() -> dict[str, str]:
+    return {"Authorization": f"Bearer {AUTH_TOKEN}"}
 
 
 def build_interview_state_db_response() -> dict[str, object]:
@@ -37,7 +43,27 @@ def build_interview_state_prompt_response() -> dict[str, object]:
             "low": 0.0,
             "engaged": 0.0,
         },
-        "formatted_prompt": "[state prompt]",
+    }
+
+
+def build_pipeline_prompt_response() -> dict[str, object]:
+    return {
+        **build_interview_state_prompt_response(),
+        "formatted_prompt": "[internal-only prompt]",
+    }
+
+
+def build_pipeline_response(stt_text: str) -> dict[str, object]:
+    return {
+        "stt_text": stt_text,
+        "masked_stt_text": "candidate [PHONE_1]",
+        "pii_masking_duration_seconds": 0.0012,
+        "interview_state_db": build_interview_state_db_response(),
+        "interview_state_prompt": build_pipeline_prompt_response(),
+        "question_text": "next question",
+        "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
+        "tts_audio_mime_type": "audio/wav",
+        "refined_answer": "refined answer",
     }
 
 
@@ -55,7 +81,11 @@ def test_interview_start_tts_returns_new_user_question_and_audio() -> None:
     ):
         response = client.post(
             "/api/v1/ai/interview/start-tts",
-            json={"nickname": "tester", "is_first_finished": False, "voice": "Jessica"},
+            json={
+                "nickname": "tester",
+                "is_first_finished": False,
+            },
+            headers=auth_headers(),
         )
 
     assert response.status_code == 200
@@ -82,7 +112,11 @@ def test_interview_start_tts_returns_bad_request_when_service_validation_fails()
     ):
         response = client.post(
             "/api/v1/ai/interview/start-tts",
-            json={"nickname": "tester", "is_first_finished": True},
+            json={
+                "nickname": "tester",
+                "is_first_finished": True,
+            },
+            headers=auth_headers(),
         )
 
     assert response.status_code == 400
@@ -90,63 +124,28 @@ def test_interview_start_tts_returns_bad_request_when_service_validation_fails()
 
 
 def test_interview_pipeline_returns_follow_up_tts_and_state_payloads() -> None:
-    with (
-        patch("app.core.auth.settings.AUTH_ENABLED", False),
-        patch(
-            "app.api.v1.endpoints.interview.run_interview_pipeline_from_upload",
-            return_value={
-                "stt_text": "candidate answer",
-                "masked_stt_text": "candidate [PHONE_1]",
-                "pii_masking_duration_seconds": 0.0012,
-                "interview_state_db": build_interview_state_db_response(),
-                "interview_state_prompt": build_interview_state_prompt_response(),
-                "question_text": "next question",
-                "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
-                "tts_audio_mime_type": "audio/wav",
-                "refined_answer": "refined answer",
-            },
-        ) as pipeline_mock,
-    ):
+    with patch(
+        "app.api.v1.endpoints.interview.run_interview_pipeline_from_upload",
+        return_value=build_pipeline_response("candidate answer"),
+    ) as pipeline_mock:
         response = client.post(
             "/api/v1/ai/interview/pipeline",
             files={"audio_file": ("answer.webm", BytesIO(b"webm-audio"), "audio/webm")},
-            data={"is_first_finished": "false", "voice": "Robert", "max_tokens": "256"},
+            data={"is_first_finished": "false", "max_tokens": "256"},
+            headers=auth_headers(),
         )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "stt_text": "candidate answer",
-        "masked_stt_text": "candidate [PHONE_1]",
-        "pii_masking_duration_seconds": 0.0012,
-        "interview_state_db": build_interview_state_db_response(),
-        "interview_state_prompt": build_interview_state_prompt_response(),
-        "question_text": "next question",
-        "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
-        "tts_audio_mime_type": "audio/wav",
-        "refined_answer": "refined answer",
-    }
+    assert response.json() == build_pipeline_response("candidate answer")
     pipeline_mock.assert_called_once()
     assert pipeline_mock.call_args.kwargs["voice"] == "Robert"
 
 
 def test_interview_pipeline_after_stt_returns_follow_up_tts_and_state_payloads() -> None:
-    with (
-        patch("app.core.auth.settings.AUTH_ENABLED", False),
-        patch(
-            "app.api.v1.endpoints.interview.run_interview_pipeline_from_stt_payload",
-            return_value={
-                "stt_text": "candidate answer from external stt",
-                "masked_stt_text": "candidate [EMAIL_1]",
-                "pii_masking_duration_seconds": 0.0012,
-                "interview_state_db": build_interview_state_db_response(),
-                "interview_state_prompt": build_interview_state_prompt_response(),
-                "question_text": "next question",
-                "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
-                "tts_audio_mime_type": "audio/wav",
-                "refined_answer": "refined answer",
-            },
-        ) as pipeline_mock,
-    ):
+    with patch(
+        "app.api.v1.endpoints.interview.run_interview_pipeline_from_stt_payload",
+        return_value=build_pipeline_response("candidate answer from external stt"),
+    ) as pipeline_mock:
         response = client.post(
             "/api/v1/ai/interview/pipeline/after-stt",
             files={"audio_file": ("answer.webm", BytesIO(b"webm-audio"), "audio/webm")},
@@ -157,42 +156,118 @@ def test_interview_pipeline_after_stt_returns_follow_up_tts_and_state_payloads()
                 "nickname": "tester",
                 "max_tokens": "256",
             },
+            headers=auth_headers(),
         )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "stt_text": "candidate answer from external stt",
-        "masked_stt_text": "candidate [EMAIL_1]",
-        "pii_masking_duration_seconds": 0.0012,
-        "interview_state_db": build_interview_state_db_response(),
-        "interview_state_prompt": build_interview_state_prompt_response(),
-        "question_text": "next question",
-        "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
-        "tts_audio_mime_type": "audio/wav",
-        "refined_answer": "refined answer",
-    }
+    assert response.json() == build_pipeline_response("candidate answer from external stt")
     pipeline_mock.assert_called_once()
     assert pipeline_mock.call_args.kwargs["voice"] == "F3"
 
 
 def test_interview_pipeline_after_stt_returns_bad_request_when_text_is_missing() -> None:
-    with patch("app.core.auth.settings.AUTH_ENABLED", False):
-        response = client.post(
-            "/api/v1/ai/interview/pipeline/after-stt",
-            files={"audio_file": ("answer.webm", BytesIO(b"webm-audio"), "audio/webm")},
-            data={"stt_text": "   ", "nickname": "tester"},
-        )
+    response = client.post(
+        "/api/v1/ai/interview/pipeline/after-stt",
+        files={"audio_file": ("answer.webm", BytesIO(b"webm-audio"), "audio/webm")},
+        data={"stt_text": "   ", "nickname": "tester"},
+        headers=auth_headers(),
+    )
 
     assert response.status_code == 400
     assert response.json() == {"detail": "stt_text is required."}
 
 
 def test_interview_pipeline_rejects_non_webm_upload() -> None:
-    with patch("app.core.auth.settings.AUTH_ENABLED", False):
+    response = client.post(
+        "/api/v1/ai/interview/pipeline",
+        files={"audio_file": ("answer.wav", BytesIO(b"wav-audio"), "audio/wav")},
+        headers=auth_headers(),
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Only .webm audio uploads are supported.",
+    }
+
+
+def test_interview_state_temp_save_returns_wrapped_request() -> None:
+    response = client.post(
+        "/api/v1/ai/interview/state/temp-save",
+        json=build_interview_state_db_response(),
+        headers=auth_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "queued",
+        "message": "Temporary interview-state save request accepted.",
+        "request": build_interview_state_db_response(),
+    }
+
+
+def test_interview_refine_answer_returns_refined_text() -> None:
+    with patch(
+        "app.api.v1.endpoints.interview.refine_answer_for_magazine",
+        return_value={"refined_answer": "refined answer"},
+    ) as refine_mock:
         response = client.post(
-            "/api/v1/ai/interview/pipeline",
-            files={"audio_file": ("answer.wav", BytesIO(b"wav-audio"), "audio/wav")},
+            "/api/v1/ai/interview/refine-answer",
+            json={
+                "stt_text": "I was nervous at first, but I adapted quickly.",
+            },
+            headers=auth_headers(),
         )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "refined_answer": "refined answer",
+    }
+    refine_mock.assert_called_once_with(
+        stt_text="I was nervous at first, but I adapted quickly.",
+    )
+
+
+def test_interview_refine_answer_returns_bad_request_when_text_is_blank() -> None:
+    response = client.post(
+        "/api/v1/ai/interview/refine-answer",
+        json={"stt_text": "   "},
+        headers=auth_headers(),
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "stt_text is required.",
+    }
+
+
+def test_interview_state_analysis_returns_state_payloads() -> None:
+    with patch(
+        "app.api.v1.endpoints.interview.analyze_interview_state_from_payload",
+        return_value={
+            "interview_state_db": build_interview_state_db_response(),
+        },
+    ) as analysis_mock:
+        response = client.post(
+            "/api/v1/ai/interview/state-analysis",
+            files={"audio_file": ("answer.webm", BytesIO(b"webm-audio"), "audio/webm")},
+            data={"stt_text": "candidate answer"},
+            headers=auth_headers(),
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "interview_state_db": build_interview_state_db_response(),
+    }
+    analysis_mock.assert_called_once()
+
+
+def test_interview_state_analysis_returns_bad_request_when_text_is_blank() -> None:
+    response = client.post(
+        "/api/v1/ai/interview/state-analysis",
+        files={"audio_file": ("answer.webm", BytesIO(b"webm-audio"), "audio/webm")},
+        data={"stt_text": "   "},
+        headers=auth_headers(),
+    )
 
     assert response.status_code == 400
     assert response.json() == {"detail": "Only .webm audio uploads are supported."}
