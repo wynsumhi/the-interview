@@ -242,7 +242,6 @@ def test_interview_state_analysis_returns_state_payloads() -> None:
         "app.api.v1.endpoints.interview.analyze_interview_state_from_payload",
         return_value={
             "interview_state_db": build_interview_state_db_response(),
-            "interview_state_prompt": build_interview_state_prompt_response(),
         },
     ) as analysis_mock:
         response = client.post(
@@ -255,7 +254,6 @@ def test_interview_state_analysis_returns_state_payloads() -> None:
     assert response.status_code == 200
     assert response.json() == {
         "interview_state_db": build_interview_state_db_response(),
-        "interview_state_prompt": build_interview_state_prompt_response(),
     }
     analysis_mock.assert_called_once()
 

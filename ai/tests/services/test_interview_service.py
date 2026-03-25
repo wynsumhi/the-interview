@@ -119,15 +119,6 @@ def test_save_interview_state_temp_wraps_request() -> None:
 
 def test_analyze_interview_state_from_payload_returns_state_only() -> None:
     upload = UploadFile(filename="answer.webm", file=BytesIO(b"audio-bytes"))
-    prompt_payload = type(
-        "PromptPayload",
-        (),
-        {
-            "top_state": "calm",
-            "fused_scores": build_interview_state_prompt_response()["fused_scores"],
-            "formatted_prompt": "[internal-only prompt]",
-        },
-    )()
 
     with (
         patch(
@@ -138,10 +129,6 @@ def test_analyze_interview_state_from_payload_returns_state_only() -> None:
             "app.services.interview_service.build_interview_state_db_payload",
             return_value=build_interview_state_db_response(),
         ) as db_mock,
-        patch(
-            "app.services.interview_service.build_interview_state_prompt_payload",
-            return_value=prompt_payload,
-        ) as prompt_mock,
     ):
         result = analyze_interview_state_from_payload(
             audio_file=upload,
@@ -150,11 +137,9 @@ def test_analyze_interview_state_from_payload_returns_state_only() -> None:
 
     assert result == {
         "interview_state_db": build_interview_state_db_response(),
-        "interview_state_prompt": build_interview_state_prompt_response(),
     }
     analyze_mock.assert_called_once()
     db_mock.assert_called_once_with(analyze_mock.return_value)
-    prompt_mock.assert_called_once_with(analyze_mock.return_value)
 
 
 def test_analyze_interview_state_from_payload_rejects_blank_stt_text() -> None:
