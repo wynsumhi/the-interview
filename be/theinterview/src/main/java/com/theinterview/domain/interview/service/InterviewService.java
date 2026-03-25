@@ -32,6 +32,7 @@ import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryD
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItBoardResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewUnfinishedResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewResponseDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
@@ -919,5 +920,22 @@ public class InterviewService {
 
         answer.updateKeyword(keyword);
         log.info("키워드 저장 성공. 키워드: {}", keyword);
+    }
+
+    // 완료되지 않고 종료된 인터뷰가 있는지 확인
+    public InterviewUnfinishedResponse findUnfinishedInterviews(String email) {
+
+        Member member = domainFindUtils.getMemberByEmail(email);
+        // TODO : 인터뷰를 정상종료 하더라도 바로 FINISHED로 변경되지 않기 때문에 인터뷰 시작시 비정상 로직이 있다고 뜰 수 있음.
+
+        // 종료가 되지 않은 인터뷰가 있는지 찾음
+        Integer interviewId = interviewRepository.findTopByMemberIdAndStatusNotOrderByUpdatedAtDesc(
+                        member.getId(), InterviewStatus.FINISHED)
+                .map(Interview::getId)
+                .orElse(null);
+
+        return InterviewUnfinishedResponse.builder()
+                .unfinishedInterviewId(interviewId)
+                .build();
     }
 }

@@ -11,6 +11,7 @@ import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryD
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDetailDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItBoardResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewUnfinishedResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewResponseDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.facade.InterviewFacade;
@@ -73,7 +74,7 @@ public class InterviewController {
             @AuthenticationPrincipal User user
     ) {
         String email = user.getUsername();
-        // 서비스 레이어 호출
+        // 서비스 레이어 호출9
         return ApiResponse.onSuccess(interviewService.exitInterview(request, email));
     }
 
@@ -228,5 +229,15 @@ public class InterviewController {
                 .contentType(MediaType.parseMediaType("audio/mpeg")) // 브라우저에게 오디오임을 알림
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline") // 브라우저 내에서 즉시 재생
                 .body(resource);
+    }
+
+    // 완료되지 않고 종료된 인터뷰 확인 로직
+    @GetMapping("/restart")
+    public ApiResponse<InterviewUnfinishedResponse> findUnfinishedInterviews(
+            @AuthenticationPrincipal User user
+    ) {
+        String email = user.getUsername();
+        InterviewUnfinishedResponse response = interviewService.findUnfinishedInterviews(email);
+        return ApiResponse.onSuccess(response);
     }
 }
