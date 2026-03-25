@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useStompInterview } from "@/hooks/useStompInterview";
 import { createInterview, exitInterviewV2 } from "@/services/interview";
 import type { FollowUpQuestionDTO } from "@/services/interview";
@@ -50,6 +51,7 @@ export default function InterviewConversationPage() {
 function ConversationContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const mode = searchParams.get("mode") ?? "AUTO";
 
   const [status, setStatus] = useState<InterviewStatus>("CONNECTING");
@@ -431,6 +433,8 @@ function ConversationContent() {
 
     // exitInterviewV2는 fullRecorder.onstop에서 이미 호출됨
     cleanup();
+    // 인터뷰 목록 캐시를 무효화해 /archive에서 새 항목이 즉시 표시되도록 함
+    await queryClient.invalidateQueries({ queryKey: ["interviewHistory"] });
     router.push("/archive");
   };
 
