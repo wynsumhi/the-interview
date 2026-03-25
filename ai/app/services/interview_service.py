@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import shutil
 import tempfile
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,10 @@ from app.prompts.interview_prompts import (
     NEXT_OPENING_SYSTEM_PROMPT,
     TITLE_GENERATION_SYSTEM_PROMPT,
 )
+from app.services.interview_state_service import (
+    analyze_interview_state,
+    build_interview_state_db_payload,
+)
 from app.services.llm_service import create_message
 from app.services.tts_service import text_to_speech
 
@@ -36,6 +41,14 @@ DEFAULT_AUDIO_MIME_TYPE = "audio/wav"
 NEW_USER_START_QUESTION_TEMPLATE = (
     "안녕하세요 {nickname}님, 오늘 시간 내주셔서 감사합니다. 요즘 어떻게 지내시고 계세요?"
 )
+
+
+def _to_plain_dict(value: Any) -> dict[str, Any]:
+    if is_dataclass(value):
+        return asdict(value)
+    if isinstance(value, dict):
+        return value
+    raise TypeError("Expected a dataclass instance or dict.")
 
 
 def validate_audio_upload(audio_file: UploadFile) -> None:
@@ -77,6 +90,7 @@ def generate_interview_start_tts(
     is_first_finished: bool,
     nickname: str | None = None,
     db_question: str | None = None,
+    voice: str | None = None,
 ) -> dict[str, str]:
     """인터뷰 시작 질문과 그에 대한 TTS 오디오를 함께 생성한다.
 
@@ -89,7 +103,7 @@ def generate_interview_start_tts(
         nickname=nickname,
         db_question=db_question,
     )
-    tts_audio = text_to_speech(question_text)
+    tts_audio = text_to_speech(question_text, voice=voice)
 
     return {
         "question_text": question_text,
@@ -116,6 +130,7 @@ def generate_next_opening_question(
         messages=[{"role": "user", "content": user_message}],
         system=NEXT_OPENING_SYSTEM_PROMPT,
         max_tokens=max_tokens,
+        label="next_opening_question",
     )
     return {"db_question": db_question}
 
@@ -149,13 +164,48 @@ def refine_answer_for_magazine(
         messages=[{"role": "user", "content": normalized_stt_text}],
         system=MAGAZINE_GENERATION_SYSTEM_PROMPT,
         max_tokens=max_tokens,
+        label="answer_refinement",
     )
     return {"refined_answer": refined}
+
+
+def analyze_interview_state_from_payload(
+    audio_file: UploadFile,
+    stt_text: str,
+) -> dict[str, Any]:
+    """외부 STT 결과와 음성 파일을 받아 인터뷰 상태 분석만 수행한다."""
+
+    validate_audio_upload(audio_file)
+
+    normalized_stt_text = stt_text.strip()
+    if not normalized_stt_text:
+        raise ValueError("stt_text is required.")
+
+    suffix = Path(audio_file.filename or "audio.webm").suffix.lower() or ".webm"
+    temp_file_path: Path | None = None
+
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            shutil.copyfileobj(audio_file.file, temp_file)
+            temp_file_path = Path(temp_file.name)
+
+        interview_state = analyze_interview_state(
+            str(temp_file_path),
+            normalized_stt_text,
+        )
+        return {
+            "interview_state_db": _to_plain_dict(build_interview_state_db_payload(interview_state)),
+        }
+    finally:
+        audio_file.file.close()
+        if temp_file_path is not None and temp_file_path.exists():
+            temp_file_path.unlink()
 
 
 def generate_closing_message(
     interview_context: str,
     nickname: str,
+    voice: str | None = None,
     max_tokens: int = 128,
 ) -> dict[str, str]:
     """인터뷰 종료 시점에 자연스러운 마무리 메시지를 생성하고 TTS 오디오를 함께 반환한다."""
@@ -171,8 +221,9 @@ def generate_closing_message(
         messages=[{"role": "user", "content": interview_context}],
         system=system,
         max_tokens=max_tokens,
+        label="closing_message",
     )
-    tts_audio = text_to_speech(closing)
+    tts_audio = text_to_speech(closing, voice=voice)
 
     return {
         "closing_message": closing,
@@ -214,6 +265,7 @@ def save_interview_state_temp(request: dict[str, Any]) -> dict[str, Any]:
 def run_interview_pipeline_from_upload(
     audio_file: UploadFile,
     is_first_finished: bool = False,
+    voice: str | None = None,
     user_id: str | None = None,
     sequence: int | None = None,
     nickname: str | None = None,
@@ -245,6 +297,7 @@ def run_interview_pipeline_from_upload(
         pipeline_result = run_interview_pipeline(
             str(temp_file_path),
             is_first_finished=is_first_finished,
+            voice=voice,
             user_id=user_id,
             sequence=sequence,
             nickname=nickname,
@@ -276,6 +329,7 @@ def run_interview_pipeline_from_stt_payload(
     audio_file: UploadFile,
     stt_text: str,
     is_first_finished: bool = False,
+    voice: str | None = None,
     user_id: str | None = None,
     sequence: int | None = None,
     nickname: str | None = None,
@@ -302,6 +356,7 @@ def run_interview_pipeline_from_stt_payload(
             str(temp_file_path),
             stt_text=normalized_stt_text,
             is_first_finished=is_first_finished,
+            voice=voice,
             user_id=user_id,
             sequence=sequence,
             nickname=nickname,

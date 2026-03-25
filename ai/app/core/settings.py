@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-# 앱 전역 설정은 한 곳에서 로드해 각 레이어가 같은 값을 공유하도록 둔다.
+# Centralized app settings.
 load_dotenv()
 
 GMS_KEY = os.getenv("GMS_KEY")
@@ -11,24 +11,10 @@ GMS_OPENAI_BASE_URL = f"{GMS_BASE_URL}/api.openai.com/v1"
 GMS_ANTHROPIC_MESSAGES_URL = f"{GMS_BASE_URL}/api.anthropic.com/v1/messages"
 GMS_GEMINI_BASE_URL = f"{GMS_BASE_URL}/generativelanguage.googleapis.com/v1beta/models"
 
-# 모델 이름과 기본 파라미터를 상수로 분리해 하드코딩 중복을 줄인다.
 DEFAULT_STT_MODEL = "whisper-1"
 DEFAULT_STT_LANGUAGE = "ko"
-DEFAULT_STT_PROMPT = os.getenv(
-    "DEFAULT_STT_PROMPT",
-    (
-        "면접 답변 음성만 정확히 받아쓰기 하세요. "
-        "의미 있는 한국어 음성이 없으면 빈 문자열로 반환하세요. "
-        "무음, 배경 소음, 음악, 방송 클로징 멘트는 텍스트로 만들지 마세요."
-    ),
-)
-# 서버 측 no-speech 게이트의 기본 임계값이다.
-# - RMS_THRESHOLD: 프레임 평균 에너지의 절대 하한선
-# - PEAK_THRESHOLD: 파일 전체에서 가장 큰 에너지조차 이 값보다 작으면 거의 확실한 무음으로 본다
-# - MIN_VOICED_MS:
-#   "조금이라도 소리가 있었다"가 아니라 "말소리로 볼 만한 길이"가 있었는지 확인하는 기준
-# - FRAME/HOP_MS: no-speech 판정용 단기 프레임 크기와 이동 간격
-# 실제 운영에서는 녹음 환경에 따라 이 값들만 조정하면 동작을 미세하게 튜닝할 수 있다.
+
+# Energy-based no-speech gate defaults.
 STT_NO_SPEECH_RMS_THRESHOLD = float(os.getenv("STT_NO_SPEECH_RMS_THRESHOLD", "0.006"))
 STT_NO_SPEECH_PEAK_THRESHOLD = float(os.getenv("STT_NO_SPEECH_PEAK_THRESHOLD", "0.02"))
 STT_NO_SPEECH_MIN_VOICED_MS = int(os.getenv("STT_NO_SPEECH_MIN_VOICED_MS", "120"))
@@ -51,9 +37,8 @@ DEFAULT_EMBEDDING_BASE_URL = os.getenv(
 DEFAULT_EMBEDDING_API_KEY = os.getenv("DEFAULT_EMBEDDING_API_KEY", GMS_KEY)
 DEFAULT_EMBEDDING_TIMEOUT_SECONDS = float(os.getenv("DEFAULT_EMBEDDING_TIMEOUT_SECONDS", "10.0"))
 
-# `token|scope1,scope2;token2|scope3` 형식의 간단한 서비스 간 인증 설정값이다.
+# Format: token|scope1,scope2;token2|scope3
 AUTH_TOKENS = os.getenv("AUTH_TOKENS", "")
-# AUTH_ENABLED를 명시하지 않으면, 토큰이 설정된 경우에만 자동으로 인증을 활성화한다.
 AUTH_ENABLED = (
     os.getenv(
         "AUTH_ENABLED",
@@ -82,6 +67,6 @@ DEFAULT_TTS_WARMUP_TEXT = os.getenv(
     "DEFAULT_TTS_WARMUP_TEXT",
     (
         "지금의 당신을 가장 선명하게 보여주는 한 장면이 있다면 무엇인가요? "
-        "그 순간이 만들어낸 감정과, 시간이 지난 지금까지 마음에 남아 있는 이유를 들려주세요."
+        "그 순간의 감정과 지금까지 남아 있는 이유를 들려주세요."
     ),
 )
