@@ -9,10 +9,12 @@ import com.theinterview.domain.interview.dto.AiRagDto.UpsertResponse;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
+import com.theinterview.domain.interview.dto.FastApiRequest.KeywordRequest;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.KeywordResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.SttChunkResponse;
 import com.theinterview.global.response.exception.GeneralException;
@@ -297,6 +299,30 @@ public class AiUtils {
                     return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
                 })
                 .bodyToMono(AiNextOpeningResponse.class);
+    }
+
+    // 키워드 생성 메서드
+    public Mono<KeywordResponse> callFastApiKeyword(KeywordRequest request) {
+
+        log.info("FastAPI 키워드 추출 요청 시작");
+
+        return webClient.post()
+                .uri("api/v1/ai/interview/keyword")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError(), clientResponse -> {
+                    log.error("FastAPI RAG Reindex 클라이언트 에러 발생 (4xx): {}",
+                            clientResponse.statusCode());
+                    // 4xx 에러는 재시도를 방지하기 위해 IllegalArgumentException으로 던집니다.
+                    return Mono.error(new IllegalArgumentException("4xx Client Error"));
+                })
+                .onStatus(status -> status.is5xxServerError(), clientResponse -> {
+                    log.error("FastAPI RAG Reindex 서버 에러 발생 (5xx): {}",
+                            clientResponse.statusCode());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                .bodyToMono(KeywordResponse.class);
     }
 
     // RAG 호출 관련 메서드 -----------------------------------------------------------------------------------------------------

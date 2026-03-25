@@ -217,7 +217,7 @@ public class InterviewService {
     }
 
     @Transactional
-    public boolean saveAnswer(Integer questionId, String answerText,
+    public InterviewQuestion saveAnswer(Integer questionId, String answerText,
             String savedPath) {
 
         InterviewQuestion interviewQuestion = domainFindUtils.getInterviewQuestionById(questionId);
@@ -228,7 +228,7 @@ public class InterviewService {
                 .answerText(answerText)
                 .answerAudioUrl(savedPath)
                 .build());
-        return true;
+        return interviewQuestion;
     }
 
     /**
@@ -831,5 +831,18 @@ public class InterviewService {
         }
 
         return resource;
+    }
+
+    // 키워드 저장 메서드
+    @Transactional
+    public void saveKeyword(InterviewQuestion question, String keyword) {
+
+        // 영속성 컨텍스트에 다시 올리기 위해 조회
+        InterviewQuestion findQuestion = domainFindUtils.getInterviewQuestionById(question.getId());
+
+        InterviewAnswer answer = findQuestion.getInterviewAnswer();
+
+        answer.updateKeyword(keyword);
+        log.info("키워드 저장 성공. 키워드: {}", keyword);
     }
 }

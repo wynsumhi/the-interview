@@ -69,4 +69,14 @@ public abstract class FastApiRequest {
         private Boolean isFirstFinished;
     }
 
+    // 질문 답 쌍으로 키워드 생성 요청에 사용 될 DTO
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class KeywordRequest {
+
+        private String question;
+        private String answer;
+    }
 }

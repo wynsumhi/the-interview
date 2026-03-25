@@ -56,5 +56,12 @@ public abstract class FastApiResponse {
         private String dbQuestion;
     }
 
+    // 키워드 응답으로 사용하는 DTO
+    @Getter
+    @NoArgsConstructor
+    public static class KeywordResponse {
+
+        private String keyword;
+    }
 
 }
