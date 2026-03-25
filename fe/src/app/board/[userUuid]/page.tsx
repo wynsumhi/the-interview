@@ -1,15 +1,15 @@
 "use client";
 
-// useState: 어떤 탭이 선택됐는지 기억할 때 use
+// useState: 어떤 탭이 선택됐는지 기억할 때 사용
 import { useState } from "react";
 import MemoCard from "@/components/board/MemoCard";
 import type { QnaPreview } from "@/components/board/MemoCard";
 import styles from "./page.module.css";
 
-// 탭 종류를 타입으로 정해두면 오타를 방지할 수 있어요
+// 탭 종류를 타입으로 정해두어 오타 방지
 type TabType = "my" | "questions";
 
-// TODO: 실제 API 연결 후 제거할 임시 데이터 type
+// TODO: 실제 API 연결 후 제거할 임시 데이터 타입
 const MEMOS: {
   id: number;
   category: string;
@@ -91,8 +91,13 @@ const MEMOS: {
   },
 ];
 
-export default function BoardPage() {
-  // 현재 선택된 탭을 저장해요. 처음엔 "my" 탭이 열려 있어요
+// params를 통해 URL에 있는 userUuid 가져오기 가능
+export default function BoardPage({
+  params,
+}: {
+  params: { userUuid: string };
+}) {
+  // 현재 선택된 탭 저장(초기 "my" 탭 활성화)
   const [activeTab, setActiveTab] = useState<TabType>("my");
 
   return (
@@ -103,7 +108,7 @@ export default function BoardPage() {
           <span className={styles.headerCount}>{MEMOS.length} items</span>
         </div>
 
-        {/* 탭 버튼: 클릭하면 activeTab이 바뀌어요 */}
+        {/* 탭 버튼: 클릭하면 activeTab 변경 */}
         <div className={styles.tabBar}>
           <button
             className={`${styles.tab} ${activeTab === "my" ? styles.tabActive : ""}`}
@@ -120,7 +125,7 @@ export default function BoardPage() {
         </div>
       </header>
 
-      {/* activeTab 값에 따라 다른 캔버스를 보여줘요 */}
+      {/* activeTab 값에 따라 다른 캔버스 UI */}
       {activeTab === "my" ? (
         <div className={styles.canvas}>
           {MEMOS.map((memo) => (
@@ -128,7 +133,7 @@ export default function BoardPage() {
           ))}
         </div>
       ) : (
-        // TODO: 다른 사람이 남긴 질문 포스트잇 API 연결 후 채워요
+        // TODO: 다른 사람이 남긴 질문 포스트잇 API 연결 후 채울 예정
         <div className={styles.canvas} />
       )}
     </div>
