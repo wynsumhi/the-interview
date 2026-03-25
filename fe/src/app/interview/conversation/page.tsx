@@ -45,6 +45,7 @@ function ConversationContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const mode = searchParams.get("mode") ?? "AUTO";
+  const voice = searchParams.get("voice") ?? "";
 
   const [status, setStatus] = useState<InterviewStatus>("CONNECTING");
   const [displayText, setDisplayText] = useState("");
@@ -88,7 +89,7 @@ function ConversationContent() {
   const initInterview = async (isCancelled: () => boolean) => {
     try {
       const [data, stream, { apiUrl }] = await Promise.all([
-        createInterview(mode === "AUTO"),
+        createInterview(mode === "AUTO", voice || undefined),
         navigator.mediaDevices.getUserMedia({ audio: true }),
         fetch("/api/ws-url").then((r) => r.json()),
       ]);

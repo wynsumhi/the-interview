@@ -23,8 +23,13 @@ export interface FollowUpQuestionDTO {
 // LLM 질문 생성 + TTS 변환이 포함되어 기본 10초 타임아웃을 초과할 수 있으므로 60초로 설정
 export async function createInterview(
   isPrevAffected: boolean,
+  voice?: string,
 ): Promise<CreateInterviewResult> {
-  const res = await instance.post("/interview", { isPrevAffected }, { timeout: 60000 });
+  const res = await instance.post(
+    "/interview",
+    { isPrevAffected, voice },
+    { timeout: 60000 },
+  );
   return res.data.result;
 }
 
