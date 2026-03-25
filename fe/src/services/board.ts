@@ -4,6 +4,8 @@ import type {
   ShareBoardInfo,
   BookmarkPostitPageResult,
   QuestionPostitPageResult,
+  CreateQuestionRequest,
+  CreateQuestionResult,
 } from "@/types/board";
 
 // GET /v1/share-board/member/{userUuid} - 공유 보드 기본 정보 조회
@@ -39,6 +41,21 @@ export async function fetchQuestionPostits(
   const res = await instance.get<ApiResponse<QuestionPostitPageResult>>(
     `/share-board/member/${userUuid}/postits/questions`,
     { params: { page } },
+  );
+  return res.data.result;
+}
+
+// POST /v1/share-board/member/{userUuid}/questions
+// 보드 주인의 질문 탭에 새 질문 포스트잇을 작성
+// 응답으로 생성된 QuestionPostitItem 전체를 반환
+export async function createQuestion(
+  userUuid: string,
+  content: string,
+): Promise<CreateQuestionResult> {
+  const body: CreateQuestionRequest = { content };
+  const res = await instance.post<ApiResponse<CreateQuestionResult>>(
+    `/share-board/member/${userUuid}/questions`,
+    body,
   );
   return res.data.result;
 }
