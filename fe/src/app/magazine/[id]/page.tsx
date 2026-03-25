@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useInterviewDetail } from "@/hooks/useInterviewDetail";
@@ -9,11 +9,36 @@ import type { InterviewDetailEntry } from "@/types/interview";
 import styles from "./page.module.css";
 
 // ── 최소형 오디오 플레이어 ────────────────────────────────────
-function AudioPlayer({ src }: { src: string }) {
+function AudioPlayer({ voiceUuid }: { voiceUuid: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    let objectUrl: string;
+    const fetchAudio = async () => {
+      try {
+        const token = localStorage.getItem("accessToken"); // 토큰 키 이름 맞게 수정
+        const res = await fetch(`/api/v1/interview/sound/play/${voiceUuid}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) { setLoadError(true); return; }
+        const blob = await res.blob();
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      } catch {
+        setLoadError(true);
+      }
+    };
+    fetchAudio();
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [voiceUuid]);
+
+  if (loadError) return null;
+
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -34,7 +59,7 @@ function AudioPlayer({ src }: { src: string }) {
     <div className={styles.player}>
       <audio
         ref={audioRef}
-        src={src}
+        src={blobUrl ?? undefined}
         onTimeUpdate={() => audioRef.current && setCurrentTime(audioRef.current.currentTime)}
         onLoadedMetadata={() => audioRef.current && setDuration(audioRef.current.duration)}
         onEnded={() => setIsPlaying(false)}
@@ -87,7 +112,7 @@ function QnaModule({
           {entry.interviewQuestion}
         </blockquote>
         <div className={styles.answerBlock}>
-          {entry.interviewVoice && <AudioPlayer src={entry.interviewVoice} />}
+          {entry.interviewVoice && <AudioPlayer voiceUuid={entry.interviewVoice} />}
           {entry.interviewText ? (
             <p className={styles.answerText}>{entry.interviewText}</p>
           ) : (
