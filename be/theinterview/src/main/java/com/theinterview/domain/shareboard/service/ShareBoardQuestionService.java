@@ -29,7 +29,6 @@ import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
 import com.theinterview.global.util.DomainFindUtils;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,8 +48,14 @@ public class ShareBoardQuestionService {
     // 무한 스크롤에서 한 번에 내려줄 포스트잇 개수입니다.
     private static final int PAGE_SIZE = 12;
     // 포스트잇 색상은 사용자가 선택하지 않고 시스템 팔레트에서 자동 지정합니다.
-    private static final List<String> COLOR_PALETTE = List.of("yellow", "pink", "mint", "blue",
-            "orange");
+    private static final List<String> COLOR_PALETTE = List.of(
+            "#F3C5C5",
+            "#B7D4BB",
+            "#FFF3A6",
+            "#BCCEF6",
+            "#FBCDB6"
+    );
+    private static final String DEFAULT_COLOR = "#F3C5C5";
 
     // 공유 보드 메타데이터를 조회하는 저장소입니다.
     private final ShareBoardRepository shareBoardRepository;
@@ -417,31 +422,30 @@ public class ShareBoardQuestionService {
     }
 
     private String resolveColor(ShareBoardPostitType postitType, Integer sourceId) {
-        // 타입과 sourceId 조합으로 항상 같은 원본에 같은 색을 부여합니다.
-        int seed = postitType.ordinal() * 31 + sourceId;
-        return COLOR_PALETTE.get(Math.floorMod(seed, COLOR_PALETTE.size()));
+        // 기본 색상은 시스템에서 임의로 하나 고정 배정합니다.
+        return DEFAULT_COLOR;
     }
 
     private BigDecimal defaultRotation(Integer sourceId) {
-        // 기본 회전값은 sourceId에 따라 약간씩 다르게 줍니다.
-        int tilt = Math.floorMod(sourceId, 7) - 3;
-        return BigDecimal.valueOf(tilt);
+        // 기본 회전값은 -3으로 시작합니다.
+        return BigDecimal.valueOf(-3);
     }
 
     private BigDecimal defaultPositionX(Integer sourceId) {
-        // 기본 X 좌표는 sourceId 기준으로 분산시켜 초기 겹침을 줄입니다.
-        double value = 0.08 + (Math.floorMod(sourceId, 4) * 0.18);
-        return toDecimal(value);
+        // 기본 X 좌표는 0으로 시작합니다.
+        return BigDecimal.ZERO;
     }
 
     private BigDecimal defaultPositionY(Integer sourceId) {
-        // 기본 Y 좌표도 sourceId 기준으로 분산시켜 초기 배치 후보를 만듭니다.
-        double value = 0.08 + (Math.floorMod(sourceId, 5) * 0.14);
-        return toDecimal(value);
+        // 기본 Y 좌표는 0으로 시작합니다.
+        return BigDecimal.ZERO;
     }
 
     private BigDecimal toDecimal(Double value) {
-        // 좌표와 회전 값은 소수점 넷째 자리까지 반올림해 저장합니다.
-        return BigDecimal.valueOf(value).setScale(4, RoundingMode.HALF_UP);
+        return BigDecimal.valueOf(value);
+    }
+
+    private BigDecimal toDecimal(Integer value) {
+        return BigDecimal.valueOf(value);
     }
 }

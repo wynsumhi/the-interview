@@ -1,7 +1,7 @@
 package com.theinterview.domain.shareboard.dto;
 
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -17,14 +17,14 @@ public class ShareBoardPostitLayoutRequest {
         private Double rotationDeg;
 
         @NotNull
-        @DecimalMin("0.0")
-        @DecimalMax("1.0")
-        private Double positionX;
+        @Min(-19)
+        @Max(19)
+        private Integer positionX;
 
         @NotNull
-        @DecimalMin("0.0")
-        @DecimalMax("1.0")
-        private Double positionY;
+        @Min(-49)
+        @Max(49)
+        private Integer positionY;
 
         @NotNull
         private Integer zIndex;
