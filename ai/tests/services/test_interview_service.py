@@ -42,13 +42,13 @@ def build_interview_state_prompt_response() -> dict[str, object]:
             "low": 0.0,
             "engaged": 0.0,
         },
-        "formatted_prompt": (
-            "[인터뷰 상태 참고]\n"
-            "다음 점수는 답변 음성과 텍스트를 바탕으로 계산된 참고용 상태 신호입니다. "
-            "절대 판단이 아니라 후속 질문의 톤과 깊이를 조절하는 보조 정보로만 활용하세요.\n"
-            "- top_state: calm\n"
-            "- fused_scores: calm=0.75, tense=0.25, anxious=0.00, low=0.00, engaged=0.00"
-        ),
+    }
+
+
+def build_pipeline_prompt_response() -> dict[str, object]:
+    return {
+        **build_interview_state_prompt_response(),
+        "formatted_prompt": "[internal-only prompt]",
     }
 
 
@@ -61,7 +61,7 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
             "masked_stt_text": "candidate [PHONE_1]",
             "pii_masking_duration_seconds": 0.0012,
             "interview_state_db": build_interview_state_db_response(),
-            "interview_state_prompt": build_interview_state_prompt_response(),
+            "interview_state_prompt": build_pipeline_prompt_response(),
             "question_text": "follow up",
             "tts_audio": b"tts-bytes",
             "refined_answer": "refined answer",
@@ -79,7 +79,7 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
         "masked_stt_text": "candidate [PHONE_1]",
         "pii_masking_duration_seconds": 0.0012,
         "interview_state_db": build_interview_state_db_response(),
-        "interview_state_prompt": build_interview_state_prompt_response(),
+        "interview_state_prompt": build_pipeline_prompt_response(),
         "question_text": "follow up",
         "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
         "tts_audio_mime_type": "audio/wav",
@@ -119,10 +119,20 @@ def test_save_interview_state_temp_wraps_request() -> None:
 
 def test_analyze_interview_state_from_payload_returns_state_only() -> None:
     upload = UploadFile(filename="answer.webm", file=BytesIO(b"audio-bytes"))
+    prompt_payload = type(
+        "PromptPayload",
+        (),
+        {
+            "top_state": "calm",
+            "fused_scores": build_interview_state_prompt_response()["fused_scores"],
+            "formatted_prompt": "[internal-only prompt]",
+        },
+    )()
 
     with (
         patch(
-            "app.services.interview_service.analyze_interview_state", return_value=object()
+            "app.services.interview_service.analyze_interview_state",
+            return_value=object(),
         ) as analyze_mock,
         patch(
             "app.services.interview_service.build_interview_state_db_payload",
@@ -130,7 +140,7 @@ def test_analyze_interview_state_from_payload_returns_state_only() -> None:
         ) as db_mock,
         patch(
             "app.services.interview_service.build_interview_state_prompt_payload",
-            return_value=build_interview_state_prompt_response(),
+            return_value=prompt_payload,
         ) as prompt_mock,
     ):
         result = analyze_interview_state_from_payload(

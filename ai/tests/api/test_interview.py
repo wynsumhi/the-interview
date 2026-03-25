@@ -46,12 +46,13 @@ def build_interview_state_prompt_response() -> dict[str, object]:
             "low": 0.0,
             "engaged": 0.0,
         },
-        "formatted_prompt": (
-            "[state prompt]\n"
-            "- top_state: calm\n"
-            "- fused_scores: calm=0.75, tense=0.25, anxious=0.00, "
-            "low=0.00, engaged=0.00"
-        ),
+    }
+
+
+def build_pipeline_prompt_response() -> dict[str, object]:
+    return {
+        **build_interview_state_prompt_response(),
+        "formatted_prompt": "[internal-only prompt]",
     }
 
 
@@ -61,7 +62,7 @@ def build_pipeline_response(stt_text: str) -> dict[str, object]:
         "masked_stt_text": "candidate [PHONE_1]",
         "pii_masking_duration_seconds": 0.0012,
         "interview_state_db": build_interview_state_db_response(),
-        "interview_state_prompt": build_interview_state_prompt_response(),
+        "interview_state_prompt": build_pipeline_prompt_response(),
         "question_text": "next question",
         "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
         "tts_audio_mime_type": "audio/wav",
