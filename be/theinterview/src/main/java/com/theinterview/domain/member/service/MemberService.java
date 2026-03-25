@@ -18,6 +18,7 @@ import com.theinterview.global.config.redis.RedisService;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
 import com.theinterview.global.security.config.jwt.JwtProvider;
+import com.theinterview.global.util.DomainFindUtils;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
@@ -48,6 +49,8 @@ public class MemberService {
     private final ShareBoardQuestionRepository shareBoardQuestionRepository;
     // 회원 탈퇴 시 포스트잇 레이아웃을 함께 삭제하기 위한 저장소입니다.
     private final ShareBoardPostitLayoutRepository shareBoardPostitLayoutRepository;
+    // 로그인 응답에 필요한 userUuid 조회를 위해 사용하는 유틸입니다.
+    private final DomainFindUtils domainFindUtils;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final JwtProvider jwtProvider;
@@ -81,6 +84,9 @@ public class MemberService {
 
     @Transactional(readOnly = true)
     public TokenResponseDTO login(LoginRequestDTO request) {
+        // 로그인 응답에 포함할 userUuid를 조회합니다.
+        Member member = domainFindUtils.getMemberByEmail(request.getEmail());
+
         UsernamePasswordAuthenticationToken authenticationToken =
                 new UsernamePasswordAuthenticationToken(request.getEmail(),
                         request.getPassword());
@@ -97,7 +103,7 @@ public class MemberService {
                 Duration.ofSeconds(refreshTokenValidityInSeconds)
         );
 
-        return new TokenResponseDTO(refreshToken, accessToken,
+        return new TokenResponseDTO(refreshToken, accessToken, member.getUserUuid(),
                 jwtProvider.getRefreshTokenValidityTime(),
                 jwtProvider.getAccessTokenValidityTime()
         );

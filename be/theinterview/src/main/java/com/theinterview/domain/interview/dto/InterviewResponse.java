@@ -39,7 +39,7 @@ public abstract class InterviewResponse {
                 Integer questionId) {
             this.interviewId = interviewId;
             this.questionId = questionId;
-            this.sttResult = aiPipelineResponse.getSttText();
+            this.sttResult = aiPipelineResponse.getRefinedAnswer();
             this.followUpQuestion = aiPipelineResponse.getQuestionText();
             this.ttsAudioBase64 = aiPipelineResponse.getTtsAudioBase64();
         }

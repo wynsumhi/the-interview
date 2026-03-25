@@ -14,6 +14,7 @@ import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse.InterviewStateDb.FusedScores;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
@@ -189,7 +190,8 @@ public class InterviewService {
      */
     @Transactional
     public Integer saveQuestionAndAnswer(Integer interviewId, Integer questionId,
-            String generatedQuestionText, String savedPath, String answerText) {
+            String generatedQuestionText, String savedPath, String answerText,
+            FusedScores fusedScores) {
 
         InterviewQuestion question = domainFindUtils.getInterviewQuestionById(questionId);
         Interview interview = domainFindUtils.getInterviewById(interviewId);
@@ -199,6 +201,11 @@ public class InterviewService {
                 .interviewQuestion(question)
                 .answerText(answerText)
                 .answerAudioUrl(savedPath)
+                .calmScore(conversionEmotionScore(fusedScores.getCalm()))
+                .engagedScore(conversionEmotionScore(fusedScores.getEngaged()))
+                .lowScore(conversionEmotionScore(fusedScores.getLow()))
+                .anxiousScore(conversionEmotionScore(fusedScores.getAnxious()))
+                .tenseScore(conversionEmotionScore(fusedScores.getTense()))
                 .build());
         log.info("사용자 답변 텍스트 저장 완료");
 
@@ -211,6 +218,14 @@ public class InterviewService {
                         .build());
 
         return saveQuestion.getId();
+    }
+
+    // 감정 점수가 null이면 0.00 변환
+    private BigDecimal conversionEmotionScore(BigDecimal score) {
+        if (score == null) {
+            return BigDecimal.ZERO;
+        }
+        return score;
     }
 
     @Transactional
@@ -245,7 +260,7 @@ public class InterviewService {
         InterviewAnswer answer = interviewAnswerRepository.save(
                 InterviewAnswer.builder()
                         .interviewQuestion(question)
-                        .answerText(aiPipelineResponse.getSttText())
+                        .answerText(aiPipelineResponse.getRefinedAnswer())
                         .answerAudioUrl(savedFilePath)
                         .build()
         );
@@ -256,7 +271,7 @@ public class InterviewService {
             // 생성된 텍스트 및 오디오 파일 반환
             return FollowUpQuestionDTO.builder()
                     .interviewId(interview.getId())
-                    .sttResult(aiPipelineResponse.getSttText())
+                    .sttResult(aiPipelineResponse.getRefinedAnswer())
                     .followUpQuestion(aiPipelineResponse.getQuestionText())
                     .ttsAudioBase64(aiPipelineResponse.getTtsAudioBase64())
                     .build();
@@ -277,7 +292,7 @@ public class InterviewService {
         // 생성된 텍스트 및 오디오 파일 반환
         return FollowUpQuestionDTO.builder()
                 .interviewId(interview.getId())
-                .sttResult(aiPipelineResponse.getSttText())
+                .sttResult(aiPipelineResponse.getRefinedAnswer())
                 .followUpQuestion(aiPipelineResponse.getQuestionText())
                 .ttsAudioBase64(aiPipelineResponse.getTtsAudioBase64())
                 .questionId(generatedQuestion.getId())

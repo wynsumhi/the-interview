@@ -9,6 +9,7 @@ GMS_KEY = os.getenv("GMS_KEY")
 GMS_BASE_URL = "https://gms.ssafy.io/gmsapi"
 GMS_OPENAI_BASE_URL = f"{GMS_BASE_URL}/api.openai.com/v1"
 GMS_ANTHROPIC_MESSAGES_URL = f"{GMS_BASE_URL}/api.anthropic.com/v1/messages"
+GMS_GEMINI_BASE_URL = f"{GMS_BASE_URL}/generativelanguage.googleapis.com/v1beta/models"
 
 # 모델 이름과 기본 파라미터를 상수로 분리해 하드코딩 중복을 줄인다.
 DEFAULT_STT_MODEL = "whisper-1"
@@ -35,6 +36,8 @@ STT_NO_SPEECH_FRAME_MS = int(os.getenv("STT_NO_SPEECH_FRAME_MS", "30"))
 STT_NO_SPEECH_HOP_MS = int(os.getenv("STT_NO_SPEECH_HOP_MS", "10"))
 
 LLM_MODEL_NAME = "claude-sonnet-4-5-20250929"
+TITLE_LLM_MODEL_NAME = os.getenv("TITLE_LLM_MODEL_NAME", "gemini-2.5-flash-lite")
+KEYWORD_LLM_MODEL_NAME = os.getenv("KEYWORD_LLM_MODEL_NAME", "gemini-2.5-flash-lite")
 DEFAULT_LLM_MAX_TOKENS = 1024
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_EMBEDDING_MODEL = os.getenv(

@@ -59,7 +59,91 @@
   display: block;
 }
 
+.consentGroup {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.consentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  gap: 8px;
+}
+
+.consentLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.consentCheckbox {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--fg);
+}
+
+.consentText {
+  font-size: 13px;
+  color: var(--charcoal);
+  line-height: 1.5;
+}
+
+.consentToggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.consentContent {
+  border-top: 1px solid var(--border);
+  padding: 14px 16px;
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 12px;
+  color: var(--charcoal);
+  line-height: 1.7;
+  background-color: #ffffff;
+}
+
+.consentContent h4 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+
+.consentContent h5 {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 14px 0 6px;
+}
+
+.consentContent p {
+  margin: 6px 0;
+}
+
+.consentContent ul {
+  margin: 4px 0 4px 16px;
+  padding: 0;
+}
+
+.consentContent li {
+  margin-bottom: 4px;
+}
+
 .submitBtn {
+  width: 100%;
   background: var(--fg);
   color: white;
   padding: 16px;
