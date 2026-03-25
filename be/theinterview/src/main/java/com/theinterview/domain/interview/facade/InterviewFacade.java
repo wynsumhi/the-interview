@@ -259,7 +259,7 @@ public class InterviewFacade {
         }
     }
 
-    // 인터뷰 종료 시 호출되는 facade
+    // 인터뷰 종료 시 호출 될 파서드
     public Mono<Void> exitInterviewFacade(String email, InterviewExitRequest request) {
 
         // redis에 있을 마지막 답변 조회 및 저장 경로 조회
@@ -272,24 +272,37 @@ public class InterviewFacade {
         // 메서드 리턴 이후에도 람다에 캡처되어 체인 완료 시점까지 유지됨
         AtomicReference<InterviewQuestion> questionRef = new AtomicReference<>();
         AtomicReference<AiTitleResponse> aiTitleResponseRef = new AtomicReference<>();
-        // 1. DB에 마지막 답변 저장 및 필요 도메인 조회 및 다음 질문 생성을 위한 준비(질문 답변 쌍 조합 및 답변 없는 질문 삭제)
-        return Mono.fromCallable(
-                        () -> {
-                            // todo
-                            // 1. 디스크에서 음성 원본 파일을 받아옴
-                            byte[] bytes = Files.readAllBytes(Paths.get(savedPath));
-                            // 2. api 호출 여기여기여기여기
 
-                            // 마지막 답변을 저장함
+        // 1. 디스크에서 음성 원본 파일을 받아옴
+        return Mono.fromCallable(() -> Files.readAllBytes(Paths.get(savedPath)))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(bytes -> Mono.fromCallable(() -> {
+                            // 2. 마지막 답변을 저장함
                             InterviewQuestion question = interviewService.saveAnswer(
                                     request.getQuestionId(), answerText, savedPath);
                             questionRef.set(question);
-                            return question;
-                        })
-                .subscribeOn(Schedulers.boundedElastic())
-                .flatMap(interviewQuestion -> Mono.fromCallable(() ->
-                                interviewService.findDomainMakeQnACouple(email, request.getInterviewId()))
-                        .subscribeOn(Schedulers.boundedElastic()))
+                            return bytes;
+                        }).subscribeOn(Schedulers.boundedElastic())
+                )
+                .flatMap(bytes ->
+                        // 3. STT 정제 + 감정 분석 병렬 호출
+                        Mono.zip(
+                                aiUtils.lastAnswerStt(answerText),
+                                aiUtils.lastAnswerEmotion(answerText, bytes)
+                        )
+                )
+                .flatMap(tuple -> Mono.fromCallable(() -> {
+                            // 4. 감정, 정제 텍스트 저장
+                            interviewService.saveEmotionTts(
+                                    tuple.getT1(),
+                                    tuple.getT2(),
+                                    request
+                            );
+                            // 5. DB에 마지막 답변 저장 및 필요 도메인 조회 및 다음 질문 생성을 위한 준비(질문 답변 쌍 조합 및 답변 없는 질문 삭제)
+                            return interviewService.findDomainMakeQnACouple(email,
+                                    request.getInterviewId());
+                        }).subscribeOn(Schedulers.boundedElastic())
+                )
                 .flatMap(answerTts -> {
 
                     // 답변이 저장된 적 없다면 예외를 발생시킴

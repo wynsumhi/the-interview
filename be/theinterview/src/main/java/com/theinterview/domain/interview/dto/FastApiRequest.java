@@ -79,4 +79,29 @@ public abstract class FastApiRequest {
         private String question;
         private String answer;
     }
+
+    // 마지막 답변에 대한 정제를 진행할 때 사용하는 DTO
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class LastAnswerRequest {
+
+        @JsonProperty("stt_text")
+        private String sttText;
+    }
+
+    // 마지막 답변에 대한 감정 추출을 진행할 때 사용하는 DTO
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class LastAnswerEmotionRequest {
+
+        @JsonProperty("stt_text")
+        private String sttText;
+
+        @JsonProperty("audio_file")
+        private byte[] audioBytes;
+    }
 }

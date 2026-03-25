@@ -11,11 +11,15 @@ import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest
 import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.KeywordRequest;
+import com.theinterview.domain.interview.dto.FastApiRequest.LastAnswerEmotionRequest;
+import com.theinterview.domain.interview.dto.FastApiRequest.LastAnswerRequest;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.KeywordResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerEmotionResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerTextResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.SttChunkResponse;
 import com.theinterview.global.response.exception.GeneralException;
@@ -404,6 +408,49 @@ public class AiUtils {
                 })
                 .bodyToMono(DeleteResponse.class)
                 .retryWhen(getRagRetrySpec());
+    }
+
+    // 사용자의 종료를 누르기 직전 마지막 답변을 정제하는 API를 호출함
+    public Mono<LastAnswerTextResponse> lastAnswerStt(String answerText) {
+
+        return webClient.post()
+                .uri("/api/v1/ai/interview/refine-answer")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(LastAnswerRequest.builder().sttText(answerText).build())
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError(), clientResponse -> {
+                    log.error("FastAPI RAG Delete 클라이언트 에러 발생 (4xx): {}",
+                            clientResponse.statusCode());
+                    return Mono.error(new IllegalArgumentException("4xx Client Error"));
+                })
+                .onStatus(status -> status.is5xxServerError(), clientResponse -> {
+                    log.error("FastAPI RAG Delete 서버 에러 발생 (5xx): {}", clientResponse.statusCode());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                .bodyToMono(LastAnswerTextResponse.class);
+
+    }
+
+    // 사용자의 종료를 누르기 직전 마지막 답변의 감정을 호출하는 API를 호출함
+    public Mono<LastAnswerEmotionResponse> lastAnswerEmotion(String answerText, byte[] audio) {
+
+        return webClient.post()
+                .uri("/api/v1/ai/interview/state-analysis")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(LastAnswerEmotionRequest.builder().sttText(answerText).audioBytes(audio)
+                        .build())
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError(), clientResponse -> {
+                    log.error("FastAPI RAG Delete 클라이언트 에러 발생 (4xx): {}",
+                            clientResponse.statusCode());
+                    return Mono.error(new IllegalArgumentException("4xx Client Error"));
+                })
+                .onStatus(status -> status.is5xxServerError(), clientResponse -> {
+                    log.error("FastAPI RAG Delete 서버 에러 발생 (5xx): {}", clientResponse.statusCode());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                .bodyToMono(LastAnswerEmotionResponse.class);
+
     }
 
     /**

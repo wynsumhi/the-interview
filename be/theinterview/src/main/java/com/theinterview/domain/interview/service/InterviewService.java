@@ -17,6 +17,8 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse.InterviewStateDb.FusedScores;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerEmotionResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerTextResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.BookmarkSetting;
@@ -391,7 +393,7 @@ public class InterviewService {
             if (interviewQuestion.getInterviewAnswer() == null) {
                 continue;
             }
-            
+
             context =
                     context + "Q" + count + ": " + interviewQuestion.getQuestionText() + "\n" + "A"
                             + count + ": " + interviewQuestion.getInterviewAnswer().getAnswerText()
@@ -948,5 +950,18 @@ public class InterviewService {
         log.info("키워드 저장 성공. 키워드: {}", keyword);
     }
 
+    // 종료 직전 마지막 답변의 감정 상태, 정제 텍스트를 저장하는 메서드
+    @Transactional
+    public void saveEmotionTts(LastAnswerTextResponse lastAnswerTextResponse,
+            LastAnswerEmotionResponse lastAnswerEmotionResponse, InterviewExitRequest request) {
 
+        // 변경 할 DB 조회
+        InterviewQuestion question = domainFindUtils.getInterviewQuestionById(
+                request.getQuestionId());
+
+        InterviewAnswer interviewAnswer = question.getInterviewAnswer();
+
+        interviewAnswer.updateTextEmotion(lastAnswerTextResponse.getRefinedAnswer(),
+                lastAnswerEmotionResponse.getInterviewStateDb());
+    }
 }
