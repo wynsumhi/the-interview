@@ -85,41 +85,34 @@ function ConversationContent() {
 
   const { connect, sendChunk, sendNext, disconnect } = useStompInterview();
 
-  // StrictMode 이중 실행 방지 플래그
-  // StrictMode는 개발 환경에서 mount → cleanup → remount 순서로 effect를 두 번 실행함
-  // useRef는 같은 컴포넌트 인스턴스에서 유지되므로 두 번째 실행을 차단할 수 있음
-  // (실제 페이지 재진입 시에는 새 인스턴스가 생성되어 ref가 초기화됨)
-  const initStartedRef = useRef(false);
-
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
 
   useEffect(() => {
-    // initStartedRef로 동일 인스턴스에서 중복 호출을 차단 (StrictMode 이중 실행 방지)
-    // cancelled 플래그는 async 작업 완료 후 connect() 중복 호출을 추가로 방지
-    if (initStartedRef.current) return;
-    initStartedRef.current = true;
-
-    let cancelled = false;
-    initInterview(() => cancelled);
+    // AbortController로 StrictMode 이중 실행 방지
+    // StrictMode는 개발 환경에서 mount → cleanup → remount 순서로 effect를 두 번 실행함
+    // cleanup 시 controller.abort()를 호출하면 진행 중인 POST 요청이 취소되고,
+    // remount 시 새 controller로 요청을 재시도해 정상적으로 WebSocket까지 연결됨
+    const controller = new AbortController();
+    initInterview(controller.signal);
     return () => {
-      cancelled = true;
+      controller.abort();
       cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const initInterview = async (isCancelled: () => boolean) => {
+  const initInterview = async (signal: AbortSignal) => {
     try {
       const [data, stream, { apiUrl }] = await Promise.all([
-        createInterview(mode === "AUTO"),
+        createInterview(mode === "AUTO", signal),
         navigator.mediaDevices.getUserMedia({ audio: true }),
         fetch("/api/ws-url").then((r) => r.json()),
       ]);
 
       // async 작업 완료 후 컴포넌트가 이미 cleanup된 경우 연결하지 않음
-      if (isCancelled()) {
+      if (signal.aborted) {
         stream.getTracks().forEach((t) => t.stop());
         return;
       }
@@ -167,7 +160,7 @@ function ConversationContent() {
         () => setStatus("AI_SPEAKING"),
       );
     } catch (err) {
-      if (!isCancelled()) {
+      if (!signal.aborted) {
         console.error("인터뷰 초기화 실패:", err);
         setErrorMsg(
           "인터뷰를 시작할 수 없습니다. 마이크 권한을 확인해 주세요.",

@@ -21,10 +21,12 @@ export interface FollowUpQuestionDTO {
 
 // 인터뷰 생성 + 첫 질문 생성
 // LLM 질문 생성 + TTS 변환이 포함되어 기본 10초 타임아웃을 초과할 수 있으므로 60초로 설정
+// signal: React StrictMode 이중 실행 등으로 컴포넌트가 정리될 때 요청을 중단하기 위한 AbortSignal
 export async function createInterview(
   isPrevAffected: boolean,
+  signal?: AbortSignal,
 ): Promise<CreateInterviewResult> {
-  const res = await instance.post("/interview", { isPrevAffected }, { timeout: 60000 });
+  const res = await instance.post("/interview", { isPrevAffected }, { timeout: 60000, signal });
   return res.data.result;
 }
 
