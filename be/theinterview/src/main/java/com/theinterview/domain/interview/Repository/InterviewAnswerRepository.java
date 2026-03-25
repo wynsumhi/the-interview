@@ -1,6 +1,7 @@
 package com.theinterview.domain.interview.Repository;
 
 import com.theinterview.domain.interview.entity.InterviewAnswer;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -34,4 +35,26 @@ public interface InterviewAnswerRepository extends JpaRepository<InterviewAnswer
     // TODO: 지금 DB에 저장하는 방식이 uuid만 저장하는게 아니기 때문에 LIKE방식이 유일, 검색 속도 매우 느림
     @Query("SELECT ia FROM InterviewAnswer ia WHERE ia.answerAudioUrl LIKE %:voiceUuid%")
     Optional<InterviewAnswer> findByVoiceUuidInPath(@Param("voiceUuid") String voiceUuid);
+
+    @Query("""
+            select ia
+            from InterviewAnswer ia
+            join fetch ia.interviewQuestion iq
+            join fetch iq.interview i
+            join fetch i.member m
+            where ia.id in :answerIds
+              and ia.shareRange = true
+            """)
+    List<InterviewAnswer> findAllSharedDetailByIdIn(@Param("answerIds") List<Integer> answerIds);
+
+    @Query("""
+            select ia
+            from InterviewAnswer ia
+            join fetch ia.interviewQuestion iq
+            join fetch iq.interview i
+            join fetch i.member m
+            where m.userUuid = :userUUID
+              and ia.shareRange = true
+            """)
+    List<InterviewAnswer> findAllSharedDetailByMemberUUID(@Param("userUUID") String userUUID);
 }

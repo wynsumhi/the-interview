@@ -42,6 +42,11 @@ import com.theinterview.domain.interview.entity.QuestionCandidate;
 import com.theinterview.domain.interview.enums.InterviewStatus;
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.repository.MemberRepository;
+import com.theinterview.domain.shareboard.entity.ShareBoard;
+import com.theinterview.domain.shareboard.entity.ShareBoardPostitLayout;
+import com.theinterview.domain.shareboard.enums.ShareBoardPostitType;
+import com.theinterview.domain.shareboard.repository.ShareBoardPostitLayoutRepository;
+import com.theinterview.domain.shareboard.repository.ShareBoardRepository;
 import com.theinterview.global.config.redis.RedisService;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
@@ -50,6 +55,7 @@ import com.theinterview.global.util.FileDeleteUtils;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -86,6 +92,8 @@ public class InterviewService {
     private final FileDeleteUtils fileDeleteUtils;
     private final DomainFindUtils domainFindUtils;
     private final RedisService redisService;
+    private final ShareBoardRepository shareBoardRepository;
+    private final ShareBoardPostitLayoutRepository shareBoardPostitLayoutRepository;
 
     @Value("${file.audio.base-path}")
     private String answerAudioPath;
@@ -800,7 +808,54 @@ public class InterviewService {
                 .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
 
         // Request로 오는 값이 true라면 shareRange 수정 / false라면 shareRange 수정
+        // 답변의 북마크 공유 여부를 갱신합니다.
         interviewAnswer.updateShareRange(request.getInterviewShareRange());
+        if (Boolean.TRUE.equals(request.getInterviewShareRange())) {
+            // 북마크가 공유 상태로 바뀌면 공유 보드용 레이아웃도 함께 보장합니다.
+            ensureBookmarkLayout(interviewAnswer);
+        }
+    }
+
+    private void ensureBookmarkLayout(InterviewAnswer answer) {
+        // 북마크 원본 답변의 주인을 기준으로 연결할 공유 보드를 찾습니다.
+        ShareBoard shareBoard = shareBoardRepository.findByOwnerId(
+                        answer.getInterviewQuestion().getInterview().getMember().getId())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.SHARE_BOARD_NOT_FOUND));
+
+        // 이미 레이아웃이 있으면 그대로 두고, 없으면 기본 레이아웃을 생성합니다.
+        shareBoardPostitLayoutRepository
+                .findByShareBoardIdAndPostitTypeAndSourceId(shareBoard.getId(),
+                        ShareBoardPostitType.BOOKMARK, answer.getId())
+                .orElseGet(() -> shareBoardPostitLayoutRepository.save(ShareBoardPostitLayout.builder()
+                        .shareBoard(shareBoard)
+                        .postitType(ShareBoardPostitType.BOOKMARK)
+                        .sourceId(answer.getId())
+                        .colorCode(resolveBookmarkColor(answer.getId()))
+                        .rotationDeg(defaultRotation(answer.getId()))
+                        .positionX(defaultPositionX(answer.getId()))
+                        .positionY(defaultPositionY(answer.getId()))
+                        .zIndex(0)
+                        .build()));
+    }
+
+    private String resolveBookmarkColor(Integer sourceId) {
+        // 북마크 기본 색상은 시스템에서 임의로 하나 고정 배정합니다.
+        return "#F3C5C5";
+    }
+
+    private BigDecimal defaultRotation(Integer sourceId) {
+        // 기본 회전값은 -3으로 시작합니다.
+        return BigDecimal.valueOf(-3);
+    }
+
+    private BigDecimal defaultPositionX(Integer sourceId) {
+        // 기본 X 좌표는 0으로 시작합니다.
+        return BigDecimal.ZERO;
+    }
+
+    private BigDecimal defaultPositionY(Integer sourceId) {
+        // 기본 Y 좌표는 0으로 시작합니다.
+        return BigDecimal.ZERO;
     }
 
     // 사용자 인터뷰 오디오 재생

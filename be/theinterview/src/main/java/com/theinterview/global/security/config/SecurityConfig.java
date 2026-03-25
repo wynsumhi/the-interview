@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.core.Ordered;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -47,7 +48,6 @@ public class SecurityConfig {
                         session -> session.sessionCreationPolicy((SessionCreationPolicy.STATELESS)))
                 // 요청에 대한 권한 설정
                 .authorizeHttpRequests(auth -> auth
-                        // 로그인 하지 않은 사용자의 요청을 허용 할 엔드포인트는 여기에 작성하세요.
                         .requestMatchers(
                                 "/v1/interview/sound/play/**",
                                 "/v1/interview/share/**",
@@ -64,6 +64,8 @@ public class SecurityConfig {
                                 "/ws-connect/**",
                                 "/error"
                         ).permitAll()
+                        // 공유 보드 GET 조회는 userUuid만 알면 접근 가능하도록 공개
+                        .requestMatchers(HttpMethod.GET, "/v1/share-board/member/**").permitAll()
                         .anyRequest().authenticated()
                 ).cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // JwtFilter를 시큐리티 체인에 등록함
