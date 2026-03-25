@@ -21,6 +21,10 @@ from app.prompts.interview_prompts import (
     NEXT_OPENING_SYSTEM_PROMPT,
     TITLE_GENERATION_SYSTEM_PROMPT,
 )
+from app.services.interview_state_service import (
+    analyze_interview_state,
+    build_interview_state_db_payload,
+)
 from app.services.llm_service import create_message
 from app.services.tts_service import text_to_speech
 
@@ -151,6 +155,39 @@ def refine_answer_for_magazine(
         max_tokens=max_tokens,
     )
     return {"refined_answer": refined}
+
+
+def analyze_interview_state_from_payload(
+    audio_file: UploadFile,
+    stt_text: str,
+) -> dict[str, Any]:
+    """외부 STT 결과와 음성 파일을 받아 인터뷰 상태 분석만 수행한다."""
+
+    validate_audio_upload(audio_file)
+
+    normalized_stt_text = stt_text.strip()
+    if not normalized_stt_text:
+        raise ValueError("stt_text is required.")
+
+    suffix = Path(audio_file.filename or "audio.webm").suffix.lower() or ".webm"
+    temp_file_path: Path | None = None
+
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            shutil.copyfileobj(audio_file.file, temp_file)
+            temp_file_path = Path(temp_file.name)
+
+        interview_state = analyze_interview_state(
+            str(temp_file_path),
+            normalized_stt_text,
+        )
+        return {
+            "interview_state_db": build_interview_state_db_payload(interview_state),
+        }
+    finally:
+        audio_file.file.close()
+        if temp_file_path is not None and temp_file_path.exists():
+            temp_file_path.unlink()
 
 
 def generate_closing_message(
