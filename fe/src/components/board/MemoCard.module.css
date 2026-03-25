@@ -1,12 +1,7 @@
 /* ── 카드: 수직 메모 비율 고정 (260 × 340) ── */
 .card {
-  position: absolute !important;
-  width: 260px !important;
-  height: 340px !important;
-  min-height: 340px !important;
-  max-height: 340px !important;
-  flex-shrink: 0 !important;
-  flex-grow: 0 !important;
+  width: 260px;
+  height: 340px;
   padding: 10px;
   box-sizing: border-box;
   display: flex;
