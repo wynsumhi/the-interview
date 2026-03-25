@@ -85,17 +85,23 @@ function ConversationContent() {
 
   const { connect, sendChunk, sendNext, disconnect } = useStompInterview();
 
+  // StrictMode 이중 실행 방지 플래그
+  // StrictMode는 개발 환경에서 mount → cleanup → remount 순서로 effect를 두 번 실행함
+  // useRef는 같은 컴포넌트 인스턴스에서 유지되므로 두 번째 실행을 차단할 수 있음
+  // (실제 페이지 재진입 시에는 새 인스턴스가 생성되어 ref가 초기화됨)
+  const initStartedRef = useRef(false);
+
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
 
   useEffect(() => {
-    // cancelled 플래그: React StrictMode의 이중 실행 방지
-    // StrictMode는 개발 환경에서 mount → cleanup → remount 순서로 effect를 두 번 실행함
-    // async인 initInterview는 cleanup이 호출돼도 실행이 취소되지 않으므로
-    // Promise.all 완료 후 cancelled를 확인해 connect() 중복 호출을 막음
-    let cancelled = false;
+    // initStartedRef로 동일 인스턴스에서 중복 호출을 차단 (StrictMode 이중 실행 방지)
+    // cancelled 플래그는 async 작업 완료 후 connect() 중복 호출을 추가로 방지
+    if (initStartedRef.current) return;
+    initStartedRef.current = true;
 
+    let cancelled = false;
     initInterview(() => cancelled);
     return () => {
       cancelled = true;
