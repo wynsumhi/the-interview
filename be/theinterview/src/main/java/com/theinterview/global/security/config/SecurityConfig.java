@@ -24,16 +24,14 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.ForwardedHeaderFilter;
 
 @Configuration
-@EnableWebSecurity
+@EnableWebSecurity // 스프링 시큐리티 필터 체인을 위해 활성화
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    // JWT 발급과 검증에 사용하는 제공자입니다.
     private final JwtProvider jwtProvider;
-    // 블랙리스트와 리프레시 토큰 확인에 사용하는 Redis 서비스입니다.
     private final RedisService redisService;
 
-    // 비밀번호는 BCrypt 방식으로 암호화합니다.
+    // 비밀번호 암호화 메서드 등록
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -42,15 +40,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // JWT 기반 API 서버이므로 CSRF를 비활성화합니다.
-                .csrf(AbstractHttpConfigurer::disable)
-                // 세션 로그인 폼을 사용하지 않으므로 비활성화합니다.
-                .formLogin(AbstractHttpConfigurer::disable)
+                .csrf(AbstractHttpConfigurer::disable) // csrf 비활성화
+                .formLogin(AbstractHttpConfigurer::disable) // HTTP 기본 form 로그인 비활성화
                 .httpBasic(AbstractHttpConfigurer::disable)
-                // 서버는 상태를 저장하지 않는 Stateless 방식으로 동작합니다.
+                // 사용자 정보를 메모리에 저장하지 않고 무상태로 관리함
                 .sessionManagement(
                         session -> session.sessionCreationPolicy((SessionCreationPolicy.STATELESS)))
-                // 공개 API와 인증이 필요한 API를 분리합니다.
+                // 요청에 대한 권한 설정
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/v1/interview/sound/play/**",
@@ -68,11 +64,11 @@ public class SecurityConfig {
                                 "/ws-connect/**",
                                 "/error"
                         ).permitAll()
-                        // 공유 보드 GET 조회는 userUuid만 알면 접근 가능하므로 공개합니다.
+                        // 공유 보드 GET 조회는 userUuid만 알면 접근 가능하도록 공개
                         .requestMatchers(HttpMethod.GET, "/v1/share-board/member/**").permitAll()
                         .anyRequest().authenticated()
                 ).cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                // JWT 필터를 인증 필터 앞단에 배치합니다.
+                // JwtFilter를 시큐리티 체인에 등록함
                 .addFilterBefore(new JwtFilter(jwtProvider, redisService),
                         UsernamePasswordAuthenticationFilter.class);
         return http.build();
@@ -83,28 +79,24 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(List.of(
-                // 운영 프론트 주소입니다.
-                "https://j14a307.p.ssafy.io",
-                // 로컬 백엔드 테스트 주소입니다.
-                "http://localhost:8080",
-                // 로컬 프론트 개발 주소입니다.
-                "http://localhost:3000",
+                "https://j14a307.p.ssafy.io",      // 배포 환경
+                "http://localhost:8080",           // 로컬 테스트용
+                "http://localhost:3000",           // 리액트 기본 포트
                 "http://70.12.247.129:3000",
                 "http://127.0.0.1:5500",
                 "http://localhost:5500"
         ));
-        // 모든 HTTP 메서드를 허용합니다.
+        // 모든 HTTP 메서드 허용
         configuration.addAllowedMethod("*");
 
-        // 모든 요청 헤더를 허용합니다.
+        // 요청 헤더 허용(우선 모두 허용)
         configuration.setAllowedHeaders(List.of("*"));
 
-        // 인증 헤더와 쿠키 전달이 가능하도록 credentials를 허용합니다.
+        // 쿠키나 인증정보를 포함한 요청 허용
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // 전체 API 경로에 동일한 CORS 정책을 적용합니다.
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/**", configuration); // 모든 API 경로에 이 규칙 적용
         return source;
     }
 

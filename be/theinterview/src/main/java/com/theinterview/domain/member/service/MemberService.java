@@ -37,44 +37,42 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MemberService {
 
-    // 회원 기본 정보를 조회하고 저장하는 저장소입니다.
     private final MemberRepository memberRepository;
-    // 회원이 가진 인터뷰 목록을 조회하는 저장소입니다.
     private final InterviewRepository interviewRepository;
-    // 인터뷰 삭제 시 하위 데이터 정리를 재사용하기 위한 서비스입니다.
     private final InterviewService interviewService;
-    // 회원가입 시 공유 보드를 생성하고 탈퇴 시 삭제하기 위한 저장소입니다.
     private final ShareBoardRepository shareBoardRepository;
-    // 회원 탈퇴 시 공유 보드 질문을 함께 삭제하기 위한 저장소입니다.
     private final ShareBoardQuestionRepository shareBoardQuestionRepository;
-    // 회원 탈퇴 시 포스트잇 레이아웃을 함께 삭제하기 위한 저장소입니다.
     private final ShareBoardPostitLayoutRepository shareBoardPostitLayoutRepository;
-    // 로그인 응답에 필요한 userUuid 조회를 위해 사용하는 유틸입니다.
     private final DomainFindUtils domainFindUtils;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final JwtProvider jwtProvider;
     private final RedisService redisService;
 
+    // yml -> refresh token 만료 시간
     @Value("${jwt.refresh-token-validity-in-seconds}")
     private long refreshTokenValidityInSeconds;
 
+    // 회원가입 메서드
     @Transactional
     public MemberInfoDTO createMember(MemberJoinRequest request) {
-        // 이메일과 닉네임 중 하나라도 중복이면 회원가입을 허용하지 않습니다.
         if (!checkEmail(request.getEmail()) || !checkNickname(request.getNickname())) {
             throw new GeneralException(ErrorStatus.MEMBER_ALREADY_EXISTS);
         }
 
-        // 비밀번호는 반드시 암호화해서 저장합니다.
+        // 비밀번호 암호화 후 엔티티 생성 및 DB 저장
         Member member = Member.builder()
                 .email(request.getEmail())
                 .nickname(request.getNickname())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .build();
 
-        // 회원 저장 직후 회원과 1:1인 공유 보드를 자동 생성합니다.
+        // 사용자 정보 DB에 저장
         Member saveMember = memberRepository.save(member);
+        log.info("회원가입 완료 memberId: {}, email: {}, nickname: {}", saveMember.getId(),
+                saveMember.getEmail(), saveMember.getNickname());
+
+        // 회원 저장 직후 회원과 1:1인 공유 보드를 자동 생성
         shareBoardRepository.save(ShareBoard.builder()
                 .owner(saveMember)
                 .build());
@@ -82,21 +80,26 @@ public class MemberService {
         return new MemberInfoDTO(saveMember);
     }
 
+    // 로그인 및 토큰 발급 로직
     @Transactional(readOnly = true)
     public TokenResponseDTO login(LoginRequestDTO request) {
-        // 로그인 응답에 포함할 userUuid를 조회합니다.
+        // Respnse - userUuid를 전달하기 위함
         Member member = domainFindUtils.getMemberByEmail(request.getEmail());
 
+        // 클라이언트에서 보낸 이메일과 비밀번호를 기반으로 임시 토큰 생성
         UsernamePasswordAuthenticationToken authenticationToken =
                 new UsernamePasswordAuthenticationToken(request.getEmail(),
                         request.getPassword());
 
+        // loadUserByUsername 메서드가 실행되면서 Db에서 사용자를 찾고 비밀번호를 비교함(CustomUserDetailsService)
         Authentication authenticate = authenticationManagerBuilder.getObject()
                 .authenticate(authenticationToken);
 
+        // 인증을 통과했다면 토큰을 생성함
         String accessToken = jwtProvider.createAccessToken(authenticationToken);
         String refreshToken = jwtProvider.createRefreshToken(authenticationToken);
 
+        // redis에 refresh 토큰 저장
         redisService.setValues(
                 authenticate.getName(),
                 refreshToken,
@@ -109,28 +112,33 @@ public class MemberService {
         );
     }
 
+    // 로그아웃 메서드
     @Transactional
     public void logout(String email, String accessToken) {
-        // Redis에 저장된 리프레시 토큰을 제거해 재발급을 막습니다.
+        // Redis에 해당 이메일로 저장된 데이터가 있는지 확인하고 데이터 삭제
         if (email != null && redisService.hasKey(email)) {
             redisService.deleteValues(email);
+            log.info("로그아웃 처리 완료 - 사용자: {}", email);
         }
 
-        // 아직 유효한 액세스 토큰은 블랙리스트에 등록합니다.
+        // accessToken 블랙리스트 처리
         if (accessToken != null) {
             long remainingTime = jwtProvider.getRemainingTime(accessToken);
 
             if (remainingTime > 0) {
+                // 남은 시간만큼만 레디스에 저장함 (Key: BLACKLIST: 토큰, Value: "logout")
                 redisService.setValues(
                         "BLACKLIST:" + accessToken,
                         "logout",
                         Duration.ofMillis(remainingTime)
 
                 );
+                log.info("Access Token 블랙리스트 추가 완료");
             }
         }
     }
 
+    // 회원 정보 조회 메서드
     @Transactional(readOnly = true)
     public MemberInfoDTO getMemberInfo(String email) {
         Member member = memberRepository.findByEmail(email)
@@ -139,11 +147,13 @@ public class MemberService {
         return new MemberInfoDTO(member);
     }
 
+    // 회원 정보 수정 메서드
     @Transactional
     public MemberInfoDTO updateMemberInfo(String email, MemberInfoUpdateRequest request) {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
+        // 닉네임 중복 검사, 만약 자기 자신의 닉네임과 현재 닉네임이 같다면 패스
         if (!Objects.equals(request.getNickname(), member.getNickname())
                 && !checkNickname(request.getNickname())) {
             throw new GeneralException(ErrorStatus.MEMBER_ALREADY_EXISTS);
@@ -153,33 +163,39 @@ public class MemberService {
         return new MemberInfoDTO(member);
     }
 
+    // 회원탈퇴
     public void deleteMemberInfo(String email) {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
-        // 회원이 보유한 인터뷰는 기존 삭제 로직으로 정리합니다.
+        // FK 제약조건으로 인하여 자식부터 삭제하기 위해서 모든 인터뷰 내역을 가져옴
         List<Interview> interviews = interviewRepository.findAllByMemberId(member.getId());
+        log.info("[MemberService - deleteMemberInfo] memberID : {} / Load Interviews Size : {}",
+                member.getId(), interviews.size());
 
+        // 만약 인터뷰 이력이 있다면 모든 인터뷰 데이터 삭제
         if (!interviews.isEmpty()) {
             interviews.forEach(interview ->
+                    // interviewService의 사용자 인터뷰 삭제 로직 동작
                     interviewService.deleteInterview(interview.getId(), member.getId()));
         }
 
-        // 공유 보드 하위 데이터는 FK 순서에 맞춰 레이아웃 -> 질문 -> 보드 순으로 삭제합니다.
+        // 공유 보드 하위 데이터는 FK 순서에 맞춰 레이아웃 -> 질문 -> 보드 순으로 삭제
         shareBoardRepository.findByOwnerId(member.getId()).ifPresent(shareBoard -> {
             shareBoardPostitLayoutRepository.deleteAllByShareBoardId(shareBoard.getId());
             shareBoardQuestionRepository.deleteAllByShareBoardId(shareBoard.getId());
             shareBoardRepository.deleteByOwnerId(member.getId());
         });
 
-        // 마지막으로 회원 본체를 삭제합니다.
         memberRepository.deleteById(member.getId());
     }
 
+    // 이메일 중복 체크 헬퍼 메서드
     public boolean checkEmail(String email) {
         return !memberRepository.existsByEmail(email);
     }
 
+    // 닉네임 중복 체크 헬퍼 메서드
     public boolean checkNickname(String nickname) {
         return !memberRepository.existsByNickname(nickname);
     }
