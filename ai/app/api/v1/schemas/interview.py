@@ -173,6 +173,7 @@ class InterviewClosingRequest(BaseModel):
 
     interview_context: str
     nickname: str
+    voice: str | None = None
 
 
 class InterviewClosingResponse(BaseModel):
@@ -211,6 +212,7 @@ class InterviewStartTTSRequest(BaseModel):
     nickname: str | None = None
     is_first_finished: bool
     db_question: str | None = None
+    voice: str | None = None
 
 
 class InterviewStartTTSResponse(BaseModel):

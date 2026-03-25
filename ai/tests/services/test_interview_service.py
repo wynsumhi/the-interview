@@ -14,10 +14,7 @@ from fastapi import UploadFile
 def build_interview_state_db_response() -> dict[str, object]:
     return {
         "top_state": "calm",
-        "fused_scores": {
-            "calm": 0.75,
-            "tense": 0.25,
-        },
+        "fused_scores": {"calm": 0.75, "tense": 0.25},
         "audio_features": {
             "duration_sec": 1.0,
             "rms_mean": 0.02,
@@ -69,6 +66,7 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
 
         result = run_interview_pipeline_from_upload(
             upload,
+            voice="Robert",
             user_id="user-123",
             previous_question="current question",
             max_tokens=256,
@@ -86,10 +84,10 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
         "refined_answer": "refined answer",
     }
     pipeline_mock.assert_called_once()
-    args, kwargs = pipeline_mock.call_args
-    assert args
+    _, kwargs = pipeline_mock.call_args
     assert kwargs == {
         "is_first_finished": False,
+        "voice": "Robert",
         "user_id": "user-123",
         "sequence": None,
         "nickname": None,

@@ -51,12 +51,13 @@ def test_text_to_speech_logs_elapsed_time_and_size() -> None:
         patch("app.services.tts_service.time.perf_counter", side_effect=[30.0, 30.15]),
         patch("app.services.tts_service.logger.info") as logger_mock,
     ):
-        result = text_to_speech("question text")
+        result = text_to_speech("question text", voice="Jessica")
 
     assert result == b"wav-bytes"
     logger_mock.assert_called_once_with(
-        "[TTS] completed in %.3fs chars=%s bytes=%s",
+        "[TTS] completed in %.3fs voice=%s chars=%s bytes=%s",
         0.14999999999999858,
+        "F3",
         13,
         9,
     )
@@ -73,11 +74,7 @@ def test_analyze_interview_state_logs_summary() -> None:
             return_value=type(
                 "AudioFeaturesStub",
                 (),
-                {
-                    "silence_ratio": 0.2,
-                    "pitch_mean_hz": 120.0,
-                    "pitch_std_hz": 10.0,
-                },
+                {"silence_ratio": 0.2, "pitch_mean_hz": 120.0, "pitch_std_hz": 10.0},
             )(),
         ),
         patch(

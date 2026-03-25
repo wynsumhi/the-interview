@@ -106,6 +106,7 @@ def _build_first_interview_messages(
 def run_interview_pipeline(
     audio_file_path: str,
     is_first_finished: bool,
+    voice: str | None = None,
     user_id: str | None = None,
     sequence: int | None = None,
     nickname: str | None = None,
@@ -120,6 +121,7 @@ def run_interview_pipeline(
         stt_text=stt_text,
         refinement_stt_text=stt_text,
         is_first_finished=is_first_finished,
+        voice=voice,
         user_id=user_id,
         sequence=sequence,
         nickname=nickname,
@@ -133,6 +135,7 @@ def run_interview_pipeline_from_stt_text(
     stt_text: str,
     is_first_finished: bool,
     refinement_stt_text: str | None = None,
+    voice: str | None = None,
     user_id: str | None = None,
     sequence: int | None = None,
     nickname: str | None = None,
@@ -213,7 +216,7 @@ def run_interview_pipeline_from_stt_text(
         llm_text = question_future.result()
         refined_answer = magazine_future.result()
 
-    tts_audio = text_to_speech(llm_text)
+    tts_audio = text_to_speech(llm_text, voice=voice)
 
     return InterviewPipelineResult(
         stt_text=stt_text,
