@@ -67,7 +67,10 @@ export default function BoardPage({
   } = useBookmarkPostits(userUuid);
 
   // 모든 페이지의 items를 하나의 배열로 합침
-  const bookmarkItems = bookmarkData?.pages.flatMap((page) => page.items) ?? [];
+  // interviewQAShare가 false인 항목은 공유 비허용이므로 프론트에서도 제외 (백엔드 필터의 안전망)
+  const bookmarkItems = (bookmarkData?.pages.flatMap((page) => page.items) ?? []).filter(
+    (item) => item.interviewQAShare,
+  );
 
   return (
     <div className={styles.page}>
