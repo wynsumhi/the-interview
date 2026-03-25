@@ -25,6 +25,10 @@ public abstract class AiRagDto {
         @JsonProperty("turn_index")
         private int turnIndex;
         private Map<String, Object> metadata;
+
+        public void setMetadata(String title) {
+            this.metadata = Map.of("title", title);
+        }
     }
 
     @Getter

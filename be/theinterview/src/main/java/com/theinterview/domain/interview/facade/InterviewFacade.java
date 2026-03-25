@@ -3,6 +3,7 @@ package com.theinterview.domain.interview.facade;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.theinterview.domain.interview.dto.AiRagDto.DeleteRequest;
+import com.theinterview.domain.interview.dto.AiRagDto.Turn;
 import com.theinterview.domain.interview.dto.AiRagDto.UpsertRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
@@ -154,29 +155,19 @@ public class InterviewFacade {
                     if (!member.getIsFirstFinished() && interviewQuestion.getSequence() + 1 >= 6) {
                         log.info("sequence 기준치 도달. 인터뷰 종료 파이프라인으로 전환");
                         // 즉시 DB에 저장 후 종료 파서드 호출
-                        return Mono.fromCallable(
-                                        () -> {
-                                            interviewService.saveAnswer(interviewQuestion, answerText,
-                                                    savedPath);
-                                            return true; // fromCallable은 리턴값이 있어야 함(가짜 리턴값 사용)
-                                        })
-                                .subscribeOn(Schedulers.boundedElastic())
-                                // 위에서 반환된 가짜 리턴값을 ignored에 받아서 처리(실제로 사용되지 않음)
-                                .flatMap(ignored -> exitInterviewFacade(email,
-                                        InterviewExitRequest.builder()
-                                                .interviewId(interviewId)
-                                                .questionId(questionId)
-                                                .build())
-                                        .then(Mono.fromRunnable(() ->
-                                                messagingTemplate.convertAndSend( // 프론트에 종료되었다고 응답
-                                                        "/topic/interview/tmp/" + interviewId,
-                                                        FollowUpQuestionDTO.builder()
-                                                                .interviewId(interviewId)
-                                                                .questionId(questionId)
-                                                                .isExit(true) // 여기만 응답에 포함
-                                                                .build()
-                                                )))
-                                );
+                        return exitInterviewFacade(email, InterviewExitRequest.builder()
+                                .interviewId(interviewId)
+                                .questionId(questionId)
+                                .build())
+                                .then(Mono.fromRunnable(() ->
+                                        messagingTemplate.convertAndSend( // 프론트에 종료되었다고 응답
+                                                "/topic/interview/tmp/" + interviewId,
+                                                FollowUpQuestionDTO.builder()
+                                                        .interviewId(interviewId)
+                                                        .questionId(questionId)
+                                                        .isExit(true) // 여기만 응답에 포함
+                                                        .build()
+                                        )));
 
                     }
                     // 3. AI 파이프라인 호출(여기서 비동기 호출 사용)
@@ -279,9 +270,14 @@ public class InterviewFacade {
 
         // 메서드 리턴 이후에도 람다에 캡처되어 체인 완료 시점까지 유지됨
         AtomicReference<InterviewQuestion> questionRef = new AtomicReference<>();
+        AtomicReference<AiTitleResponse> aiTitleResponseRef = new AtomicReference<>();
         // 1. DB에 마지막 답변 저장 및 필요 도메인 조회 및 다음 질문 생성을 위한 준비(질문 답변 쌍 조합 및 답변 없는 질문 삭제)
         return Mono.fromCallable(
                         () -> {
+                            // todo
+                            // 1. 디스크에서 음성 원본 파일을 받아옴
+                            byte[] bytes = Files.readAllBytes(Paths.get(savedPath));
+                            // 2. api 호출 여기여기여기여기
                             InterviewQuestion question = interviewService.saveAnswer(
                                     request.getQuestionId(), answerText, savedPath);
                             questionRef.set(question);
@@ -315,6 +311,13 @@ public class InterviewFacade {
                                         // 저장 로직
                                         AiNextOpeningResponse openingQuestionResponse = aiResponse.getT1();
                                         AiTitleResponse titleResponse = aiResponse.getT2();
+
+                                        // rag에 보낼 메타데이터 조립
+                                        for (Turn turn : answerTts.getTurns()) {
+                                            turn.setMetadata(titleResponse.getTitle());
+                                        }
+
+                                        aiTitleResponseRef.set(titleResponse);
                                         interviewService.saveExitAiResponse(
                                                 request.getInterviewId(),
                                                 titleResponse.getTitle(),
@@ -330,7 +333,8 @@ public class InterviewFacade {
                                                             .userId(String.valueOf(answerTts.getMember().getId()))
                                                             .interviewId(String.valueOf(request.getInterviewId()))
                                                             .turns(answerTts.getTurns())
-                                                            .metadata(Map.of("title", "인터뷰"))
+                                                            .metadata(Map.of("title",
+                                                                    aiTitleResponseRef.get().getTitle()))
                                                             .build())
                                                     .doOnError(e -> log.error("RAG upsert 실패: {}",
                                                             e.getMessage())),

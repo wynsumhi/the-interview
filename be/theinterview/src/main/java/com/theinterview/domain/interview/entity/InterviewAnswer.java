@@ -48,19 +48,19 @@ public class InterviewAnswer {
     @Column(name = "answer_keyword", length = 300)
     private String answerKeyword;
 
-    @Column(name = "calm_score", nullable = false, precision = 4, scale = 3)
+    @Column(name = "calm_score", precision = 4, scale = 3)
     private BigDecimal calmScore;
 
-    @Column(name = "tense_score", nullable = false, precision = 4, scale = 3)
+    @Column(name = "tense_score", precision = 4, scale = 3)
     private BigDecimal tenseScore;
 
-    @Column(name = "anxious_score", nullable = false, precision = 4, scale = 3)
+    @Column(name = "anxious_score", precision = 4, scale = 3)
     private BigDecimal anxiousScore;
 
-    @Column(name = "low_score", nullable = false, precision = 4, scale = 3)
+    @Column(name = "low_score", precision = 4, scale = 3)
     private BigDecimal lowScore;
 
-    @Column(name = "engaged_score", nullable = false, precision = 4, scale = 3)
+    @Column(name = "engaged_score", precision = 4, scale = 3)
     private BigDecimal engagedScore;
 
     @Column(name = "created_at", nullable = false)
