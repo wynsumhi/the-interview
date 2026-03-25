@@ -55,7 +55,6 @@ import com.theinterview.global.util.FileDeleteUtils;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -373,6 +372,33 @@ public class InterviewService {
                 .member(member)
                 .turns(turns)
                 .build();
+    }
+
+    // 사용자의 질문/답변 쌍을 하나의 문자열로 조합하여 반환하는 메서드
+    @Transactional(readOnly = true)
+    public String makeAnswerQuestionCouple(Integer interviewId) {
+
+        Interview interview = domainFindUtils.getInterviewById(interviewId);
+
+        List<InterviewQuestion> interviewQuestions = interview.getInterviewQuestions();
+
+        String context = "";
+
+        int count = 1;
+
+        for (InterviewQuestion interviewQuestion : interviewQuestions) {
+
+            if (interviewQuestion.getInterviewAnswer() == null) {
+                continue;
+            }
+            
+            context =
+                    context + "Q" + count + ": " + interviewQuestion.getQuestionText() + "\n" + "A"
+                            + count + ": " + interviewQuestion.getInterviewAnswer().getAnswerText()
+                            + "\n";
+            count += 1;
+        }
+        return context;
     }
 
     // 인터뷰 종료 시 facade에서 호출되는 메서드
@@ -841,16 +867,17 @@ public class InterviewService {
         shareBoardPostitLayoutRepository
                 .findByShareBoardIdAndPostitTypeAndSourceId(shareBoard.getId(),
                         ShareBoardPostitType.BOOKMARK, answer.getId())
-                .orElseGet(() -> shareBoardPostitLayoutRepository.save(ShareBoardPostitLayout.builder()
-                        .shareBoard(shareBoard)
-                        .postitType(ShareBoardPostitType.BOOKMARK)
-                        .sourceId(answer.getId())
-                        .colorCode(resolveBookmarkColor(answer.getId()))
-                        .rotationDeg(defaultRotation(answer.getId()))
-                        .positionX(defaultPositionX(answer.getId()))
-                        .positionY(defaultPositionY(answer.getId()))
-                        .zIndex(0)
-                        .build()));
+                .orElseGet(
+                        () -> shareBoardPostitLayoutRepository.save(ShareBoardPostitLayout.builder()
+                                .shareBoard(shareBoard)
+                                .postitType(ShareBoardPostitType.BOOKMARK)
+                                .sourceId(answer.getId())
+                                .colorCode(resolveBookmarkColor(answer.getId()))
+                                .rotationDeg(defaultRotation(answer.getId()))
+                                .positionX(defaultPositionX(answer.getId()))
+                                .positionY(defaultPositionY(answer.getId()))
+                                .zIndex(0)
+                                .build()));
     }
 
     private String resolveBookmarkColor(Integer sourceId) {
@@ -916,4 +943,6 @@ public class InterviewService {
         answer.updateKeyword(keyword);
         log.info("키워드 저장 성공. 키워드: {}", keyword);
     }
+
+
 }

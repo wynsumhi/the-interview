@@ -15,6 +15,7 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.TotalChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.entity.InterviewQuestion;
@@ -278,6 +279,8 @@ public class InterviewFacade {
                             // 1. 디스크에서 음성 원본 파일을 받아옴
                             byte[] bytes = Files.readAllBytes(Paths.get(savedPath));
                             // 2. api 호출 여기여기여기여기
+
+                            // 마지막 답변을 저장함
                             InterviewQuestion question = interviewService.saveAnswer(
                                     request.getQuestionId(), answerText, savedPath);
                             questionRef.set(question);
@@ -352,6 +355,47 @@ public class InterviewFacade {
                                     ));  // 별도 subscribe로 체인과 분리
                 })
                 .then(); // Mono<Void> 반영
+    }
+
+    // 사용자가 아무런 녹음도 하지 않고 종료했을 경우 실행 될 파서드
+    public void exitInterviewNoAudioFacade(TotalChunkRequest request, String email,
+            String redisKey) {
+
+        // 1. 해당 대화의 모든 질문, 답변 쌍 조회
+        String context = interviewService.makeAnswerQuestionCouple(request.getInterviewId());
+
+        Member member = domainFindUtils.getMemberByEmail(email);
+
+        // 2. 다음 첫 질문 및 제목 생성
+        Mono.zip(
+                aiUtils.callFastApiForNextOpeningV2(AiNextOpeningRequest.builder()
+                        .interviewContext(context)
+                        .nickname(member.getNickname())
+                        .build()),
+
+                aiUtils.callFastApiForInterviewTitleV2(AiTitleRequest
+                        .builder()
+                        .interviewContext(context)
+                        .build())
+        ).flatMap(tuple -> {
+            // 첫 질문 및 제목 생성된 값을 받음
+            AiNextOpeningResponse aiNextOpeningResponse = tuple.getT1();
+            AiTitleResponse aiTitleResponse = tuple.getT2();
+
+            // DB에 저장, 인터뷰 상태 전환, redis 키 삭제
+            return Mono.fromRunnable(
+                    () -> {
+                        interviewService.saveExitAiResponse(request.getInterviewId(),
+                                aiTitleResponse.getTitle(),
+                                aiNextOpeningResponse.getDbQuestion());
+                        redisService.deleteValues(redisKey + "lock");
+                        redisService.deleteValues(redisKey + "isSaving");
+                    }).subscribeOn(Schedulers.boundedElastic());
+        }).subscribe(
+                null,
+                error -> log.error("종료 파이프라인 실패: {}", error.getMessage())
+        );
+
     }
 
     // 인터뷰가 삭제되고, rag에서도 관련 값 삭제를 위해 호출되는 facade
