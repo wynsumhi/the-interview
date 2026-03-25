@@ -240,6 +240,21 @@ public class InterviewService {
                 .build());
     }
 
+    @Transactional
+    public InterviewQuestion saveAnswer(Integer questionId, String answerText,
+            String savedPath) {
+
+        InterviewQuestion interviewQuestion = domainFindUtils.getInterviewQuestionById(questionId);
+
+        // DB에 사용자의 마지막 답변 저장
+        interviewAnswerRepository.save(InterviewAnswer.builder()
+                .interviewQuestion(interviewQuestion)
+                .answerText(answerText)
+                .answerAudioUrl(savedPath)
+                .build());
+        return interviewQuestion;
+    }
+
     /**
      * AI 서버와의 꼬리 질문 생성을 위한 성공적인 통신 이후 관련 반환값들을 DB에 반영하고 DB 락을 해제함 퍼사드에서 호출됨
      */
@@ -887,5 +902,18 @@ public class InterviewService {
         }
 
         return resource;
+    }
+
+    // 키워드 저장 메서드
+    @Transactional
+    public void saveKeyword(InterviewQuestion question, String keyword) {
+
+        // 영속성 컨텍스트에 다시 올리기 위해 조회
+        InterviewQuestion findQuestion = domainFindUtils.getInterviewQuestionById(question.getId());
+
+        InterviewAnswer answer = findQuestion.getInterviewAnswer();
+
+        answer.updateKeyword(keyword);
+        log.info("키워드 저장 성공. 키워드: {}", keyword);
     }
 }

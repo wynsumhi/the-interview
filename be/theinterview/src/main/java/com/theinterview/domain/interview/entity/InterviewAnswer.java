@@ -82,8 +82,13 @@ public class InterviewAnswer {
         this.lowScore = lowScore;
         this.engagedScore = engagedScore;
     }
-    
+
     public void updateShareRange(Boolean shareRange) {
         this.shareRange = shareRange;
+    }
+
+    // 키워드 설정 메서드
+    public void updateKeyword(String keyword) {
+        this.answerKeyword = keyword;
     }
 }

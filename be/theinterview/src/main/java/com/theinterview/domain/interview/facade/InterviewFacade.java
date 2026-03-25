@@ -2,12 +2,13 @@ package com.theinterview.domain.interview.facade;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.theinterview.domain.interview.dto.AiRagDto;
 import com.theinterview.domain.interview.dto.AiRagDto.DeleteRequest;
+import com.theinterview.domain.interview.dto.AiRagDto.UpsertRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
+import com.theinterview.domain.interview.dto.FastApiRequest.KeywordRequest;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
@@ -31,6 +32,7 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -220,8 +222,39 @@ public class InterviewFacade {
                                     return new FollowUpQuestionDTO(aiPipelineResponse, interviewId,
                                             nextQuestionId);
                                 }).subscribeOn(Schedulers.boundedElastic());
+                            })
+                            .doOnSuccess(followUpQuestionDTO -> {
+                                aiUtils.callFastApiKeyword(KeywordRequest
+                                                .builder()
+                                                .answer(answerText)
+                                                .question(interviewQuestion.getQuestionText())
+                                                .build())
+                                        .flatMap(keywordResponse ->
+                                                Mono.fromRunnable(() ->
+                                                                interviewService.saveKeyword(
+                                                                        interviewQuestion,
+                                                                        keywordResponse.getKeyword()))
+                                                        .subscribeOn(Schedulers.boundedElastic())
+                                        ).subscribe();
+
                             });
                 });
+    }
+
+    // 키워드 생성 로직 호출
+    private Mono keywordFacade(FollowUpQuestionDTO followUpQuestionDTO, String answerText) {
+
+        // 1. 필요 도메인 객체 조회
+        return Mono.fromCallable(() -> domainFindUtils.getInterviewQuestionById(
+                        followUpQuestionDTO.getQuestionId())).subscribeOn(Schedulers.boundedElastic())
+                .flatMap(
+                        question -> (
+                                aiUtils.callFastApiKeyword(KeywordRequest.builder()
+                                        .answer(answerText)
+                                        .question(question.getQuestionText())
+                                        .build())
+                        )
+                );
     }
 
     // 역직렬화 헬퍼 메서드
@@ -237,10 +270,27 @@ public class InterviewFacade {
     // 인터뷰 종료 시 호출되는 facade
     public Mono<Void> exitInterviewFacade(String email, InterviewExitRequest request) {
 
-        // 1. 필요 도메인 조회 및 다음 질문 생성을 위한 준비(질문 답변 쌍 조합 및 답변 없는 질문 삭제)
-        return Mono.fromCallable(() ->
-                        interviewService.findDomainMakeQnACouple(email, request.getInterviewId()))
+        // redis에 있을 마지막 답변 조회 및 저장 경로 조회
+        String redisKey =
+                "interviewId:" + request.getInterviewId() + "questionId:" + request.getQuestionId();
+        String savedPath = redisService.getValues(redisKey + "savedPath");
+
+        String answerText = redisService.getOrderedChunks(redisKey + "chunks");
+
+        // 메서드 리턴 이후에도 람다에 캡처되어 체인 완료 시점까지 유지됨
+        AtomicReference<InterviewQuestion> questionRef = new AtomicReference<>();
+        // 1. DB에 마지막 답변 저장 및 필요 도메인 조회 및 다음 질문 생성을 위한 준비(질문 답변 쌍 조합 및 답변 없는 질문 삭제)
+        return Mono.fromCallable(
+                        () -> {
+                            InterviewQuestion question = interviewService.saveAnswer(
+                                    request.getQuestionId(), answerText, savedPath);
+                            questionRef.set(question);
+                            return question;
+                        })
                 .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(interviewQuestion -> Mono.fromCallable(() ->
+                                interviewService.findDomainMakeQnACouple(email, request.getInterviewId()))
+                        .subscribeOn(Schedulers.boundedElastic()))
                 .flatMap(answerTts -> {
 
                     // 답변이 저장된 적 없다면 예외를 발생시킴
@@ -275,16 +325,27 @@ public class InterviewFacade {
                                     }).subscribeOn(Schedulers.boundedElastic())
                             ).retry(3)
                             // 파이프라인 완료 후 RAG 적재
-                            .doOnSuccess(ignored ->
-                                    aiUtils.callFastApiForRagUpsert(AiRagDto.UpsertRequest.builder()
-                                                    .userId(String.valueOf(answerTts.getMember().getId()))
-                                                    .interviewId(String.valueOf(request.getInterviewId()))
-                                                    .turns(answerTts.getTurns())
-                                                    .metadata(Map.of("title", "인터뷰"))
+                            .doOnSuccess(ignored -> Mono.zip(
+                                            aiUtils.callFastApiForRagUpsert(UpsertRequest.builder()
+                                                            .userId(String.valueOf(answerTts.getMember().getId()))
+                                                            .interviewId(String.valueOf(request.getInterviewId()))
+                                                            .turns(answerTts.getTurns())
+                                                            .metadata(Map.of("title", "인터뷰"))
+                                                            .build())
+                                                    .doOnError(e -> log.error("RAG upsert 실패: {}",
+                                                            e.getMessage())),
+                                            aiUtils.callFastApiKeyword(KeywordRequest.builder()
+                                                    .question(questionRef.get().getQuestionText())
+                                                    .answer(answerText)
                                                     .build())
-                                            .doOnError(e -> log.error("RAG upsert 실패: {}",
-                                                    e.getMessage()))
-                                            .subscribe());  // 별도 subscribe로 체인과 분리
+                                    ).doOnSuccess(tuple -> interviewService.saveKeyword(questionRef.get(),
+                                            tuple.getT2().getKeyword()))
+                                    .subscribeOn(Schedulers.boundedElastic())
+                                    .subscribe(
+                                            null,
+                                            error -> log.error("키워드 저장 파이프라인 실패: {}",
+                                                    error.getMessage())
+                                    ));  // 별도 subscribe로 체인과 분리
                 })
                 .then(); // Mono<Void> 반영
     }
