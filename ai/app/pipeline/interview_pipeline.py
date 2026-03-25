@@ -148,6 +148,7 @@ def run_interview_pipeline_from_stt_text(
         "messages": [{"role": "user", "content": stt_text}],
         "system": MAGAZINE_GENERATION_SYSTEM_PROMPT,
         "max_tokens": 300,
+        "label": "answer_refinement",
     }
 
     # 첫 인터뷰의 마지막 답변까지 도달하면 추가 질문은 만들지 않는다.
@@ -199,6 +200,7 @@ def run_interview_pipeline_from_stt_text(
             messages=messages,
             system=system,
             max_tokens=max_tokens,
+            label="followup_question",
         )
         magazine_future = executor.submit(create_message, **_magazine_kwargs)
         llm_text = question_future.result()

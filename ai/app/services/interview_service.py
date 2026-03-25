@@ -120,6 +120,7 @@ def generate_next_opening_question(
         messages=[{"role": "user", "content": user_message}],
         system=NEXT_OPENING_SYSTEM_PROMPT,
         max_tokens=max_tokens,
+        label="next_opening_question",
     )
     return {"db_question": db_question}
 
@@ -153,6 +154,7 @@ def refine_answer_for_magazine(
         messages=[{"role": "user", "content": normalized_stt_text}],
         system=MAGAZINE_GENERATION_SYSTEM_PROMPT,
         max_tokens=max_tokens,
+        label="answer_refinement",
     )
     return {"refined_answer": refined}
 
@@ -208,6 +210,7 @@ def generate_closing_message(
         messages=[{"role": "user", "content": interview_context}],
         system=system,
         max_tokens=max_tokens,
+        label="closing_message",
     )
     tts_audio = text_to_speech(closing)
 
