@@ -3,7 +3,9 @@ package com.theinterview.domain.shareboard.repository;
 import com.theinterview.domain.shareboard.entity.ShareBoardQuestion;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -45,4 +47,21 @@ public interface ShareBoardQuestionRepository extends JpaRepository<ShareBoardQu
             where q.id = :questionId
             """)
     Optional<ShareBoardQuestion> findDetailById(@Param("questionId") Integer questionId);
+
+    @EntityGraph(attributePaths = {"shareBoard", "shareBoard.owner", "author", "startedInterview"})
+    Slice<ShareBoardQuestion> findAllByShareBoardIdAndIsDeletedFalseOrderByUpdatedAtDesc(
+            Integer shareBoardId, Pageable pageable);
+
+    @Query("""
+            select q
+            from ShareBoardQuestion q
+            join fetch q.shareBoard sb
+            join fetch sb.owner o
+            join fetch q.author a
+            left join fetch q.startedInterview si
+            where q.id in :questionIds
+            """)
+    List<ShareBoardQuestion> findAllDetailByIdIn(@Param("questionIds") List<Integer> questionIds);
+
+    void deleteAllByShareBoardId(Integer shareBoardId);
 }

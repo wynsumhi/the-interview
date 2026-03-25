@@ -41,6 +41,11 @@ import com.theinterview.domain.interview.entity.QuestionCandidate;
 import com.theinterview.domain.interview.enums.InterviewStatus;
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.repository.MemberRepository;
+import com.theinterview.domain.shareboard.entity.ShareBoard;
+import com.theinterview.domain.shareboard.entity.ShareBoardPostitLayout;
+import com.theinterview.domain.shareboard.enums.ShareBoardPostitType;
+import com.theinterview.domain.shareboard.repository.ShareBoardPostitLayoutRepository;
+import com.theinterview.domain.shareboard.repository.ShareBoardRepository;
 import com.theinterview.global.config.redis.RedisService;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
@@ -48,6 +53,8 @@ import com.theinterview.global.util.DomainFindUtils;
 import com.theinterview.global.util.FileDeleteUtils;
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -84,6 +91,8 @@ public class InterviewService {
     private final FileDeleteUtils fileDeleteUtils;
     private final DomainFindUtils domainFindUtils;
     private final RedisService redisService;
+    private final ShareBoardRepository shareBoardRepository;
+    private final ShareBoardPostitLayoutRepository shareBoardPostitLayoutRepository;
 
     @Value("${file.audio.base-path}")
     private String answerAudioPath;
@@ -784,7 +793,57 @@ public class InterviewService {
                 .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
 
         // Request로 오는 값이 true라면 shareRange 수정 / false라면 shareRange 수정
+        // 답변의 북마크 공유 여부를 갱신합니다.
         interviewAnswer.updateShareRange(request.getInterviewShareRange());
+        if (Boolean.TRUE.equals(request.getInterviewShareRange())) {
+            // 북마크가 공유 상태로 바뀌면 공유 보드용 레이아웃도 함께 보장합니다.
+            ensureBookmarkLayout(interviewAnswer);
+        }
+    }
+
+    private void ensureBookmarkLayout(InterviewAnswer answer) {
+        // 북마크 원본 답변의 주인을 기준으로 연결할 공유 보드를 찾습니다.
+        ShareBoard shareBoard = shareBoardRepository.findByOwnerId(
+                        answer.getInterviewQuestion().getInterview().getMember().getId())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.SHARE_BOARD_NOT_FOUND));
+
+        // 이미 레이아웃이 있으면 그대로 두고, 없으면 기본 레이아웃을 생성합니다.
+        shareBoardPostitLayoutRepository
+                .findByShareBoardIdAndPostitTypeAndSourceId(shareBoard.getId(),
+                        ShareBoardPostitType.BOOKMARK, answer.getId())
+                .orElseGet(() -> shareBoardPostitLayoutRepository.save(ShareBoardPostitLayout.builder()
+                        .shareBoard(shareBoard)
+                        .postitType(ShareBoardPostitType.BOOKMARK)
+                        .sourceId(answer.getId())
+                        .colorCode(resolveBookmarkColor(answer.getId()))
+                        .rotationDeg(defaultRotation(answer.getId()))
+                        .positionX(defaultPositionX(answer.getId()))
+                        .positionY(defaultPositionY(answer.getId()))
+                        .zIndex(0)
+                        .build()));
+    }
+
+    private String resolveBookmarkColor(Integer sourceId) {
+        // sourceId 기준으로 시스템 팔레트 색상을 순환 배정합니다.
+        String[] palette = {"yellow", "pink", "mint", "blue", "orange"};
+        return palette[Math.floorMod(sourceId, palette.length)];
+    }
+
+    private BigDecimal defaultRotation(Integer sourceId) {
+        // 기본 회전값은 sourceId에 따라 약간씩 다르게 줍니다.
+        return BigDecimal.valueOf(Math.floorMod(sourceId, 7) - 3);
+    }
+
+    private BigDecimal defaultPositionX(Integer sourceId) {
+        // 기본 X 좌표는 sourceId 기반으로 분산시켜 초기 겹침을 줄입니다.
+        double value = 0.08 + (Math.floorMod(sourceId, 4) * 0.18);
+        return BigDecimal.valueOf(value).setScale(4, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal defaultPositionY(Integer sourceId) {
+        // 기본 Y 좌표도 sourceId 기반으로 분산시켜 초기 배치 후보를 만듭니다.
+        double value = 0.08 + (Math.floorMod(sourceId, 5) * 0.14);
+        return BigDecimal.valueOf(value).setScale(4, RoundingMode.HALF_UP);
     }
 
     // 사용자 인터뷰 오디오 재생
