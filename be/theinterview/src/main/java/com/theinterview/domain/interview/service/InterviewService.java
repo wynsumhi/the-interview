@@ -216,6 +216,21 @@ public class InterviewService {
                 .build());
     }
 
+    @Transactional
+    public boolean saveAnswer(Integer questionId, String answerText,
+            String savedPath) {
+
+        InterviewQuestion interviewQuestion = domainFindUtils.getInterviewQuestionById(questionId);
+
+        // DB에 사용자의 마지막 답변 저장
+        interviewAnswerRepository.save(InterviewAnswer.builder()
+                .interviewQuestion(interviewQuestion)
+                .answerText(answerText)
+                .answerAudioUrl(savedPath)
+                .build());
+        return true;
+    }
+
     /**
      * AI 서버와의 꼬리 질문 생성을 위한 성공적인 통신 이후 관련 반환값들을 DB에 반영하고 DB 락을 해제함 퍼사드에서 호출됨
      */

@@ -1,7 +1,6 @@
 package com.theinterview.domain.interview.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.theinterview.domain.interview.dto.AiRagDto.DeleteRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.BookmarkSetting;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRange;
@@ -141,17 +140,9 @@ public class InterviewController {
             @PathVariable(name = "interviewId") Integer interviewId,
             @AuthenticationPrincipal User user
     ) {
-        Member member = memberRepository.findByEmail(user.getUsername())
-                .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
-        interviewService.deleteInterview(interviewId, member.getId());
-
-        // 삭제가 완료되고 나면 rag에서도 삭제 메서드 호출
-        aiUtils.callFastApiForRagDelete(DeleteRequest.builder()
-                        .userId(String.valueOf(member.getId()))
-                        .interviewId(String.valueOf(interviewId))
-                        .build())
-                .subscribe();
+        // 인터뷰 삭제 파서드 호출
+        interviewFacade.deleteInterviewFacade(user.getUsername(), interviewId);
 
         return ApiResponse.OK;
     }
