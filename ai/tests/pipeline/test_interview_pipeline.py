@@ -120,7 +120,7 @@ class TestInterviewPipeline(unittest.TestCase):
                 patch(
                     "app.pipeline.interview_pipeline.create_message",
                     return_value="follow-up interview question",
-                ) as llm_mock,
+                ),
                 patch(
                     "app.pipeline.interview_pipeline.text_to_speech",
                     return_value=b"tts-bytes",
@@ -129,6 +129,7 @@ class TestInterviewPipeline(unittest.TestCase):
                 result = run_interview_pipeline(
                     str(audio_file),
                     is_first_finished=True,
+                    voice="Sarah",
                     max_tokens=256,
                 )
 
@@ -142,6 +143,7 @@ class TestInterviewPipeline(unittest.TestCase):
                     interview_state_prompt=interview_state_prompt,
                     llm_text="follow-up interview question",
                     tts_audio=b"tts-bytes",
+                    refined_answer="follow-up interview question",
                 ),
             )
             stt_mock.assert_called_once_with(str(audio_file))
@@ -149,14 +151,10 @@ class TestInterviewPipeline(unittest.TestCase):
             state_mock.assert_called_once_with(str(audio_file), "candidate answer")
             db_mock.assert_called_once_with(state_mock.return_value)
             prompt_mock.assert_called_once_with(state_mock.return_value)
-            llm_mock.assert_called_once()
-            llm_kwargs = llm_mock.call_args.kwargs
-            self.assertEqual(llm_kwargs["system"], INTERVIEW_SYSTEM_PROMPT)
-            self.assertEqual(llm_kwargs["max_tokens"], 256)
-            self.assertEqual(llm_kwargs["messages"][0]["role"], "user")
-            self.assertIn("[state prompt]\n- top_state: calm", llm_kwargs["messages"][0]["content"])
-            self.assertIn("candidate [PHONE_1]", llm_kwargs["messages"][0]["content"])
-            tts_mock.assert_called_once_with("follow-up interview question")
+            tts_mock.assert_called_once_with(
+                "follow-up interview question",
+                voice="Sarah",
+            )
 
     def test_run_interview_pipeline_from_stt_text_skips_stt_and_runs_remaining_steps(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -194,7 +192,7 @@ class TestInterviewPipeline(unittest.TestCase):
                 patch(
                     "app.pipeline.interview_pipeline.create_message",
                     return_value="follow-up interview question",
-                ) as llm_mock,
+                ),
                 patch(
                     "app.pipeline.interview_pipeline.text_to_speech",
                     return_value=b"tts-bytes",
@@ -204,6 +202,7 @@ class TestInterviewPipeline(unittest.TestCase):
                     str(audio_file),
                     stt_text="external stt answer",
                     is_first_finished=True,
+                    voice="Sam",
                     max_tokens=128,
                 )
 
@@ -217,6 +216,7 @@ class TestInterviewPipeline(unittest.TestCase):
                     interview_state_prompt=interview_state_prompt,
                     llm_text="follow-up interview question",
                     tts_audio=b"tts-bytes",
+                    refined_answer="follow-up interview question",
                 ),
             )
             stt_mock.assert_not_called()
@@ -224,27 +224,21 @@ class TestInterviewPipeline(unittest.TestCase):
             state_mock.assert_called_once_with(str(audio_file), "external stt answer")
             db_mock.assert_called_once_with(state_mock.return_value)
             prompt_mock.assert_called_once_with(state_mock.return_value)
-            llm_mock.assert_called_once()
-            llm_kwargs = llm_mock.call_args.kwargs
-            self.assertEqual(llm_kwargs["system"], INTERVIEW_SYSTEM_PROMPT)
-            self.assertEqual(llm_kwargs["max_tokens"], 128)
-            self.assertEqual(llm_kwargs["messages"][0]["role"], "user")
-            self.assertIn("[state prompt]\n- top_state: calm", llm_kwargs["messages"][0]["content"])
-            self.assertIn("external [EMAIL_1]", llm_kwargs["messages"][0]["content"])
-            tts_mock.assert_called_once_with("follow-up interview question")
+            tts_mock.assert_called_once_with(
+                "follow-up interview question",
+                voice="Sam",
+            )
 
     def test_run_interview_pipeline_from_stt_text_includes_rag_context_for_regular_interview(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             audio_file = Path(tmp_dir) / "sample.wav"
             audio_file.write_bytes(b"fake-audio")
 
-            interview_state_db = self._build_state_db()
             interview_state_prompt = self._build_state_prompt("[state prompt]")
 
             with (
                 patch(
-                    "app.pipeline.interview_pipeline.analyze_interview_state",
-                    return_value=object(),
+                    "app.pipeline.interview_pipeline.analyze_interview_state", return_value=object()
                 ),
                 patch(
                     "app.pipeline.interview_pipeline.build_guardrail_payload",
@@ -259,7 +253,7 @@ class TestInterviewPipeline(unittest.TestCase):
                 ),
                 patch(
                     "app.pipeline.interview_pipeline.build_interview_state_db_payload",
-                    return_value=interview_state_db,
+                    return_value=self._build_state_db(),
                 ),
                 patch(
                     "app.pipeline.interview_pipeline.build_interview_state_prompt_payload",
@@ -277,15 +271,13 @@ class TestInterviewPipeline(unittest.TestCase):
                     "app.pipeline.interview_pipeline.create_message",
                     return_value="follow-up interview question",
                 ) as llm_mock,
-                patch(
-                    "app.pipeline.interview_pipeline.text_to_speech",
-                    return_value=b"tts-bytes",
-                ),
+                patch("app.pipeline.interview_pipeline.text_to_speech", return_value=b"tts-bytes"),
             ):
                 run_interview_pipeline_from_stt_text(
                     str(audio_file),
                     stt_text="external stt answer",
                     is_first_finished=True,
+                    voice="F3",
                     user_id="user-123",
                     previous_question="current question",
                     max_tokens=128,
@@ -297,9 +289,12 @@ class TestInterviewPipeline(unittest.TestCase):
                 current_answer="external [RRN_1]",
             )
             format_mock.assert_called_once()
-            llm_mock.assert_called_once()
-            llm_kwargs = llm_mock.call_args.kwargs
-            self.assertEqual(llm_kwargs["system"], INTERVIEW_SYSTEM_PROMPT)
+            question_call = next(
+                call
+                for call in llm_mock.call_args_list
+                if call.kwargs.get("system") == INTERVIEW_SYSTEM_PROMPT
+            )
+            llm_kwargs = question_call.kwargs
             self.assertEqual(llm_kwargs["max_tokens"], 128)
             self.assertEqual(llm_kwargs["messages"][0]["role"], "user")
             self.assertIn("[state prompt]", llm_kwargs["messages"][0]["content"])

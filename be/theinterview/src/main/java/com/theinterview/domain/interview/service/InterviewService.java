@@ -910,8 +910,12 @@ public class InterviewService {
         Member owner = answer.getInterviewQuestion().getInterview().getMember();
         boolean isOwner = (email != null) && owner.getEmail().equals(email);
 
+        // Interview 공개범위 확인
+        InterviewQuestion interviewQuestion = answer.getInterviewQuestion();
+        Interview interview = interviewQuestion.getInterview();
+
         // 공개 설정이 되어 있지 않고, 주인도 아니라면 예외처리
-        if (!answer.getShareRange() && !isOwner) {
+        if (!interview.getShareRange() && !answer.getShareRange() && !isOwner) {
             throw new GeneralException(ErrorStatus.FORBIDDEN);
         }
 
