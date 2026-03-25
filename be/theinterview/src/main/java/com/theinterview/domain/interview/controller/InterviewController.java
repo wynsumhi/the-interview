@@ -42,6 +42,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
 
 @RestController
 @Slf4j
@@ -64,7 +65,7 @@ public class InterviewController {
         String email = user.getUsername();
         // 파서드 레이어 호출
         return ApiResponse.onSuccess(
-                interviewFacade.issueWebSocketId(email, false, null)
+                interviewFacade.issueWebSocketId(email, request.getVoice(), false, null)
                         .block()); // 여기에서 톰캣 스레드가 멈춤(마치 기존의 async 처럼 동작함)
     }
 
@@ -75,7 +76,7 @@ public class InterviewController {
             @AuthenticationPrincipal User user
     ) {
         String email = user.getUsername();
-        // 서비스 레이어 호출9
+        // 서비스 레이어 호출
         return ApiResponse.onSuccess(interviewService.exitInterview(request, email));
     }
 
@@ -244,7 +245,7 @@ public class InterviewController {
 
     // 완료되지 않은 인터뷰 이어서 시작
     // 웹소켓 연결 및 구독할 인터뷰 방의 번호(interviewID) 및 첫 질문의 번호(questionId)를 발급
-    @PostMapping
+    @PostMapping("/restart")
     public ApiResponse<WebSocketConnectResponse> restartInterview(
             @RequestBody restartInterviewRequest request,
             @AuthenticationPrincipal User user
@@ -252,7 +253,19 @@ public class InterviewController {
         String email = user.getUsername();
         // 파서드 레이어 호출
         return ApiResponse.onSuccess(
-                interviewFacade.issueWebSocketId(email, true, request)
+                interviewFacade.issueWebSocketId(email, "Jessica", true, request)
                         .block()); // 여기에서 톰캣 스레드가 멈춤(마치 기존의 async 처럼 동작함)
+    }
+
+    // 완료되지 않은 인터뷰 이어서 시작 -> 아니오 -> 강제 완료처리 로직
+    @PostMapping("/finish")
+    public Mono<ApiResponse<Void>> finishInterview(
+            @RequestBody restartInterviewRequest request,
+            @AuthenticationPrincipal User user
+    ) {
+        String email = user.getUsername();
+
+        return interviewFacade.forceFinishInterviewFacade(email, request.getInterviewId())
+                .thenReturn(ApiResponse.OK);
     }
 }

@@ -27,6 +27,9 @@ public abstract class FastApiRequest {
 
         @JsonProperty("db_question")
         private String dbQuestion;
+
+        @JsonProperty("voice")
+        private String voice;
     }
 
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -67,6 +70,7 @@ public abstract class FastApiRequest {
         private String nickname; // 사용자 닉네임
         private String previousQuestion; // 이전 대화 내역
         private Boolean isFirstFinished;
+        private String voice;
     }
 
     // 질문 답 쌍으로 키워드 생성 요청에 사용 될 DTO

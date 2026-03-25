@@ -23,6 +23,7 @@ public abstract class InterviewRequest {
     public static class InterviewStartRequest {
 
         private boolean isPrevAffected;
+        private String voice;
     }
 
     @Getter

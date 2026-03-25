@@ -88,7 +88,8 @@ public class AiUtils {
             String nickname,
             String previousQuestion,
             Boolean isFirstFinished,
-            String sttText) {
+            String sttText,
+            String voice) {
 
         // multipart/form-data 생성을 위한 빌더
         MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
@@ -117,6 +118,9 @@ public class AiUtils {
 
         // 5. 조립된 사용자 답변 텍스트 세팅
         bodyBuilder.part("stt_text", sttText);
+        if (voice != null && !voice.isBlank()) {
+            bodyBuilder.part("voice", voice);
+        }
 
         log.info("AI 서버와 통신 시작 요청 URI: {}", "/api/v1/ai/interview/pipeline/after-stt");
 
@@ -144,7 +148,8 @@ public class AiUtils {
             int sequence,
             String nickname,
             String previousQuestion,
-            Boolean isFirstFinished) {
+            Boolean isFirstFinished,
+            String voice) {
 
         // multipart/form-data 생성을 위한 빌더
         MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
@@ -169,6 +174,9 @@ public class AiUtils {
         // 4. sequence >= 2 일 경우 이전 질문 텍스트 세팅
         if (sequence >= 2 && previousQuestion != null) {
             bodyBuilder.part("previous_question", previousQuestion);
+        }
+        if (voice != null && !voice.isBlank()) {
+            bodyBuilder.part("voice", voice);
         }
 
         log.info("AI 서버와 통신 시작 요청 URI: {}", "/api/v1/ai/interview/pipeline");

@@ -2,6 +2,7 @@ package com.theinterview.domain.interview.Repository;
 
 import com.theinterview.domain.interview.entity.InterviewQuestion;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface InterviewQuestionRepository extends JpaRepository<InterviewQuestion, Integer> {
@@ -16,5 +17,5 @@ public interface InterviewQuestionRepository extends JpaRepository<InterviewQues
     void deleteAllByInterviewId(Integer interviewId);
 
     // 특정 InterviewId에 해당하는 InterviewQuestion중 마지막 시퀀스를 가져옵니다.
-    InterviewQuestion findTopByInterviewIdOrderBySequenceDesc(Integer interviewId);
+    Optional<InterviewQuestion> findTopByInterviewIdOrderBySequenceDesc(Integer interviewId);
 }
