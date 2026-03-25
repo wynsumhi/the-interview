@@ -37,6 +37,8 @@ export interface LoginRequest {
 // refreshToken: accessToken 만료 시 재발급받기 위한 긴 수명의 토큰
 export interface LoginResponse {
   accessToken: string;
+  uuid: string;
+  nickname: string;
 }
 
 // 로그인 API 호출 함수
