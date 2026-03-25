@@ -411,13 +411,25 @@ function ConversationContent() {
         recorder.stop();
       });
     } else {
-      // 녹음 중이 아닌 경우: onstop 핸들러만 제거 후 정리
+      // 녹음 중이 아닌 경우 (AI_SPEAKING 등): onstop 핸들러 제거 후 exitV2 직접 호출
       // onstop을 그대로 두면 sendNext + setStatus("WAITING_AI")가 재실행될 수 있음
       if (chunkRecorderRef.current) {
         chunkRecorderRef.current.ondataavailable = null;
       }
       if (fullRecorderRef.current) {
         fullRecorderRef.current.onstop = null;
+      }
+
+      // 음성 입력 없이 종료한 경우에도 서버에 인터뷰 종료를 알려야 데이터가 저장됨
+      // answerAudio: "" / totalChunk: "0" → 서버가 오디오 없이 인터뷰를 정상 종료 처리
+      const question = questionRef.current;
+      if (question) {
+        await exitInterviewV2({
+          interviewId: question.interviewId,
+          questionId: question.questionId,
+          answerAudio: "",
+          totalChunk: "0",
+        });
       }
     }
 
