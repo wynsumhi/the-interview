@@ -18,7 +18,8 @@ def test_speech_to_text_logs_elapsed_time_and_text() -> None:
 
     assert result == "candidate answer"
     logger_mock.assert_called_once_with(
-        "[STT] completed in %.3fs path=%s raw_text=%s sanitized_text=%s",
+        "[STT:%s] completed in %.3fs path=%s raw_text=%s sanitized_text=%s",
+        "primary",
         0.25,
         "sample.webm",
         "candidate answer",

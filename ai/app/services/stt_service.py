@@ -170,12 +170,17 @@ def is_no_speech_audio_file(audio_file_path: str) -> bool:
     return analysis.is_no_speech
 
 
-def speech_to_text(audio_file_path: str) -> str:
+def speech_to_text(audio_file_path: str, label: str = "primary") -> str:
     started = time.perf_counter()
     analysis = analyze_no_speech_audio_file(audio_file_path)
     if analysis is not None and analysis.is_no_speech:
         elapsed = time.perf_counter() - started
-        logger.info("[STT] skipped in %.3fs path=%s reason=no_speech", elapsed, audio_file_path)
+        logger.info(
+            "[STT:%s] skipped in %.3fs path=%s reason=no_speech",
+            label,
+            elapsed,
+            audio_file_path,
+        )
         return ""
 
     raw_stt_text = transcribe_audio_file(audio_file_path)
@@ -183,7 +188,8 @@ def speech_to_text(audio_file_path: str) -> str:
     elapsed = time.perf_counter() - started
 
     logger.info(
-        "[STT] completed in %.3fs path=%s raw_text=%s sanitized_text=%s",
+        "[STT:%s] completed in %.3fs path=%s raw_text=%s sanitized_text=%s",
+        label,
         elapsed,
         audio_file_path,
         raw_stt_text,
@@ -203,7 +209,7 @@ def speech_to_text_from_upload(audio_file: UploadFile) -> dict[str, str]:
             shutil.copyfileobj(audio_file.file, temp_file)
             temp_file_path = Path(temp_file.name)
 
-        return {"stt_text": speech_to_text(str(temp_file_path))}
+        return {"stt_text": speech_to_text(str(temp_file_path), label="upload")}
     finally:
         audio_file.file.close()
         if temp_file_path is not None and temp_file_path.exists():

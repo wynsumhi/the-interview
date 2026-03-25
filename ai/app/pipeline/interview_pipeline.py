@@ -114,10 +114,11 @@ def run_interview_pipeline(
 ) -> InterviewPipelineResult:
     """STT부터 상태 분석, 꼬리질문 생성, TTS까지 한 번에 실행한다."""
 
-    stt_text = speech_to_text(audio_file_path)
+    stt_text = speech_to_text(audio_file_path, label="primary")
     return run_interview_pipeline_from_stt_text(
         audio_file_path=audio_file_path,
         stt_text=stt_text,
+        refinement_stt_text=stt_text,
         is_first_finished=is_first_finished,
         user_id=user_id,
         sequence=sequence,
@@ -131,6 +132,7 @@ def run_interview_pipeline_from_stt_text(
     audio_file_path: str,
     stt_text: str,
     is_first_finished: bool,
+    refinement_stt_text: str | None = None,
     user_id: str | None = None,
     sequence: int | None = None,
     nickname: str | None = None,
@@ -143,9 +145,14 @@ def run_interview_pipeline_from_stt_text(
     interview_state = analyze_interview_state(audio_file_path, stt_text)
     interview_state_db = build_interview_state_db_payload(interview_state)
     interview_state_prompt = build_interview_state_prompt_payload(interview_state)
+    normalized_refinement_stt_text = (
+        refinement_stt_text.strip()
+        if refinement_stt_text is not None
+        else speech_to_text(audio_file_path, label="refinement")
+    )
 
     _magazine_kwargs = {
-        "messages": [{"role": "user", "content": stt_text}],
+        "messages": [{"role": "user", "content": normalized_refinement_stt_text}],
         "system": MAGAZINE_GENERATION_SYSTEM_PROMPT,
         "max_tokens": 300,
         "label": "answer_refinement",

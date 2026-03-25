@@ -145,7 +145,7 @@ class TestInterviewPipeline(unittest.TestCase):
                     refined_answer="follow-up interview question",
                 ),
             )
-            stt_mock.assert_called_once_with(str(audio_file))
+            stt_mock.assert_called_once_with(str(audio_file), label="primary")
             guardrail_mock.assert_called_once_with("candidate answer")
             state_mock.assert_called_once_with(str(audio_file), "candidate answer")
             db_mock.assert_called_once_with(state_mock.return_value)
@@ -160,6 +160,7 @@ class TestInterviewPipeline(unittest.TestCase):
             self.assertIn("[state prompt]\n- top_state: calm", llm_kwargs["messages"][0]["content"])
             self.assertIn("candidate [PHONE_1]", llm_kwargs["messages"][0]["content"])
             self.assertEqual(magazine_call.kwargs["label"], "answer_refinement")
+            self.assertEqual(magazine_call.kwargs["messages"][0]["content"], "candidate answer")
             tts_mock.assert_called_once_with("follow-up interview question")
 
     def test_run_interview_pipeline_from_stt_text_skips_stt_and_runs_remaining_steps(self):
@@ -171,7 +172,10 @@ class TestInterviewPipeline(unittest.TestCase):
             interview_state_prompt = self._build_state_prompt("[state prompt]\n- top_state: calm")
 
             with (
-                patch("app.pipeline.interview_pipeline.speech_to_text") as stt_mock,
+                patch(
+                    "app.pipeline.interview_pipeline.speech_to_text",
+                    return_value="full audio stt answer",
+                ) as stt_mock,
                 patch(
                     "app.pipeline.interview_pipeline.analyze_interview_state",
                     return_value=object(),
@@ -224,7 +228,7 @@ class TestInterviewPipeline(unittest.TestCase):
                     refined_answer="follow-up interview question",
                 ),
             )
-            stt_mock.assert_not_called()
+            stt_mock.assert_called_once_with(str(audio_file), label="refinement")
             guardrail_mock.assert_called_once_with("external stt answer")
             state_mock.assert_called_once_with(str(audio_file), "external stt answer")
             db_mock.assert_called_once_with(state_mock.return_value)
@@ -239,6 +243,10 @@ class TestInterviewPipeline(unittest.TestCase):
             self.assertIn("[state prompt]\n- top_state: calm", llm_kwargs["messages"][0]["content"])
             self.assertIn("external [EMAIL_1]", llm_kwargs["messages"][0]["content"])
             self.assertEqual(magazine_call.kwargs["label"], "answer_refinement")
+            self.assertEqual(
+                magazine_call.kwargs["messages"][0]["content"],
+                "full audio stt answer",
+            )
             tts_mock.assert_called_once_with("follow-up interview question")
 
     def test_run_interview_pipeline_from_stt_text_includes_rag_context_for_regular_interview(self):
@@ -282,6 +290,10 @@ class TestInterviewPipeline(unittest.TestCase):
                     return_value="rag context block",
                 ) as format_mock,
                 patch(
+                    "app.pipeline.interview_pipeline.speech_to_text",
+                    return_value="full audio stt answer",
+                ) as stt_mock,
+                patch(
                     "app.pipeline.interview_pipeline.create_message",
                     return_value="follow-up interview question",
                 ) as llm_mock,
@@ -304,6 +316,7 @@ class TestInterviewPipeline(unittest.TestCase):
                 current_question="current question",
                 current_answer="external [RRN_1]",
             )
+            stt_mock.assert_called_once_with(str(audio_file), label="refinement")
             format_mock.assert_called_once()
             self.assertEqual(llm_mock.call_count, 2)
             question_call, magazine_call = llm_mock.call_args_list
@@ -316,6 +329,10 @@ class TestInterviewPipeline(unittest.TestCase):
             self.assertIn("rag context block", llm_kwargs["messages"][0]["content"])
             self.assertIn("external [RRN_1]", llm_kwargs["messages"][0]["content"])
             self.assertEqual(magazine_call.kwargs["label"], "answer_refinement")
+            self.assertEqual(
+                magazine_call.kwargs["messages"][0]["content"],
+                "full audio stt answer",
+            )
 
 
 if __name__ == "__main__":
