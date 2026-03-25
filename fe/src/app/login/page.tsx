@@ -4,11 +4,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation"; // 로그인 성공 후 페이지 이동에 사용
+import { useUserStore } from "@/store/useUserStore"; // 로그인 시 받아온 UUID 저장소
 import { useState } from "react"; // 입력값·에러·로딩 상태를 관리하기 위해 사용
 import { login } from "@/services/auth"; // 로그인 API 호출 함수
 import styles from "./page.module.css";
 
 export default function LoginPage() {
+  // 유저 정보를 저장하는 액션 가져오기
+  const setLoginInfo = useUserStore((state) => state.setLoginInfo);
   const router = useRouter();
 
   // 폼 입력값 상태 - 사용자가 타이핑할 때마다 업데이트됨
@@ -30,26 +33,33 @@ export default function LoginPage() {
 
     try {
       // 로그인 API 호출 - 성공하면 accessToken, refreshToken 반환
-      const { accessToken } = await login({ email, password });
+      const { accessToken, uuid, nickname } = await login({ email, password });
 
       // localStorage: 브라우저에 데이터를 저장하는 공간 (탭을 닫아도 유지됨)
       // accessToken은 API 요청 시 헤더에 담아 보내는 인증 토큰
       localStorage.setItem("accessToken", accessToken);
 
+      // 인증 토큰 저장 (브라우저/미들웨어용)
       // Next.js 미들웨어는 서버에서 실행되어 localStorage를 못 읽음
       // 쿠키는 서버/클라이언트 양쪽에서 읽을 수 있어서 미들웨어 인증 체크에 사용
       // path=/: 모든 경로에서 쿠키 접근 가능 / max-age: 쿠키 유효 시간(초)
       document.cookie = `accessToken=${accessToken}; path=/; max-age=${60 * 60 * 24}`;
 
-      // 로그인 성공 → 홈으로 이동
-      router.push("/");
+      // Zustand Store에 유저 정보 저장
+      // UUID와 닉네임을 전역 상태로 관리하여 다른 컴포넌트에서도 사용 가능하게 만듦
+      setLoginInfo(uuid, nickname);
+
+      // 본인의 보드로 이동
+      // UUID를 경로 파라미터로 사용하여 개인화된 페이지이동
+      router.push(`/board/${uuid}`);
     } catch (err: unknown) {
       // API 에러 응답 처리 - axios 에러는 response.data.message에 서버 메시지가 담김
       const axiosError = err as {
         response?: { data?: { message?: string } };
       };
       setError(
-        axiosError.response?.data?.message ?? "이메일 또는 비밀번호를 확인해주세요."
+        axiosError.response?.data?.message ??
+          "이메일 또는 비밀번호를 확인해주세요.",
       );
     } finally {
       setIsLoading(false); // 성공/실패 상관없이 버튼 다시 활성화
@@ -61,7 +71,7 @@ export default function LoginPage() {
       <div className={styles.authBox}>
         {/* 로고 (메인페이지 바로가기) */}
         <Link href="/" className={styles.logo}>
-          방구석 인터뷰
+          The interview
         </Link>
 
         <h2 className={styles.title}>Welcome Back</h2>
@@ -95,7 +105,11 @@ export default function LoginPage() {
           {error && <span className={styles.error}>{error}</span>}
 
           {/* disabled: isLoading이 true면 버튼 비활성화 */}
-          <button type="submit" className={styles.submitBtn} disabled={isLoading}>
+          <button
+            type="submit"
+            className={styles.submitBtn}
+            disabled={isLoading}
+          >
             {isLoading ? "로그인 중..." : "로그인"}
           </button>
         </form>
