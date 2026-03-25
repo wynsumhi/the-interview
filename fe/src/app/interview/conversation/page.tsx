@@ -85,6 +85,8 @@ function ConversationContent() {
   const fullChunksRef = useRef<Blob[]>([]);
   // fullRecorder.onstop 의 전송 목적지: "next"(꼬리질문) | "exit"(인터뷰 종료)
   const finalDestRef = useRef<"next" | "exit">("next");
+  // exitInterviewV2 중복 호출 방지 — onstop에서 호출된 경우 AUTO_EXITING effect에서 재호출하지 않음
+  const exitApiCalledRef = useRef(false);
   // ────────────────────────────────────────────────────────────────────────
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -198,18 +200,18 @@ function ConversationContent() {
       if (index >= text.length) clearInterval(interval);
     }, 60);
 
+    // 나레이션 종료 후 다음 상태 결정
+    // isFirstFinished: true → 마지막 나레이션이므로 자동 종료, 아니면 사용자 녹음으로 전환
+    const onNarrationEnd = () => {
+      if (statusRef.current !== "AI_SPEAKING") return;
+      setStatus(isLastQuestionRef.current ? "AUTO_EXITING" : "USER_RECORDING");
+    };
+
     if (question.ttsAudioBase64) {
-      const audio = playBase64Audio(question.ttsAudioBase64, () => {
-        if (statusRef.current === "AI_SPEAKING") setStatus("USER_RECORDING");
-      });
+      const audio = playBase64Audio(question.ttsAudioBase64, onNarrationEnd);
       ttsAudioRef.current = audio;
     } else {
-      const timer = setTimeout(
-        () => {
-          if (statusRef.current === "AI_SPEAKING") setStatus("USER_RECORDING");
-        },
-        text.length * 60 + 1500,
-      );
+      const timer = setTimeout(onNarrationEnd, text.length * 60 + 1500);
       return () => {
         clearInterval(interval);
         clearTimeout(timer);
@@ -233,14 +235,28 @@ function ConversationContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  // 마지막 질문 답변 완료 후 자동 종료 처리
-  // exitInterviewV2는 fullRecorder.onstop에서 이미 호출됨 — 여기서는 cleanup + 페이지 이동만 담당
+  // 마지막 나레이션 종료 후 자동 종료 처리
+  // 클로징 나레이션(isFirstFinished: true) 이전 답변은 sendNext로 전송되므로
+  // exitInterviewV2가 아직 호출되지 않은 경우 여기서 빈 오디오로 호출해 서버 종료 처리를 완료함
   useEffect(() => {
     if (status !== "AUTO_EXITING") return;
-    queryClient.invalidateQueries({ queryKey: ["interviewHistory"] }).then(() => {
+    const doExit = async () => {
+      if (!exitApiCalledRef.current) {
+        const question = questionRef.current;
+        if (question) {
+          await exitInterviewV2({
+            interviewId: question.interviewId,
+            questionId: question.questionId,
+            answerAudio: "",
+            totalChunk: "0",
+          });
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: ["interviewHistory"] });
       cleanup();
       router.push("/archive");
-    });
+    };
+    doExit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
@@ -325,6 +341,7 @@ function ConversationContent() {
       if (finalDestRef.current === "exit" || isLastQuestionRef.current) {
         console.log(`[DIAG] exitInterviewV2 → interviewId=${question.interviewId} questionId=${question.questionId} totalChunk="${payload.totalChunk}"`);
         await exitInterviewV2(payload);
+        exitApiCalledRef.current = true;
         // 사용자가 직접 종료 버튼을 누른 경우에는 handleExit가 후속 처리를 담당
         // 마지막 질문 자동 종료의 경우 AUTO_EXITING으로 상태 전환해 cleanup + 페이지 이동 트리거
         if (isLastQuestionRef.current && finalDestRef.current !== "exit") {
