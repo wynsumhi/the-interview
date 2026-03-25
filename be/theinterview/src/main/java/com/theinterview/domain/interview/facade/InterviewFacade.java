@@ -2,6 +2,7 @@ package com.theinterview.domain.interview.facade;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.theinterview.domain.interview.Repository.InterviewQuestionRepository;
 import com.theinterview.domain.interview.dto.AiRagDto.DeleteRequest;
 import com.theinterview.domain.interview.dto.AiRagDto.UpsertRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
@@ -14,6 +15,7 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.restartInterviewRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.entity.InterviewQuestion;
@@ -54,18 +56,23 @@ public class InterviewFacade {
     private final ObjectMapper objectMapper;
     private final View error;
     private final SimpMessagingTemplate messagingTemplate;
+    private final InterviewQuestionRepository interviewQuestionRepository;
 
     // 인터뷰 첫 질문 TTS 변환을 위해 호춯되는 파서드
-    public Mono<WebSocketConnectResponse> issueWebSocketId(String email)
+    public Mono<WebSocketConnectResponse> issueWebSocketId(String email, Boolean restartFlag,
+            restartInterviewRequest request)
             throws JsonProcessingException {
 
         // 1. 필요 데이터 DB 조회
         Member member = domainFindUtils.getMemberByEmail(email);
 
         String dbQuestion = null;
-        if (member.getIsFirstFinished()) {
+        if (member.getIsFirstFinished() && !restartFlag) {
             List<QuestionCandidate> questionCandidates = member.getQuestionCandidates();
             dbQuestion = questionCandidates.get(0).getQuestionText();
+        } else if (restartFlag) {
+            dbQuestion = interviewQuestionRepository.findTopByInterviewIdOrderBySequenceDesc(
+                    request.getInterviewId()).getQuestionText();
         }
 
         // TTS 변환을 위한 외부 AI 호출 메서드 호출 -> DB 저장 체인 연결

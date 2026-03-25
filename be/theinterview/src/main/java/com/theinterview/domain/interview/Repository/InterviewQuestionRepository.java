@@ -14,4 +14,7 @@ public interface InterviewQuestionRepository extends JpaRepository<InterviewQues
 
     // 특정 인터뷰에 대한 인터뷰 답변을 전부 삭제함
     void deleteAllByInterviewId(Integer interviewId);
+
+    // 특정 InterviewId에 해당하는 InterviewQuestion중 마지막 시퀀스를 가져옵니다.
+    InterviewQuestion findTopByInterviewIdOrderBySequenceDesc(Integer interviewId);
 }
