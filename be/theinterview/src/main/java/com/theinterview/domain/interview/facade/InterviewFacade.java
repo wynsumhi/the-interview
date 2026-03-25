@@ -196,7 +196,8 @@ public class InterviewFacade {
                                             interviewId,
                                             questionId, aiPipelineResponse.getQuestionText(),
                                             savedPath,
-                                            answerText);
+                                            answerText, aiPipelineResponse.getInterviewStateDb()
+                                                    .getFusedScores());
 
                                     // redis에 저장하기 위한 데이터 준비
                                     String dto = objectMapper.writeValueAsString(

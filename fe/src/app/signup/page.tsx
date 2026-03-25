@@ -31,11 +31,14 @@ export default function SignupPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    voiceConsent: "",
     general: "", // 서버에서 온 에러 메시지
   });
 
   // API 요청 중 여부 (true면 버튼 비활성화해서 중복 제출 방지)
   const [isLoading, setIsLoading] = useState(false);
+  const [voiceConsent, setVoiceConsent] = useState(false);
+  const [consentExpanded, setConsentExpanded] = useState(false);
 
   // 폼 제출 전 입력값이 올바른지 확인하는 함수
   const validate = (): boolean => {
@@ -43,6 +46,7 @@ export default function SignupPage() {
       email: "",
       password: "",
       confirmPassword: "",
+      voiceConsent: "",
       general: "",
     };
     let isValid = true;
@@ -57,6 +61,12 @@ export default function SignupPage() {
     // 비밀번호 일치 검사
     if (password !== confirmPassword) {
       newErrors.confirmPassword = "비밀번호가 일치하지 않습니다.";
+      isValid = false;
+    }
+
+    // 음성 데이터 활용 동의 검사
+    if (!voiceConsent) {
+      newErrors.voiceConsent = "개인정보 및 음성정보 활용에 동의해주세요.";
       isValid = false;
     }
 
@@ -187,6 +197,154 @@ export default function SignupPage() {
               required
             />
           </div>
+
+          <div className={styles.consentGroup}>
+            <div className={styles.consentHeader}>
+              <label className={styles.consentLabel}>
+                <input
+                  type="checkbox"
+                  checked={voiceConsent}
+                  onChange={(e) => setVoiceConsent(e.target.checked)}
+                  className={styles.consentCheckbox}
+                />
+                <span className={styles.consentText}>
+                  개인정보 및 음성정보 활용에 동의합니다. (필수)
+                </span>
+              </label>
+              <button
+                type="button"
+                className={styles.consentToggle}
+                onClick={() => setConsentExpanded((prev) => !prev)}
+                aria-expanded={consentExpanded}
+              >
+                {consentExpanded ? "▲" : "▼"}
+              </button>
+            </div>
+
+            {consentExpanded && (
+              <div className={styles.consentContent}>
+                <h4>개인정보 및 음성정보 활용 동의서</h4>
+                <p>
+                  본 서비스는 이용자의 음성을 기반으로 인터뷰 및 콘텐츠를
+                  생성하는 서비스를 제공합니다. 이에 따라 「개인정보 보호법」 등
+                  관련 법령에 따라 아래와 같이 개인정보 및 음성정보를
+                  수집·이용하고자 합니다.
+                </p>
+                <p>
+                  이용자는 아래 내용을 충분히 확인하신 후 동의 여부를 선택하실
+                  수 있으며, 동의를 거부할 권리가 있습니다. 다만, 동의를 거부할
+                  경우 서비스 이용이 제한될 수 있습니다.
+                </p>
+
+                <h5>1. 수집 및 이용 목적</h5>
+                <p>
+                  회사는 다음의 목적을 위하여 이용자의 개인정보 및 음성정보를
+                  수집·이용합니다.
+                </p>
+                <ul>
+                  <li>음성 기반 인터뷰 서비스 제공</li>
+                  <li>음성을 텍스트로 변환(STT)하여 인터뷰 진행</li>
+                  <li>인터뷰 응답을 기반으로 후속 질문 생성</li>
+                  <li>
+                    인터뷰 내용을 기반으로 매거진 콘텐츠 생성 및 제목 생성
+                  </li>
+                </ul>
+
+                <h5>2. 수집 항목</h5>
+                <p>회사는 다음과 같은 정보를 수집합니다.</p>
+                <p>
+                  <strong>필수 수집 항목</strong>
+                </p>
+                <ul>
+                  <li>음성 데이터</li>
+                  <li>음성에서 변환된 텍스트 데이터</li>
+                </ul>
+
+                <h5>3. 처리 방식 및 이용 내용</h5>
+                <p>수집된 정보는 아래와 같은 방식으로 처리됩니다.</p>
+                <ul>
+                  <li>
+                    이용자의 음성 데이터는 음성 인식 기술을 통해 텍스트로
+                    변환됩니다.
+                  </li>
+                  <li>
+                    변환된 텍스트는 인터뷰 질문 생성 및 콘텐츠 생성에
+                    활용됩니다.
+                  </li>
+                  <li>
+                    텍스트 데이터는 인공지능 모델을 통해 다음과 같은 처리에
+                    사용됩니다:
+                    <ul>
+                      <li>인터뷰 질문 생성</li>
+                      <li>인터뷰 내용 정제</li>
+                      <li>매거진 콘텐츠 및 제목 생성</li>
+                    </ul>
+                  </li>
+                </ul>
+
+                <h5>4. 개인정보의 제3자 제공</h5>
+                <p>
+                  회사는 서비스 제공을 위하여 다음과 같이 개인정보를 제3자에게
+                  제공할 수 있습니다.
+                </p>
+                <ul>
+                  <li>
+                    <strong>제공받는 자:</strong> Anthropic
+                    <br />
+                    제공 항목: 음성에서 변환된 텍스트 데이터
+                    <br />
+                    제공 목적: 인터뷰 질문 생성 및 콘텐츠 생성
+                    <br />
+                    보유 및 이용 기간: 각 제공받는 자의 정책에 따름
+                  </li>
+                  <li>
+                    <strong>제공받는 자:</strong> OpenAI
+                    <br />
+                    제공 항목: 음성 데이터
+                    <br />
+                    제공 목적: 음성 → 텍스트 변환(STT)
+                    <br />
+                    보유 및 이용 기간: 각 제공받는 자의 정책에 따름
+                  </li>
+                </ul>
+                <p>
+                  ※ 로컬 환경에서 처리되는 음성 합성(TTS)의 경우 외부로 전송되지
+                  않습니다.
+                </p>
+
+                <h5>5. 보유 및 이용 기간</h5>
+                <ul>
+                  <li>
+                    이용자의 개인정보 및 음성정보는 수집·이용 목적 달성 시까지
+                    보유합니다.
+                  </li>
+                  <li>
+                    이용자가 삭제를 요청하거나 동의를 철회하는 경우 지체 없이
+                    파기합니다.
+                  </li>
+                  <li>
+                    단, 관련 법령에 따라 일정 기간 보관이 필요한 경우 해당 기간
+                    동안 보관할 수 있습니다.
+                  </li>
+                </ul>
+
+                <h5>6. 동의 거부 권리 및 불이익</h5>
+                <ul>
+                  <li>
+                    이용자는 개인정보 및 음성정보 수집·이용에 대한 동의를 거부할
+                    권리가 있습니다.
+                  </li>
+                  <li>
+                    다만, 해당 정보는 서비스 제공에 필수적인 요소이므로 동의를
+                    거부할 경우 서비스 이용이 제한될 수 있습니다.
+                  </li>
+                </ul>
+              </div>
+            )}
+          </div>
+          {errors.voiceConsent && (
+            <span className={styles.error}>{errors.voiceConsent}</span>
+          )}
 
           <div className={styles.submitGroup}>
             {/* 서버에서 온 에러 메시지 (이메일 중복 등) */}

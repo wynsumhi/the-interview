@@ -1,6 +1,7 @@
 package com.theinterview.domain.interview.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.math.BigDecimal;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,18 +13,47 @@ public abstract class FastApiResponse {
     public static class AiPipelineResponse {
 
         @JsonProperty("question_text")
-        private String questionText;         // LLM이 생성한 꼬리질문
+        private String questionText;
 
         @JsonProperty("tts_audio_base64")
-        private String ttsAudioBase64;       // TTS 변환된 Base64 오디오 데이터
+        private String ttsAudioBase64;
 
         @JsonProperty("tts_audio_mime_type")
         private String ttsAudioMimeType;
 
-        @JsonProperty("stt_text")
-        private String sttText;
+        @JsonProperty("refined_answer")
+        private String refinedAnswer;
 
-        private Integer newQuestionId;
+        @JsonProperty("interview_state_db")
+        private InterviewStateDb interviewStateDb;
+
+        @Getter
+        @NoArgsConstructor(access = AccessLevel.PROTECTED)
+        public static class InterviewStateDb {
+
+            @JsonProperty("fused_scores")
+            private FusedScores fusedScores;
+
+            @Getter
+            @NoArgsConstructor(access = AccessLevel.PROTECTED)
+            public static class FusedScores {
+
+                @JsonProperty("calm")
+                private BigDecimal calm;
+
+                @JsonProperty("tense")
+                private BigDecimal tense;
+
+                @JsonProperty("anxious")
+                private BigDecimal anxious;
+
+                @JsonProperty("low")
+                private BigDecimal low;
+
+                @JsonProperty("engaged")
+                private BigDecimal engaged;
+            }
+        }
     }
 
     @Getter
