@@ -205,3 +205,36 @@ def test_interview_state_temp_save_returns_wrapped_request() -> None:
         "message": "Temporary interview-state save request accepted.",
         "request": build_interview_state_db_response(),
     }
+
+
+def test_interview_refine_answer_returns_refined_text() -> None:
+    with patch(
+        "app.api.v1.endpoints.interview.refine_answer_for_magazine",
+        return_value={"refined_answer": "정제된 답변"},
+    ) as refine_mock:
+        response = client.post(
+            "/api/v1/ai/interview/refine-answer",
+            json={
+                "stt_text": "음 그때는 좀 많이 떨렸던 것 같아요",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "refined_answer": "정제된 답변",
+    }
+    refine_mock.assert_called_once_with(
+        stt_text="음 그때는 좀 많이 떨렸던 것 같아요",
+    )
+
+
+def test_interview_refine_answer_returns_bad_request_when_text_is_blank() -> None:
+    response = client.post(
+        "/api/v1/ai/interview/refine-answer",
+        json={"stt_text": "   "},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "stt_text is required.",
+    }

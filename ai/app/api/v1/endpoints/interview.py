@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.api.v1.schemas import (
+    InterviewAnswerRefinementRequest,
+    InterviewAnswerRefinementResponse,
     InterviewClosingRequest,
     InterviewClosingResponse,
     InterviewPipelineResponse,
@@ -22,6 +24,7 @@ from app.services.interview_service import (
     generate_keyword,
     generate_magazine_title,
     generate_next_opening_question,
+    refine_answer_for_magazine,
     run_interview_pipeline_from_stt_payload,
     run_interview_pipeline_from_upload,
     save_interview_state_temp,
@@ -234,6 +237,27 @@ def run_interview_pipeline_after_stt_endpoint(
         ) from exc
 
     return InterviewPipelineResponse.model_validate(result)
+
+
+@router.post(
+    "/refine-answer",
+    response_model=InterviewAnswerRefinementResponse,
+    summary="Refine interview answer text",
+)
+def refine_answer_for_magazine_endpoint(
+    request: InterviewAnswerRefinementRequest,
+) -> InterviewAnswerRefinementResponse:
+    try:
+        result = refine_answer_for_magazine(
+            stt_text=request.stt_text,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return InterviewAnswerRefinementResponse.model_validate(result)
 
 
 @router.post(
