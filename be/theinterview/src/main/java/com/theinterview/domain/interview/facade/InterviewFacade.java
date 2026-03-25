@@ -14,7 +14,6 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
-import com.theinterview.domain.interview.dto.InterviewRequest.InterviewStartRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.entity.InterviewQuestion;
@@ -53,13 +52,12 @@ public class InterviewFacade {
     private final DomainFindUtils domainFindUtils;
 
     private final ObjectMapper objectMapper;
-    private final View error;
     private final SimpMessagingTemplate messagingTemplate;
 
     // 인터뷰 첫 질문 TTS 변환을 위해 호춯되는 파서드
     public Mono<WebSocketConnectResponse> issueWebSocketId(
             String email,
-            InterviewStartRequest request
+            String voice
     )
             throws JsonProcessingException {
 
@@ -77,13 +75,13 @@ public class InterviewFacade {
                         .dbQuestion(dbQuestion)
                         .nickname(member.getNickname())
                         .isFirstFinished(member.getIsFirstFinished())
-                        .voice(request.getVoice())
+                        .voice(voice)
                         .build())
                 .flatMap(aiStartTtsResponse ->
                         Mono.fromCallable(() -> interviewService.saveInterviewAndQuestion(
                                 member,
                                 aiStartTtsResponse,
-                                request.getVoice()
+                                voice
                         )))
                 .subscribeOn(Schedulers.boundedElastic());
     }

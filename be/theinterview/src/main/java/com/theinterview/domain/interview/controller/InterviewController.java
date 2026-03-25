@@ -62,7 +62,7 @@ public class InterviewController {
         String email = user.getUsername();
         // 파서드 레이어 호출
         return ApiResponse.onSuccess(
-                interviewFacade.issueWebSocketId(email, request)
+                interviewFacade.issueWebSocketId(email, request.getVoice())
                         .block()); // 여기에서 톰캣 스레드가 멈춤(마치 기존의 async 처럼 동작함)
     }
 
