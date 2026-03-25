@@ -2,6 +2,7 @@
 
 // useState: 어떤 탭이 선택됐는지 기억할 때 사용
 import { useState } from "react";
+import { useUserStore } from "@/store/useUserStore";
 import MemoCard from "@/components/board/MemoCard";
 import type { QnaPreview } from "@/components/board/MemoCard";
 import styles from "./page.module.css";
@@ -100,11 +101,19 @@ export default function BoardPage({
   // 현재 선택된 탭 저장(초기 "my" 탭 활성화)
   const [activeTab, setActiveTab] = useState<TabType>("my");
 
+  // Zustand에서 내 UUID 가져오기
+  const { userUuid: myUuid } = useUserStore();
+
+  // 현재 페이지의 주인인지 확인 (내 UUID와 주소창의 userUuid 비교)
+  const isOwner = myUuid === params.userUuid;
+
   return (
     <div className={styles.page}>
       <header className={styles.stickyHeader}>
         <div className={styles.headerInner}>
-          <span className={styles.headerTitle}>나의 핀</span>
+          <span className={styles.headerTitle}>
+            나의 핀/이거 다른 사람이 볼때 누군가의 핀
+          </span>
           <span className={styles.headerCount}>{MEMOS.length} items</span>
         </div>
 
@@ -133,8 +142,10 @@ export default function BoardPage({
           ))}
         </div>
       ) : (
-        // TODO: 다른 사람이 남긴 질문 포스트잇 API 연결 후 채울 예정
-        <div className={styles.canvas} />
+        <div className={styles.canvas}>
+          {/* 다른 유저가 남긴 질문이 보일 영역 */}
+          {!isOwner && <p className={styles.emptyMsg}>질문을 남겨보세요!</p>}
+        </div>
       )}
     </div>
   );
