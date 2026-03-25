@@ -8,6 +8,8 @@ from typing import Any
 
 from fastapi import UploadFile
 
+from app.core.settings import KEYWORD_LLM_MODEL_NAME, TITLE_LLM_MODEL_NAME
+from app.models.llm.gemini_client import create_gemini_message
 from app.pipeline.interview_pipeline import (
     run_interview_pipeline,
     run_interview_pipeline_from_stt_text,
@@ -124,8 +126,9 @@ def generate_magazine_title(
 ) -> dict[str, str]:
     """인터뷰 전체 맥락을 바탕으로 매거진 제목을 생성한다."""
 
-    title = create_message(
-        messages=[{"role": "user", "content": interview_context}],
+    title = create_gemini_message(
+        model=TITLE_LLM_MODEL_NAME,
+        user_content=interview_context,
         system=TITLE_GENERATION_SYSTEM_PROMPT,
         max_tokens=max_tokens,
     )
@@ -181,8 +184,9 @@ def generate_keyword(
 ) -> dict[str, str]:
     """질문-답변 쌍을 바탕으로 북마크 키워드를 생성한다."""
 
-    keyword = create_message(
-        messages=[{"role": "user", "content": f"Q: {question}\nA: {answer}"}],
+    keyword = create_gemini_message(
+        model=KEYWORD_LLM_MODEL_NAME,
+        user_content=f"Q: {question}\nA: {answer}",
         system=KEYWORD_GENERATION_SYSTEM_PROMPT,
         max_tokens=max_tokens,
     )
