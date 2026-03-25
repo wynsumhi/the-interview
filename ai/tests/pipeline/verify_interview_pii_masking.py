@@ -117,10 +117,17 @@ def main() -> None:
     interview_state_db, interview_state_prompt = build_fake_interview_state()
     captured_messages: dict[str, Any] = {}
 
-    def fake_create_message(*, messages: list[dict[str, str]], system: str, max_tokens: int) -> str:
+    def fake_create_message(
+        *,
+        messages: list[dict[str, str]],
+        system: str,
+        max_tokens: int,
+        label: str = "generic",
+    ) -> str:
         captured_messages["messages"] = messages
         captured_messages["system"] = system
         captured_messages["max_tokens"] = max_tokens
+        captured_messages["label"] = label
         return "What detail from that experience still feels vivid to you?"
 
     try:
