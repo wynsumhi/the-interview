@@ -14,6 +14,7 @@ import com.theinterview.global.config.redis.RedisService;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
 import com.theinterview.global.security.config.jwt.JwtProvider;
+import com.theinterview.global.util.DomainFindUtils;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
@@ -39,6 +40,7 @@ public class MemberService {
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final JwtProvider jwtProvider;
     private final RedisService redisService;
+    private final DomainFindUtils domainFindUtils;
 
     // yml -> refresh token 만료 시간
     @Value("${jwt.refresh-token-validity-in-seconds}")
@@ -76,6 +78,9 @@ public class MemberService {
     @Transactional(readOnly = true)
     public TokenResponseDTO login(LoginRequestDTO request) {
 
+        // Respnse - userUuid를 전달하기 위함
+        Member member = domainFindUtils.getMemberByEmail(request.getEmail());
+
         // 클라이언트에서 보맨 이메일과 비밀번호를 기반으로 임시 토큰 생성
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                 request.getEmail(), request.getPassword());
@@ -95,7 +100,7 @@ public class MemberService {
                 Duration.ofSeconds(refreshTokenValidityInSeconds)
         );
 
-        return new TokenResponseDTO(refreshToken, accessToken,
+        return new TokenResponseDTO(refreshToken, accessToken, member.getUserUuid(),
                 jwtProvider.getRefreshTokenValidityTime(),
                 jwtProvider.getAccessTokenValidityTime()
         );

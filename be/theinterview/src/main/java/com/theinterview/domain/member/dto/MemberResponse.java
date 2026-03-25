@@ -39,6 +39,8 @@ public abstract class MemberResponse {
 
         private String accessToken;
 
+        private String userUuid;
+
         @JsonIgnore
         private long refreshTokenValidityTime;
         @JsonIgnore
