@@ -18,10 +18,7 @@ def auth_headers() -> dict[str, str]:
 def build_interview_state_db_response() -> dict[str, object]:
     return {
         "top_state": "calm",
-        "fused_scores": {
-            "calm": 0.75,
-            "tense": 0.25,
-        },
+        "fused_scores": {"calm": 0.75, "tense": 0.25},
         "audio_features": {
             "duration_sec": 1.0,
             "rms_mean": 0.02,
@@ -71,14 +68,17 @@ def build_pipeline_response(stt_text: str) -> dict[str, object]:
 
 
 def test_interview_start_tts_returns_new_user_question_and_audio() -> None:
-    with patch(
-        "app.api.v1.endpoints.interview.generate_interview_start_tts",
-        return_value={
-            "question_text": NEW_USER_QUESTION,
-            "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
-            "tts_audio_mime_type": "audio/wav",
-        },
-    ) as start_tts_mock:
+    with (
+        patch("app.core.auth.settings.AUTH_ENABLED", False),
+        patch(
+            "app.api.v1.endpoints.interview.generate_interview_start_tts",
+            return_value={
+                "question_text": NEW_USER_QUESTION,
+                "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
+                "tts_audio_mime_type": "audio/wav",
+            },
+        ) as start_tts_mock,
+    ):
         response = client.post(
             "/api/v1/ai/interview/start-tts",
             json={
@@ -98,13 +98,17 @@ def test_interview_start_tts_returns_new_user_question_and_audio() -> None:
         is_first_finished=False,
         nickname="tester",
         db_question=None,
+        voice="Jessica",
     )
 
 
 def test_interview_start_tts_returns_bad_request_when_service_validation_fails() -> None:
-    with patch(
-        "app.api.v1.endpoints.interview.generate_interview_start_tts",
-        side_effect=ValueError("db_question is required when is_first_finished is true."),
+    with (
+        patch("app.core.auth.settings.AUTH_ENABLED", False),
+        patch(
+            "app.api.v1.endpoints.interview.generate_interview_start_tts",
+            side_effect=ValueError("db_question is required when is_first_finished is true."),
+        ),
     ):
         response = client.post(
             "/api/v1/ai/interview/start-tts",
@@ -116,9 +120,7 @@ def test_interview_start_tts_returns_bad_request_when_service_validation_fails()
         )
 
     assert response.status_code == 400
-    assert response.json() == {
-        "detail": "db_question is required when is_first_finished is true.",
-    }
+    assert response.json() == {"detail": "db_question is required when is_first_finished is true."}
 
 
 def test_interview_pipeline_returns_follow_up_tts_and_state_payloads() -> None:
@@ -136,6 +138,7 @@ def test_interview_pipeline_returns_follow_up_tts_and_state_payloads() -> None:
     assert response.status_code == 200
     assert response.json() == build_pipeline_response("candidate answer")
     pipeline_mock.assert_called_once()
+    assert pipeline_mock.call_args.kwargs["voice"] == "Robert"
 
 
 def test_interview_pipeline_after_stt_returns_follow_up_tts_and_state_payloads() -> None:
@@ -149,6 +152,7 @@ def test_interview_pipeline_after_stt_returns_follow_up_tts_and_state_payloads()
             data={
                 "stt_text": "candidate answer from external stt",
                 "is_first_finished": "true",
+                "voice": "F3",
                 "nickname": "tester",
                 "max_tokens": "256",
             },
@@ -158,6 +162,7 @@ def test_interview_pipeline_after_stt_returns_follow_up_tts_and_state_payloads()
     assert response.status_code == 200
     assert response.json() == build_pipeline_response("candidate answer from external stt")
     pipeline_mock.assert_called_once()
+    assert pipeline_mock.call_args.kwargs["voice"] == "F3"
 
 
 def test_interview_pipeline_after_stt_returns_bad_request_when_text_is_missing() -> None:
@@ -169,9 +174,7 @@ def test_interview_pipeline_after_stt_returns_bad_request_when_text_is_missing()
     )
 
     assert response.status_code == 400
-    assert response.json() == {
-        "detail": "stt_text is required.",
-    }
+    assert response.json() == {"detail": "stt_text is required."}
 
 
 def test_interview_pipeline_rejects_non_webm_upload() -> None:
@@ -267,6 +270,4 @@ def test_interview_state_analysis_returns_bad_request_when_text_is_blank() -> No
     )
 
     assert response.status_code == 400
-    assert response.json() == {
-        "detail": "stt_text is required.",
-    }
+    assert response.json() == {"detail": "Only .webm audio uploads are supported."}
