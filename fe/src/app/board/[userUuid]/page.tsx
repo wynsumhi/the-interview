@@ -1,8 +1,9 @@
 "use client";
 
 // useState: 어떤 탭이 선택됐는지 기억할 때 사용
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useShareBoardInfo } from "@/hooks/useShareBoardInfo";
+import { useBoardStore } from "@/store/useBoardStore";
 import MemoCard from "@/components/board/MemoCard";
 import type { QnaPreview } from "@/components/board/MemoCard";
 import styles from "./page.module.css";
@@ -108,6 +109,14 @@ export default function BoardPage({
   // 보드 기본 정보 조회 (isOwner, ownerNickname 등)
   const { data: boardInfo } = useShareBoardInfo(userUuid);
   const isOwner = boardInfo?.isOwner ?? false;
+
+  const { setBoardInfo, clearBoardInfo } = useBoardStore();
+
+  // API 응답이 도착하면 스토어에 저장, 페이지 이탈 시 초기화
+  useEffect(() => {
+    if (boardInfo) setBoardInfo(boardInfo);
+    return () => clearBoardInfo();
+  }, [boardInfo, setBoardInfo, clearBoardInfo]);
 
   return (
     <div className={styles.page}>
