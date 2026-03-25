@@ -33,7 +33,10 @@ export default function LoginPage() {
 
     try {
       // 로그인 API 호출 - 성공하면 accessToken, refreshToken 반환
-      const { accessToken, uuid, nickname } = await login({ email, password });
+      const { accessToken, userUuid, nickname } = await login({
+        email,
+        password,
+      });
 
       // localStorage: 브라우저에 데이터를 저장하는 공간 (탭을 닫아도 유지됨)
       // accessToken은 API 요청 시 헤더에 담아 보내는 인증 토큰
@@ -46,12 +49,12 @@ export default function LoginPage() {
       document.cookie = `accessToken=${accessToken}; path=/; max-age=${60 * 60 * 24}`;
 
       // Zustand Store에 유저 정보 저장
-      // UUID와 닉네임을 전역 상태로 관리하여 다른 컴포넌트에서도 사용 가능하게 만듦
-      setLoginInfo(uuid, nickname);
+      // userUuid와 닉네임을 전역 상태로 관리하여 다른 컴포넌트에서도 사용 가능하게 만듦
+      setLoginInfo(userUuid, nickname);
 
       // 본인의 보드로 이동
       // UUID를 경로 파라미터로 사용하여 개인화된 페이지이동
-      router.push(`/board/${uuid}`);
+      router.push(`/board/${userUuid}`);
     } catch (err: unknown) {
       // API 에러 응답 처리 - axios 에러는 response.data.message에 서버 메시지가 담김
       const axiosError = err as {

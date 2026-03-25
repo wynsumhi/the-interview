@@ -3,11 +3,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 interface UserState {
-  uuid: string | null;
+  userUuid: string | null;
   nickname: string | null;
   isLoggedIn: boolean;
   // 로그인 성공 시 호출할 함수
-  setLoginInfo: (uuid: string, nickname: string) => void;
+  setLoginInfo: (userUuid: string, nickname: string) => void;
   // 로그아웃 시 호출할 함수
   clearLoginInfo: () => void;
 }
@@ -15,13 +15,13 @@ interface UserState {
 export const useUserStore = create<UserState>()(
   persist(
     (set) => ({
-      uuid: null,
+      userUuid: null,
       nickname: null,
       isLoggedIn: false,
-      setLoginInfo: (uuid, nickname) =>
-        set({ uuid, nickname, isLoggedIn: true }),
+      setLoginInfo: (userUuid, nickname) =>
+        set({ userUuid, nickname, isLoggedIn: true }),
       clearLoginInfo: () =>
-        set({ uuid: null, nickname: null, isLoggedIn: false }),
+        set({ userUuid: null, nickname: null, isLoggedIn: false }),
     }),
     {
       name: "user-storage", // localStorage에 저장될 키 이름
