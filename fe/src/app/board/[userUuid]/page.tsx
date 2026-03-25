@@ -4,8 +4,10 @@ import { use, useEffect, useState } from "react";
 import { useShareBoardInfo } from "@/hooks/useShareBoardInfo";
 import { useBookmarkPostits } from "@/hooks/useBookmarkPostits";
 import { useQuestionPostits } from "@/hooks/useQuestionPostits";
+import { useCreateQuestion } from "@/hooks/useCreateQuestion";
 import { useBoardStore } from "@/store/useBoardStore";
 import MemoCard from "@/components/board/MemoCard";
+import AddQuestionCard from "@/components/board/AddQuestionCard";
 import type { BookmarkPostitItem, QuestionPostitItem } from "@/types/board";
 import styles from "./page.module.css";
 
@@ -96,6 +98,9 @@ export default function BoardPage({
     isLoading: isQuestionLoading,
   } = useQuestionPostits(userUuid);
 
+  // 질문 생성 뮤테이션: 성공 시 questionPostits 캐시 자동 무효화
+  const { mutate: submitQuestion, isPending: isSubmitting } = useCreateQuestion(userUuid);
+
   // 모든 페이지의 items를 하나의 배열로 합침
   // 공유 허용(shareRange) 필터링은 백엔드 JPQL 쿼리에서 처리하므로 프론트 추가 필터 불필요
   const bookmarkItems = bookmarkData?.pages.flatMap((page) => page.items) ?? [];
@@ -148,13 +153,19 @@ export default function BoardPage({
           })}
 
         {/* 질문 탭 */}
+        {activeTab === "questions" && (
+          <AddQuestionCard
+            onSubmit={submitQuestion}
+            isSubmitting={isSubmitting}
+          />
+        )}
         {!isLoading && activeTab === "questions" && questionItems.length === 0 && (
           <p className={styles.emptyMsg}>받은 질문 포스트잇이 없습니다.</p>
         )}
         {activeTab === "questions" &&
           questionItems.map((item) => {
             const props = toQuestionMemoCardProps(item);
-            return <MemoCard key={props.id} {...props} />;
+            return <MemoCard key={props.id} {...props} disableHover />;
           })}
       </div>
     </div>
