@@ -33,8 +33,6 @@ export interface BookmarkPostitItem {
   answer: string;
   /** 답변 핵심 키워드 (카드 기본 화면에 표시) */
   answerKeyword: string;
-  /** 해당 Q&A의 공유 허용 여부 — false인 항목은 북마크 탭에 노출하지 않음 */
-  interviewQAShare: boolean;
   interviewId: number;
   interviewUrl: string;
   createdAt: string;
