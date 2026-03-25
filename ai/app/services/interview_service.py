@@ -141,8 +141,12 @@ def refine_answer_for_magazine(
 ) -> dict[str, str]:
     """구어체 인터뷰 답변을 매거진 기사에 어울리는 문어체로 정제한다."""
 
+    normalized_stt_text = stt_text.strip()
+    if not normalized_stt_text:
+        raise ValueError("stt_text is required.")
+
     refined = create_message(
-        messages=[{"role": "user", "content": stt_text}],
+        messages=[{"role": "user", "content": normalized_stt_text}],
         system=MAGAZINE_GENERATION_SYSTEM_PROMPT,
         max_tokens=max_tokens,
     )

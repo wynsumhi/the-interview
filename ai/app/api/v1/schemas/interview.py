@@ -109,6 +109,14 @@ class InterviewPipelineResponse(BaseModel):
     refined_answer: str
 
 
+class InterviewAnswerRefinementRequest(BaseModel):
+    stt_text: str
+
+
+class InterviewAnswerRefinementResponse(BaseModel):
+    refined_answer: str
+
+
 class InterviewStateSaveRequest(BaseModel):
     """임시 인터뷰 상태 저장 요청 스키마다.
 
