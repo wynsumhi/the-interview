@@ -11,7 +11,7 @@ interface Props {
 }
 
 // 질문 탭 캔버스의 첫 번째 자리에 고정 배치되는 추가 카드
-// 기본 상태: "+" 버튼만 표시
+// 기본 상태: 카드 전체 클릭으로 편집 모드 진입
 // 편집 상태: textarea와 취소/등록 버튼 표시
 export default function AddQuestionCard({ onSubmit, isSubmitting }: Props) {
   const [editing, setEditing] = useState(false);
@@ -32,7 +32,12 @@ export default function AddQuestionCard({ onSubmit, isSubmitting }: Props) {
   }
 
   return (
-    <div className={styles.card}>
+    // MemoCard의 motion.div와 동일하게 width/height를 인라인 스타일로 고정하여 크기 일치 보장
+    <div
+      className={styles.card}
+      style={{ width: 260, height: 340 }}
+      onClick={() => !editing && setEditing(true)}
+    >
       <div className={styles.inner}>
         {/* 카테고리 레이블: MemoCard와 동일한 위치/스타일 */}
         <p className={styles.category}>Question</p>

@@ -5,6 +5,8 @@
   padding: 10px;
   box-sizing: border-box;
   display: flex;
+  overflow: hidden;
+  cursor: pointer;
 }
 
 /* ── 이중 라인 내부 컨테이너: 점선 테두리로 추가 카드임을 시각적으로 구분 ── */
@@ -17,7 +19,6 @@
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  border-radius: 2px;
 }
 
 /* ── 카테고리 레이블: MemoCard와 동일한 스타일 ── */
@@ -70,7 +71,7 @@
   word-break: keep-all;
 }
 
-/* ── "+" 추가 버튼: promptTitle 아래 배치 ── */
+/* ── "+" 추가 버튼: promptTitle 아래 배치, 카드 영역 클릭으로 진입하므로 cursor는 상속 ── */
 .addButton {
   font-size: 2.4rem;
   font-weight: 200;
@@ -78,7 +79,7 @@
   color: rgba(255, 255, 255, 0.35);
   background: none;
   border: none;
-  cursor: pointer;
+  cursor: inherit;
   transition: color 0.2s;
   padding: 0;
 }
