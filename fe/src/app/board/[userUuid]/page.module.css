@@ -73,12 +73,14 @@
   border-bottom-color: rgba(255, 255, 255, 0.85);
 }
 
-/* ── 카드 캔버스: 절대 위치 카드들의 기준점 ── */
+/* ── 카드 캔버스: 4열 그리드, 행 수는 아이템 수에 따라 자동 증가 ── */
 .canvas {
-  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 260px);
+  gap: 32px;
+  justify-content: center;
   max-width: var(--max-w);
   margin: 0 auto;
-  padding: 0 var(--px) 80px;
-  /* 가장 낮은 카드(top 500 + height 340) + 여유 패딩 */
-  min-height: 960px;
+  /* 세로 패딩에 최대 오프셋(20px)만큼 여유를 추가해 카드가 잘리지 않도록 함 */
+  padding: 60px var(--px) 100px;
 }

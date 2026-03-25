@@ -11,13 +11,17 @@ export interface QnaPreview {
 
 interface MemoProps {
   id: number;
-  category: string; // MVP 에는 없음
+  category: string;
   title: string;
   date: string;
-  color: string;
-  rotate: number;
-  top: number;
-  left: number;
+  /** 카드 배경색 (API: layout.colorCode) */
+  colorCode: string;
+  /** 카드 회전 각도, 도 단위 (API: layout.rotationDeg) */
+  rotationDeg: number;
+  /** 0–1 비율 → 그리드 셀 내 가로 오프셋 (API: layout.positionX) */
+  positionX: number;
+  /** 0–1 비율 → 그리드 셀 내 세로 오프셋 (API: layout.positionY) */
+  positionY: number;
   qnaItems?: QnaPreview[];
 }
 
@@ -40,31 +44,38 @@ const fade = {
   },
 };
 
+/** positionX/Y (0–1)을 ±HALF_RANGE px 오프셋으로 변환 */
+const OFFSET_RANGE = 40; // 최대 오프셋 ±20px
+function toOffset(ratio: number) {
+  return (ratio - 0.5) * OFFSET_RANGE;
+}
+
 export default function MemoCard({
   category,
   title,
   date,
-  color,
-  rotate,
-  top,
-  left,
+  colorCode,
+  rotationDeg,
+  positionX,
+  positionY,
   qnaItems = [],
 }: MemoProps) {
   const [hovered, setHovered] = useState(false);
   const featured = qnaItems[0] ?? null;
 
+  const offsetX = toOffset(positionX);
+  const offsetY = toOffset(positionY);
+
   return (
     <motion.div
       className={styles.card}
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0, rotate }}
+      initial={{ opacity: 0, y: offsetY + 24 }}
+      animate={{ opacity: 1, x: offsetX, y: offsetY, rotate: rotationDeg }}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
       transition={{ type: "spring", stiffness: 240, damping: 24 }}
       style={{
-        backgroundColor: color,
-        top: `${top}px`,
-        left: `${left}px`,
+        backgroundColor: colorCode,
         width: 260,
         height: 340,
       }}
