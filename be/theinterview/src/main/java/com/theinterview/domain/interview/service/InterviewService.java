@@ -55,7 +55,6 @@ import com.theinterview.global.util.FileDeleteUtils;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -841,16 +840,17 @@ public class InterviewService {
         shareBoardPostitLayoutRepository
                 .findByShareBoardIdAndPostitTypeAndSourceId(shareBoard.getId(),
                         ShareBoardPostitType.BOOKMARK, answer.getId())
-                .orElseGet(() -> shareBoardPostitLayoutRepository.save(ShareBoardPostitLayout.builder()
-                        .shareBoard(shareBoard)
-                        .postitType(ShareBoardPostitType.BOOKMARK)
-                        .sourceId(answer.getId())
-                        .colorCode(resolveBookmarkColor(answer.getId()))
-                        .rotationDeg(defaultRotation(answer.getId()))
-                        .positionX(defaultPositionX(answer.getId()))
-                        .positionY(defaultPositionY(answer.getId()))
-                        .zIndex(0)
-                        .build()));
+                .orElseGet(
+                        () -> shareBoardPostitLayoutRepository.save(ShareBoardPostitLayout.builder()
+                                .shareBoard(shareBoard)
+                                .postitType(ShareBoardPostitType.BOOKMARK)
+                                .sourceId(answer.getId())
+                                .colorCode(resolveBookmarkColor(answer.getId()))
+                                .rotationDeg(defaultRotation(answer.getId()))
+                                .positionX(defaultPositionX(answer.getId()))
+                                .positionY(defaultPositionY(answer.getId()))
+                                .zIndex(0)
+                                .build()));
     }
 
     private String resolveBookmarkColor(Integer sourceId) {
@@ -883,8 +883,12 @@ public class InterviewService {
         Member owner = answer.getInterviewQuestion().getInterview().getMember();
         boolean isOwner = (email != null) && owner.getEmail().equals(email);
 
+        // Interview 공개범위 확인
+        InterviewQuestion interviewQuestion = answer.getInterviewQuestion();
+        Interview interview = interviewQuestion.getInterview();
+
         // 공개 설정이 되어 있지 않고, 주인도 아니라면 예외처리
-        if (!answer.getShareRange() && !isOwner) {
+        if (!interview.getShareRange() && !answer.getShareRange() && !isOwner) {
             throw new GeneralException(ErrorStatus.FORBIDDEN);
         }
 
