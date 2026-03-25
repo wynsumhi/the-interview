@@ -48,7 +48,9 @@ export default function AddQuestionCard({ onSubmit, isSubmitting }: Props) {
           {!editing ? (
             <div className={styles.promptGroup}>
               <p className={styles.promptTitle}>
-                Click here to add<br />an interview question!
+                여기를 클릭하여 <br />
+                인터뷰 질문을 <br />
+                직접 추가해 보세요!
               </p>
               <button
                 className={styles.addButton}
