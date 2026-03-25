@@ -22,4 +22,15 @@ SUPERTONIC_VOICE_NAME_TO_ID = {
 }
 
 SUPERTONIC_DEFAULT_VOICE_NAME = "Jessica"
-SUPERTONIC_DEFAULT_VOICE_ID = SUPERTONIC_VOICE_NAME_TO_ID[SUPERTONIC_DEFAULT_VOICE_NAME]
+SUPERTONIC_DEFAULT_VOICE_ID = "F3"
+
+
+def resolve_supertonic_voice_id(voice: str | None) -> str:
+    normalized_voice = (voice or "").strip()
+    if not normalized_voice:
+        return SUPERTONIC_DEFAULT_VOICE_ID
+    if normalized_voice in SUPERTONIC_VOICE_IDS:
+        return normalized_voice
+    if normalized_voice in SUPERTONIC_VOICE_NAME_TO_ID:
+        return SUPERTONIC_VOICE_NAME_TO_ID[normalized_voice]
+    raise ValueError(f"Unsupported TTS voice: {voice}")

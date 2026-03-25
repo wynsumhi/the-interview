@@ -13,10 +13,7 @@ from fastapi import UploadFile
 def build_interview_state_db_response() -> dict[str, object]:
     return {
         "top_state": "calm",
-        "fused_scores": {
-            "calm": 0.75,
-            "tense": 0.25,
-        },
+        "fused_scores": {"calm": 0.75, "tense": 0.25},
         "audio_features": {
             "duration_sec": 1.0,
             "rms_mean": 0.02,
@@ -41,13 +38,7 @@ def build_interview_state_prompt_response() -> dict[str, object]:
             "low": 0.0,
             "engaged": 0.0,
         },
-        "formatted_prompt": (
-            "[인터뷰 상태 참고]\n"
-            "다음 점수는 답변 음성과 텍스트를 바탕으로 계산된 참고용 상태 신호입니다. "
-            "절대 판단이 아니라 후속 질문의 톤과 깊이를 조절하는 보조 정보로만 활용하세요.\n"
-            "- top_state: calm\n"
-            "- fused_scores: calm=0.75, tense=0.25, anxious=0.00, low=0.00, engaged=0.00"
-        ),
+        "formatted_prompt": "[state prompt]",
     }
 
 
@@ -63,10 +54,12 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
             "interview_state_prompt": build_interview_state_prompt_response(),
             "question_text": "follow up",
             "tts_audio": b"tts-bytes",
+            "refined_answer": "refined answer",
         }
 
         result = run_interview_pipeline_from_upload(
             upload,
+            voice="Robert",
             user_id="user-123",
             previous_question="current question",
             max_tokens=256,
@@ -81,12 +74,13 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
         "question_text": "follow up",
         "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
         "tts_audio_mime_type": "audio/wav",
+        "refined_answer": "refined answer",
     }
     pipeline_mock.assert_called_once()
-    args, kwargs = pipeline_mock.call_args
-    assert args
+    _, kwargs = pipeline_mock.call_args
     assert kwargs == {
         "is_first_finished": False,
+        "voice": "Robert",
         "user_id": "user-123",
         "sequence": None,
         "nickname": None,
