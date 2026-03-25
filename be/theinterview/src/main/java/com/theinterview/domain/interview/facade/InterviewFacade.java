@@ -14,6 +14,7 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.InterviewStartRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.entity.InterviewQuestion;
@@ -56,7 +57,10 @@ public class InterviewFacade {
     private final SimpMessagingTemplate messagingTemplate;
 
     // 인터뷰 첫 질문 TTS 변환을 위해 호춯되는 파서드
-    public Mono<WebSocketConnectResponse> issueWebSocketId(String email)
+    public Mono<WebSocketConnectResponse> issueWebSocketId(
+            String email,
+            InterviewStartRequest request
+    )
             throws JsonProcessingException {
 
         // 1. 필요 데이터 DB 조회
@@ -73,10 +77,14 @@ public class InterviewFacade {
                         .dbQuestion(dbQuestion)
                         .nickname(member.getNickname())
                         .isFirstFinished(member.getIsFirstFinished())
+                        .voice(request.getVoice())
                         .build())
                 .flatMap(aiStartTtsResponse ->
-                        Mono.fromCallable(() -> interviewService.saveInterviewAndQuestion(member,
-                                aiStartTtsResponse)))
+                        Mono.fromCallable(() -> interviewService.saveInterviewAndQuestion(
+                                member,
+                                aiStartTtsResponse,
+                                request.getVoice()
+                        )))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
@@ -102,7 +110,9 @@ public class InterviewFacade {
         // 2. 트랜잭션 X, AI 서버 호출
         AiPipelineResponse aiPipelineResponse = aiUtils.callFastApiForNextQuestion(audioBytes,
                 aiPipelineReadyDto.getSequence(), aiPipelineReadyDto.getNickname(),
-                aiPipelineReadyDto.getPreviousQuestion(), aiPipelineReadyDto.getIsFirstFinished());
+                aiPipelineReadyDto.getPreviousQuestion(),
+                aiPipelineReadyDto.getIsFirstFinished(),
+                aiPipelineReadyDto.getVoice());
 
         log.info("DB 락 해제 시도 및 응답 시도");
         // 3. 트랜잭션 O, AI 응답 -> DB에 저장 후 락 풀기 후 DTO로 조립하여 응답
@@ -188,7 +198,8 @@ public class InterviewFacade {
                                             aiPipelineReadyDto.getNickname(),
                                             aiPipelineReadyDto.getPreviousQuestion(),
                                             aiPipelineReadyDto.getIsFirstFinished(),
-                                            answerText))
+                                            answerText,
+                                            aiPipelineReadyDto.getVoice()))
                             .flatMap(aiPipelineResponse -> {
                                 // DB 저장, dto Redis 캐싱
                                 return Mono.fromCallable(() -> {
@@ -208,6 +219,7 @@ public class InterviewFacade {
                                                             aiPipelineReadyDto.getIsFirstFinished())
                                                     .nickname(aiPipelineReadyDto.getNickname())
                                                     .sequence(aiPipelineReadyDto.getSequence() + 1)
+                                                    .voice(aiPipelineReadyDto.getVoice())
                                                     .build());
                                     String newRedisKey =
                                             "interviewId:" + interviewId + "questionId:"
