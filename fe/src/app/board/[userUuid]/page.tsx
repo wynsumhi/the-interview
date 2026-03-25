@@ -1,7 +1,7 @@
 "use client";
 
 // useState: 어떤 탭이 선택됐는지 기억할 때 사용
-import { useState } from "react";
+import { use, useState } from "react";
 import { useUserStore } from "@/store/useUserStore";
 import MemoCard from "@/components/board/MemoCard";
 import type { QnaPreview } from "@/components/board/MemoCard";
@@ -96,8 +96,12 @@ const MEMOS: {
 export default function BoardPage({
   params,
 }: {
-  params: { userUuid: string };
+  params: Promise<{ userUuid: string }>;
 }) {
+  // 비동기인 params를 React.use()로 풀어줌
+  const resolvedParams = use(params);
+  const userUuid = resolvedParams.userUuid;
+
   // 현재 선택된 탭 저장(초기 "my" 탭 활성화)
   const [activeTab, setActiveTab] = useState<TabType>("my");
 
@@ -105,7 +109,7 @@ export default function BoardPage({
   const { userUuid: myUuid } = useUserStore();
 
   // 현재 페이지의 주인인지 확인 (내 UUID와 주소창의 userUuid 비교)
-  const isOwner = myUuid === params.userUuid;
+  const isOwner = myUuid === userUuid;
 
   return (
     <div className={styles.page}>
