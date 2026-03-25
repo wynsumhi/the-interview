@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 from app.services.interview_service import (
+    analyze_interview_state_from_payload,
     run_interview_pipeline_from_upload,
     save_interview_state_temp,
 )
@@ -63,6 +64,7 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
             "interview_state_prompt": build_interview_state_prompt_response(),
             "question_text": "follow up",
             "tts_audio": b"tts-bytes",
+            "refined_answer": "refined answer",
         }
 
         result = run_interview_pipeline_from_upload(
@@ -81,6 +83,7 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
         "question_text": "follow up",
         "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
         "tts_audio_mime_type": "audio/wav",
+        "refined_answer": "refined answer",
     }
     pipeline_mock.assert_called_once()
     args, kwargs = pipeline_mock.call_args
@@ -112,3 +115,43 @@ def test_save_interview_state_temp_wraps_request() -> None:
         "message": "Temporary interview-state save request accepted.",
         "request": request,
     }
+
+
+def test_analyze_interview_state_from_payload_returns_state_only() -> None:
+    upload = UploadFile(filename="answer.webm", file=BytesIO(b"audio-bytes"))
+
+    with (
+        patch(
+            "app.services.interview_service.analyze_interview_state", return_value=object()
+        ) as analyze_mock,
+        patch(
+            "app.services.interview_service.build_interview_state_db_payload",
+            return_value=build_interview_state_db_response(),
+        ) as db_mock,
+        patch(
+            "app.services.interview_service.build_interview_state_prompt_payload",
+            return_value=build_interview_state_prompt_response(),
+        ) as prompt_mock,
+    ):
+        result = analyze_interview_state_from_payload(
+            audio_file=upload,
+            stt_text="candidate answer",
+        )
+
+    assert result == {
+        "interview_state_db": build_interview_state_db_response(),
+        "interview_state_prompt": build_interview_state_prompt_response(),
+    }
+    analyze_mock.assert_called_once()
+    db_mock.assert_called_once_with(analyze_mock.return_value)
+    prompt_mock.assert_called_once_with(analyze_mock.return_value)
+
+
+def test_analyze_interview_state_from_payload_rejects_blank_stt_text() -> None:
+    upload = UploadFile(filename="answer.webm", file=BytesIO(b"audio-bytes"))
+
+    with pytest.raises(ValueError, match="stt_text is required\\."):
+        analyze_interview_state_from_payload(
+            audio_file=upload,
+            stt_text="   ",
+        )
