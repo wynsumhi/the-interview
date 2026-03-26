@@ -86,6 +86,7 @@ export async function fetchInterviewDetail(
       const status = error.response?.status;
       if (status === 403) throw new Error("FORBIDDEN");
       if (status === 404) throw new Error("NOT_FOUND");
+      if (status === 502) throw new Error("BAD_GATEWAY");
     }
     throw error;
   }
@@ -102,6 +103,39 @@ export async function deleteInterview(interviewId: number): Promise<void> {
     }
     throw error;
   }
+}
+
+// POST /api/v1/interview/{interviewId}/share/bookmark - Q&A 북마크 토글
+// interviewAnswerID: 북마크할 답변의 고유 ID
+// interviewShareRange: 공개 공유 여부 (true = 공개, false = 비공개)
+// 응답 result: { interviewShareRange: boolean } — 서버가 확정한 북마크 상태
+export async function toggleBookmark(
+  interviewId: number,
+  interviewAnswerId: number,
+  interviewShareRange: boolean,
+): Promise<boolean> {
+  const res = await instance.post<
+    ApiResponse<{ interviewShareRange: boolean }>
+  >(`/interview/${interviewId}/share/bookmark`, {
+    interviewAnswerID: interviewAnswerId,
+    interviewShareRange,
+  });
+  return res.data.result.interviewShareRange;
+}
+
+// POST /api/v1/interview/exit - 인터뷰 강제 종료
+// 서버가 현재까지의 대화를 바탕으로 AI 요약 제목을 생성해 반환
+export async function exitInterview(
+  interviewId: number,
+  questionId: number,
+): Promise<string> {
+  const res = await instance.post(
+    "/interview/exit",
+    { interviewId, questionId },
+    { timeout: 60000 },
+  );
+  // 응답 구조: { result: "AI가 생성한 인터뷰 제목" }
+  return res.data.result;
 }
 
 // POST /api/v1/interview/exitV2 - 인터뷰 종료 버튼

@@ -1,5 +1,12 @@
 import type { NextConfig } from "next";
 
+const API_URL = process.env.API_URL;
+if (!API_URL) {
+  throw new Error(
+    "[next.config.ts] API_URL 환경 변수가 설정되지 않았습니다. .env.local 파일을 확인하고 개발 서버를 재시작해 주세요.",
+  );
+}
+
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
