@@ -177,6 +177,12 @@ function ConversationContent() {
         interviewData.interviewId,
         token,
         (dto: FollowUpQuestionDTO) => {
+          // 온보딩 5문항 완료 시 서버가 isExit: true를 전송 — 즉시 종료 처리
+          if (dto.isExit) {
+            cleanup();
+            router.push("/archive");
+            return;
+          }
           const isLast = dto.isFirstFinished ?? false;
           isLastQuestionRef.current = isLast;
           setIsLastQuestion(isLast);

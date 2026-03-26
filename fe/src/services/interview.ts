@@ -19,6 +19,8 @@ export interface FollowUpQuestionDTO {
   ttsAudioBase64: string;
   // true이면 현재 질문이 온보딩 인터뷰의 마지막 질문 — 자동 종료 및 NEXT 버튼 숨김에 사용
   isFirstFinished?: boolean;
+  // true이면 온보딩 5문항이 모두 완료됨 — 인터뷰 종료 신호
+  isExit?: boolean;
 }
 
 // 인터뷰 생성 + 첫 질문 생성
