@@ -4,7 +4,6 @@ import com.theinterview.domain.interview.dto.AiRagDto.DeleteRequest;
 import com.theinterview.domain.interview.dto.AiRagDto.DeleteResponse;
 import com.theinterview.domain.interview.dto.AiRagDto.ReindexRequest;
 import com.theinterview.domain.interview.dto.AiRagDto.ReindexResponse;
-import com.theinterview.domain.interview.dto.AiRagDto.Turn;
 import com.theinterview.domain.interview.dto.AiRagDto.UpsertRequest;
 import com.theinterview.domain.interview.dto.AiRagDto.UpsertResponse;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
@@ -370,10 +369,6 @@ public class AiUtils {
      */
     public Mono<UpsertResponse> callFastApiForRagUpsert(UpsertRequest request) {
         log.info("AI RAG 추가 적재 요청 시작 - interviewId: {}", request.getInterviewId());
-
-        for (Turn turn : request.getTurns()) {
-            log.info("해치웠나?{}", turn.getMetadata());
-        }
 
         return webClient.post()
                 .uri("/api/v1/ai/interview/rag/upsert")
