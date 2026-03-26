@@ -34,6 +34,8 @@ const GESTURE_HOLD_MS = 1000;
 const GESTURE_RESET_MS = 4000;
 const GESTURE_SCORE_THRESHOLD = 0.75;
 const VICTORY_GESTURE_NAME = "Victory";
+const POINTING_UP_GESTURE_NAME = "Pointing_Up";
+const NEXT_GESTURE_COOLDOWN_MS = 1200;
 const MEDIAPIPE_WASM_PATH =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm";
 const MEDIAPIPE_GESTURE_MODEL_PATH =
@@ -65,6 +67,7 @@ function ConversationContent() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExiting, setIsExiting] = useState(false);
   const [gestureNotice, setGestureNotice] = useState<string | null>(null);
+  const [nextGestureNotice, setNextGestureNotice] = useState<string | null>(null);
 
   const questionRef = useRef<CurrentQuestion | null>(null);
   const statusRef = useRef<InterviewStatus>("CONNECTING");
@@ -86,6 +89,9 @@ function ConversationContent() {
   const gestureHoldStartedAtRef = useRef<number | null>(null);
   const gestureCandidateActiveRef = useRef(false);
   const gestureResetTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const nextGestureCooldownUntilRef = useRef(0);
+  const nextGestureNoticeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const handleExitRef = useRef<() => Promise<void>>(async () => {});
 
   const { connect, sendAudio, disconnect } = useStompInterview();
 
@@ -102,6 +108,17 @@ function ConversationContent() {
       gestureResetTimerRef.current = null;
     }
     setGestureNotice(null);
+  }, []);
+
+  const showNextGestureNotice = useCallback((message: string) => {
+    if (nextGestureNoticeTimerRef.current) {
+      clearTimeout(nextGestureNoticeTimerRef.current);
+    }
+    setNextGestureNotice(message);
+    nextGestureNoticeTimerRef.current = setTimeout(() => {
+      setNextGestureNotice(null);
+      nextGestureNoticeTimerRef.current = null;
+    }, 1800);
   }, []);
 
   const initGestureRecognizer = useCallback(async () => {
@@ -156,7 +173,19 @@ function ConversationContent() {
       }
 
       const topGesture = getTopGesture(result);
+      const isPointingUp = topGesture?.categoryName === POINTING_UP_GESTURE_NAME;
       const isVictory = topGesture?.categoryName === VICTORY_GESTURE_NAME;
+
+      if (
+        isPointingUp &&
+        statusRef.current === "USER_RECORDING" &&
+        now >= nextGestureCooldownUntilRef.current
+      ) {
+        nextGestureCooldownUntilRef.current = now + NEXT_GESTURE_COOLDOWN_MS;
+        showNextGestureNotice(
+          "검지 제스처가 감지되었습니다. 다음 질문 연결은 추후 활성화됩니다.",
+        );
+      }
 
       if (!isVictory) {
         gestureCandidateActiveRef.current = false;
@@ -188,9 +217,15 @@ function ConversationContent() {
         clearTimeout(gestureResetTimerRef.current);
         gestureResetTimerRef.current = null;
       }
-      void handleExit();
+      void handleExitRef.current();
     },
-    [getTopGesture, handleExit, isExiting, resetGestureState, scheduleGestureReset],
+    [
+      getTopGesture,
+      isExiting,
+      resetGestureState,
+      scheduleGestureReset,
+      showNextGestureNotice,
+    ],
   );
 
   const startGestureLoop = useCallback(() => {
@@ -459,6 +494,11 @@ function ConversationContent() {
 
   const cleanup = useCallback(() => {
     resetGestureState();
+    if (nextGestureNoticeTimerRef.current) {
+      clearTimeout(nextGestureNoticeTimerRef.current);
+      nextGestureNoticeTimerRef.current = null;
+    }
+    setNextGestureNotice(null);
     stopVad();
 
     if (gestureAnimationFrameRef.current) {
@@ -515,6 +555,7 @@ function ConversationContent() {
       router.push("/archive");
     }
   }
+  handleExitRef.current = handleExit;
 
   const isFocusMode = status === "USER_RECORDING";
 
@@ -544,6 +585,9 @@ function ConversationContent() {
           </button>
           {gestureNotice && (
             <p className={styles.gestureNotice}>{gestureNotice}</p>
+          )}
+          {nextGestureNotice && (
+            <p className={styles.swipeNotice}>{nextGestureNotice}</p>
           )}
 
           <div className={styles.questionBox}>
