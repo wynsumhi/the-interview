@@ -24,9 +24,11 @@ const SILENCE_DELAY_MS = 3000; // 침묵 감지 후 전송까지 대기 시간
 
 // 백엔드(Spring + FFmpeg)가 기대하는 포맷: audio/webm (Opus 코덱 우선)
 // isTypeSupported로 브라우저 지원 여부를 확인한 뒤 가능한 한 고품질 코덱을 선택
-const RECORDER_MIME = typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-  ? "audio/webm;codecs=opus"
-  : "audio/webm"; // 프로덕션 Chrome/Edge는 항상 webm+opus 지원
+const RECORDER_MIME =
+  typeof MediaRecorder !== "undefined" &&
+  MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+    ? "audio/webm;codecs=opus"
+    : "audio/webm"; // 프로덕션 Chrome/Edge는 항상 webm+opus 지원
 
 // 현재 질문 정보
 interface CurrentQuestion {
@@ -127,12 +129,13 @@ function ConversationContent() {
           }))
         : createInterview(mode === "AUTO");
 
-      const [interviewResult, interviewData, stream, { apiUrl }] = await Promise.all([
-        createInterview(mode === "AUTO", signal), // Our changes
-        interviewDataPromise,                      // Their changes
-        navigator.mediaDevices.getUserMedia({ audio: true }),
-        fetch("/api/ws-url").then((r) => r.json()),
-      ]);
+      const [interviewResult, interviewData, stream, { apiUrl }] =
+        await Promise.all([
+          createInterview(mode === "AUTO", signal), // Our changes
+          interviewDataPromise, // Their changes
+          navigator.mediaDevices.getUserMedia({ audio: true }),
+          fetch("/api/ws-url").then((r) => r.json()),
+        ]);
 
       // async 작업 완료 후 컴포넌트가 이미 cleanup된 경우 연결하지 않음
       if (signal.aborted) {
@@ -141,17 +144,19 @@ function ConversationContent() {
       }
 
       questionRef.current = {
-        interviewId: data.interviewId,
-        questionId: data.questionId,
-        questionText: stripMarkdown(data.interviewTitle),
-        ttsAudioBase64: data.ttsAudioBase64,
+        interviewId: interviewData.interviewId,
+        questionId: interviewData.questionId,
+        questionText: stripMarkdown(interviewData.interviewTitle),
+        ttsAudioBase64: interviewData.ttsAudioBase64,
       };
 
       // [DIAG] 마이크 스트림 상태 검증
       const tracks = stream.getAudioTracks();
       console.log("[DIAG] 마이크 트랙 수:", tracks.length);
       tracks.forEach((t, i) =>
-        console.log(`[DIAG] 트랙[${i}] label="${t.label}" enabled=${t.enabled} readyState=${t.readyState}`)
+        console.log(
+          `[DIAG] 트랙[${i}] label="${t.label}" enabled=${t.enabled} readyState=${t.readyState}`,
+        ),
       );
 
       streamRef.current = stream;
@@ -169,7 +174,7 @@ function ConversationContent() {
 
       connect(
         apiUrl,
-        data.interviewId,
+        interviewData.interviewId,
         token,
         (dto: FollowUpQuestionDTO) => {
           const isLast = dto.isFirstFinished ?? false;
@@ -290,17 +295,28 @@ function ConversationContent() {
     const startChunkCycle = () => {
       if (!streamRef.current || !chunkCycleActiveRef.current) return;
 
-      const recorder = new MediaRecorder(streamRef.current, { mimeType: RECORDER_MIME });
+      const recorder = new MediaRecorder(streamRef.current, {
+        mimeType: RECORDER_MIME,
+      });
 
       recorder.ondataavailable = async (e) => {
-        console.log(`[DIAG] chunkRecorder.ondataavailable — blob.size=${e.data.size}bytes`);
-        if (e.data.size === 0) { console.warn("[DIAG] ⚠ 청크 Blob 크기 0"); return; }
+        console.log(
+          `[DIAG] chunkRecorder.ondataavailable — blob.size=${e.data.size}bytes`,
+        );
+        if (e.data.size === 0) {
+          console.warn("[DIAG] ⚠ 청크 Blob 크기 0");
+          return;
+        }
         const index = ++chunkIndexRef.current;
         const audioData = await blobToBase64(e.data);
-        console.log(`[DIAG] chunk[${index}] base64 길이=${audioData.length} 앞부분="${audioData.substring(0, 20)}..."`);
+        console.log(
+          `[DIAG] chunk[${index}] base64 길이=${audioData.length} 앞부분="${audioData.substring(0, 20)}..."`,
+        );
         const question = questionRef.current;
         if (!question) return;
-        console.log(`[DIAG] sendChunk → interviewId=${question.interviewId} questionId=${question.questionId} chunkIndex=${index}`);
+        console.log(
+          `[DIAG] sendChunk → interviewId=${question.interviewId} questionId=${question.questionId} chunkIndex=${index}`,
+        );
         sendChunk({
           interviewId: question.interviewId,
           questionId: question.questionId,
@@ -327,20 +343,30 @@ function ConversationContent() {
 
     // ── fullRecorder: 전체 답변 오디오 누적 ────────────────────────────
     // onstop 시점에 totalChunk(String)와 함께 /next 또는 /exitV2로 전송
-    const fullRecorder = new MediaRecorder(streamRef.current, { mimeType: RECORDER_MIME });
+    const fullRecorder = new MediaRecorder(streamRef.current, {
+      mimeType: RECORDER_MIME,
+    });
     fullRecorder.ondataavailable = (e) => {
       // [DIAG] fullRecorder 누적 Blob 검증
-      console.log(`[DIAG] fullRecorder.ondataavailable — blob.size=${e.data.size}bytes`);
+      console.log(
+        `[DIAG] fullRecorder.ondataavailable — blob.size=${e.data.size}bytes`,
+      );
       if (e.data.size > 0) fullChunksRef.current.push(e.data);
     };
     fullRecorder.onstop = async () => {
       const blob = new Blob(fullChunksRef.current, { type: RECORDER_MIME });
       // [DIAG] 최종 Blob 크기 검증
-      console.log(`[DIAG] fullRecorder.onstop — 누적 chunks=${fullChunksRef.current.length} finalBlob.size=${blob.size}bytes totalChunk="${String(chunkIndexRef.current)}"(type=${typeof String(chunkIndexRef.current)})`);
-      if (blob.size === 0) { console.error("[DIAG] ✗ finalBlob 크기 0 — 오디오 데이터 없음"); }
+      console.log(
+        `[DIAG] fullRecorder.onstop — 누적 chunks=${fullChunksRef.current.length} finalBlob.size=${blob.size}bytes totalChunk="${String(chunkIndexRef.current)}"(type=${typeof String(chunkIndexRef.current)})`,
+      );
+      if (blob.size === 0) {
+        console.error("[DIAG] ✗ finalBlob 크기 0 — 오디오 데이터 없음");
+      }
       const audioData = await blobToBase64(blob);
       // [DIAG] 최종 Base64 검증
-      console.log(`[DIAG] final base64 길이=${audioData.length} 앞부분="${audioData.substring(0, 20)}..."`);
+      console.log(
+        `[DIAG] final base64 길이=${audioData.length} 앞부분="${audioData.substring(0, 20)}..."`,
+      );
       const question = questionRef.current;
       if (!question) return;
 
@@ -353,7 +379,9 @@ function ConversationContent() {
       };
 
       if (finalDestRef.current === "exit" || isLastQuestionRef.current) {
-        console.log(`[DIAG] exitInterviewV2 → interviewId=${question.interviewId} questionId=${question.questionId} totalChunk="${payload.totalChunk}"`);
+        console.log(
+          `[DIAG] exitInterviewV2 → interviewId=${question.interviewId} questionId=${question.questionId} totalChunk="${payload.totalChunk}"`,
+        );
         await exitInterviewV2(payload);
         exitApiCalledRef.current = true;
         // 사용자가 직접 종료 버튼을 누른 경우에는 handleExit가 후속 처리를 담당
@@ -362,7 +390,9 @@ function ConversationContent() {
           setStatus("AUTO_EXITING");
         }
       } else {
-        console.log(`[DIAG] sendNext → interviewId=${question.interviewId} questionId=${question.questionId} totalChunk="${payload.totalChunk}"`);
+        console.log(
+          `[DIAG] sendNext → interviewId=${question.interviewId} questionId=${question.questionId} totalChunk="${payload.totalChunk}"`,
+        );
         sendNext(payload);
         setStatus("WAITING_AI");
       }
@@ -452,7 +482,10 @@ function ConversationContent() {
       // fullRecorder onstop(sendExit 호출)이 완료될 때까지 대기 후 WebSocket 종료
       await new Promise<void>((resolve) => {
         const recorder = fullRecorderRef.current;
-        if (!recorder) { resolve(); return; }
+        if (!recorder) {
+          resolve();
+          return;
+        }
         const prev = recorder.onstop as ((e: Event) => Promise<void>) | null;
         recorder.onstop = async (e) => {
           await prev?.(e);
@@ -549,9 +582,13 @@ function ConversationContent() {
           <button
             className={styles.exitBtn}
             onClick={handleExit}
-            disabled={isExiting || status === "WAITING_AI" || status === "AUTO_EXITING"}
+            disabled={
+              isExiting || status === "WAITING_AI" || status === "AUTO_EXITING"
+            }
           >
-            {isExiting || status === "AUTO_EXITING" ? "종료 중..." : "인터뷰 종료"}
+            {isExiting || status === "AUTO_EXITING"
+              ? "종료 중..."
+              : "인터뷰 종료"}
           </button>
           <div className={styles.questionBox}>
             <h2 className={styles.questionText}>
