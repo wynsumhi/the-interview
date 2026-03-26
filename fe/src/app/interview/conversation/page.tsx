@@ -36,6 +36,7 @@ const GESTURE_SCORE_THRESHOLD = 0.75;
 const VICTORY_GESTURE_NAME = "Victory";
 const POINTING_UP_GESTURE_NAME = "Pointing_Up";
 const NEXT_GESTURE_COOLDOWN_MS = 1200;
+const GESTURE_INFERENCE_INTERVAL_MS = 120;
 const MEDIAPIPE_WASM_PATH =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm";
 const MEDIAPIPE_GESTURE_MODEL_PATH =
@@ -92,6 +93,7 @@ function ConversationContent() {
   const nextGestureCooldownUntilRef = useRef(0);
   const nextGestureNoticeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const handleExitRef = useRef<() => Promise<void>>(async () => {});
+  const lastGestureInferenceAtRef = useRef(0);
 
   const { connect, sendAudio, disconnect } = useStompInterview();
 
@@ -232,9 +234,13 @@ function ConversationContent() {
     const loop = () => {
       const recognizer = gestureRecognizerRef.current;
       const video = cameraVideoRef.current;
+      const shouldDetectGesture =
+        statusRef.current === "AI_SPEAKING" ||
+        statusRef.current === "USER_RECORDING";
 
       if (
         recognizer &&
+        shouldDetectGesture &&
         video &&
         video.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA &&
         video.videoWidth > 0 &&
@@ -244,6 +250,14 @@ function ConversationContent() {
       ) {
         try {
           const now = performance.now();
+          if (
+            now - lastGestureInferenceAtRef.current <
+            GESTURE_INFERENCE_INTERVAL_MS
+          ) {
+            gestureAnimationFrameRef.current = requestAnimationFrame(loop);
+            return;
+          }
+          lastGestureInferenceAtRef.current = now;
           const result = recognizer.recognizeForVideo(video, now);
           handleGestureResult(result, now);
         } catch {
@@ -499,6 +513,7 @@ function ConversationContent() {
       nextGestureNoticeTimerRef.current = null;
     }
     setNextGestureNotice(null);
+    lastGestureInferenceAtRef.current = 0;
     stopVad();
 
     if (gestureAnimationFrameRef.current) {
