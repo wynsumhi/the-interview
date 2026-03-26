@@ -29,6 +29,7 @@ from app.services.stt_service import speech_to_text
 from app.services.tts_service import text_to_speech
 
 logger = logging.getLogger(__name__)
+_REFINEMENT_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
 
 @dataclass(frozen=True)
@@ -123,6 +124,55 @@ def _build_magazine_refinement_messages(stt_text: str) -> list[dict[str, str]]:
     return [{"role": "user", "content": user_message}]
 
 
+def _run_refinement_and_callback(
+    *,
+    audio_file_path: str,
+    refinement_stt_text: str | None,
+    magazine_kwargs: dict[str, object],
+    interview_id: int | None,
+    question_id: int | None,
+) -> str:
+    normalized_refinement_stt_text = (
+        refinement_stt_text.strip()
+        if refinement_stt_text is not None
+        else speech_to_text(audio_file_path, label="refinement")
+    )
+    refinement_messages = _build_magazine_refinement_messages(normalized_refinement_stt_text)
+    refined_answer = create_message(
+        messages=refinement_messages,
+        system=magazine_kwargs["system"],
+        max_tokens=magazine_kwargs["max_tokens"],
+        label=magazine_kwargs["label"],
+    )
+
+    if interview_id is not None and question_id is not None:
+        try:
+            save_refined_answer_to_backend(
+                interview_id=interview_id,
+                question_id=question_id,
+                refined_answer=refined_answer,
+            )
+        except requests.RequestException:
+            logger.exception(
+                "Failed to save refined answer to backend.",
+                extra={
+                    "interview_id": interview_id,
+                    "question_id": question_id,
+                },
+            )
+
+    return refined_answer
+
+
+def _log_background_refinement_failure(
+    future: concurrent.futures.Future[str],
+) -> None:
+    try:
+        future.result()
+    except Exception:  # noqa: BLE001
+        logger.exception("Background refinement task failed.")
+
+
 def run_interview_pipeline(
     audio_file_path: str,
     is_first_finished: bool,
@@ -174,14 +224,7 @@ def run_interview_pipeline_from_stt_text(
     interview_state = analyze_interview_state(audio_file_path, stt_text)
     interview_state_db = build_interview_state_db_payload(interview_state)
     interview_state_prompt = build_interview_state_prompt_payload(interview_state)
-    normalized_refinement_stt_text = (
-        refinement_stt_text.strip()
-        if refinement_stt_text is not None
-        else speech_to_text(audio_file_path, label="refinement")
-    )
-
     _magazine_kwargs = {
-        "messages": _build_magazine_refinement_messages(normalized_refinement_stt_text),
         "system": MAGAZINE_GENERATION_SYSTEM_PROMPT,
         "max_tokens": 300,
         "label": "answer_refinement",
@@ -230,32 +273,27 @@ def run_interview_pipeline_from_stt_text(
 
     # 후속 질문 생성과 매거진 정제를 병렬로 실행한다.
     # 두 작업 모두 LLM 호출이므로 ThreadPoolExecutor로 동시에 처리한다.
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        question_future = executor.submit(
-            create_message,
-            messages=messages,
-            system=system,
-            max_tokens=max_tokens,
-            label="followup_question",
-        )
-        magazine_future = executor.submit(create_message, **_magazine_kwargs)
-        refined_answer = magazine_future.result()
-        if interview_id is not None and question_id is not None:
-            try:
-                save_refined_answer_to_backend(
-                    interview_id=interview_id,
-                    question_id=question_id,
-                    refined_answer=refined_answer,
-                )
-            except requests.RequestException:
-                logger.exception(
-                    "Failed to save refined answer to backend.",
-                    extra={
-                        "interview_id": interview_id,
-                        "question_id": question_id,
-                    },
-                )
-        llm_text = question_future.result()
+    refinement_future = _REFINEMENT_EXECUTOR.submit(
+        _run_refinement_and_callback,
+        audio_file_path=audio_file_path,
+        refinement_stt_text=refinement_stt_text,
+        magazine_kwargs=_magazine_kwargs,
+        interview_id=interview_id,
+        question_id=question_id,
+    )
+
+    llm_text = create_message(
+        messages=messages,
+        system=system,
+        max_tokens=max_tokens,
+        label="followup_question",
+    )
+
+    if interview_id is not None and question_id is not None:
+        refined_answer = ""
+        refinement_future.add_done_callback(_log_background_refinement_failure)
+    else:
+        refined_answer = refinement_future.result()
 
     tts_audio = text_to_speech(llm_text, voice=voice)
 

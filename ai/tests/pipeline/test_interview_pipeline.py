@@ -1,3 +1,4 @@
+import concurrent.futures
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,6 +20,19 @@ from app.services.interview_state_service import (
 
 
 class TestInterviewPipeline(unittest.TestCase):
+    @staticmethod
+    def _build_completed_future(result: str) -> concurrent.futures.Future[str]:
+        future: concurrent.futures.Future[str] = concurrent.futures.Future()
+        future.set_result(result)
+        return future
+
+    @staticmethod
+    def _find_call_kwargs_by_label(call_args_list, label: str) -> dict[str, object]:
+        for call in call_args_list:
+            if call.kwargs["label"] == label:
+                return call.kwargs
+        raise AssertionError(f"Call with label={label!r} was not found.")
+
     @staticmethod
     def _build_guardrail_payload(
         *,
@@ -156,18 +170,22 @@ class TestInterviewPipeline(unittest.TestCase):
             db_mock.assert_called_once_with(state_mock.return_value)
             prompt_mock.assert_called_once_with(state_mock.return_value)
             self.assertEqual(llm_mock.call_count, 2)
-            question_call, magazine_call = llm_mock.call_args_list
-            llm_kwargs = question_call.kwargs
+            llm_kwargs = self._find_call_kwargs_by_label(
+                llm_mock.call_args_list, "followup_question"
+            )
             self.assertEqual(llm_kwargs["system"], INTERVIEW_SYSTEM_PROMPT)
             self.assertEqual(llm_kwargs["max_tokens"], 256)
             self.assertEqual(llm_kwargs["label"], "followup_question")
             self.assertEqual(llm_kwargs["messages"][0]["role"], "user")
             self.assertIn("[state prompt]\n- top_state: calm", llm_kwargs["messages"][0]["content"])
             self.assertIn("candidate [PHONE_1]", llm_kwargs["messages"][0]["content"])
-            self.assertEqual(magazine_call.kwargs["label"], "answer_refinement")
-            self.assertIn("[Task]", magazine_call.kwargs["messages"][0]["content"])
-            self.assertIn("[Interview Answer]", magazine_call.kwargs["messages"][0]["content"])
-            self.assertIn("candidate answer", magazine_call.kwargs["messages"][0]["content"])
+            magazine_kwargs = self._find_call_kwargs_by_label(
+                llm_mock.call_args_list, "answer_refinement"
+            )
+            self.assertEqual(magazine_kwargs["label"], "answer_refinement")
+            self.assertIn("[Task]", magazine_kwargs["messages"][0]["content"])
+            self.assertIn("[Interview Answer]", magazine_kwargs["messages"][0]["content"])
+            self.assertIn("candidate answer", magazine_kwargs["messages"][0]["content"])
             callback_mock.assert_not_called()
             tts_mock.assert_called_once_with(
                 "follow-up interview question",
@@ -250,18 +268,22 @@ class TestInterviewPipeline(unittest.TestCase):
             db_mock.assert_called_once_with(state_mock.return_value)
             prompt_mock.assert_called_once_with(state_mock.return_value)
             self.assertEqual(llm_mock.call_count, 2)
-            question_call, magazine_call = llm_mock.call_args_list
-            llm_kwargs = question_call.kwargs
+            llm_kwargs = self._find_call_kwargs_by_label(
+                llm_mock.call_args_list, "followup_question"
+            )
             self.assertEqual(llm_kwargs["system"], INTERVIEW_SYSTEM_PROMPT)
             self.assertEqual(llm_kwargs["max_tokens"], 128)
             self.assertEqual(llm_kwargs["label"], "followup_question")
             self.assertEqual(llm_kwargs["messages"][0]["role"], "user")
             self.assertIn("[state prompt]\n- top_state: calm", llm_kwargs["messages"][0]["content"])
             self.assertIn("external [EMAIL_1]", llm_kwargs["messages"][0]["content"])
-            self.assertEqual(magazine_call.kwargs["label"], "answer_refinement")
-            self.assertIn("[Task]", magazine_call.kwargs["messages"][0]["content"])
-            self.assertIn("[Interview Answer]", magazine_call.kwargs["messages"][0]["content"])
-            self.assertIn("full audio stt answer", magazine_call.kwargs["messages"][0]["content"])
+            magazine_kwargs = self._find_call_kwargs_by_label(
+                llm_mock.call_args_list, "answer_refinement"
+            )
+            self.assertEqual(magazine_kwargs["label"], "answer_refinement")
+            self.assertIn("[Task]", magazine_kwargs["messages"][0]["content"])
+            self.assertIn("[Interview Answer]", magazine_kwargs["messages"][0]["content"])
+            self.assertIn("full audio stt answer", magazine_kwargs["messages"][0]["content"])
             callback_mock.assert_not_called()
             tts_mock.assert_called_once_with(
                 "follow-up interview question",
@@ -315,6 +337,12 @@ class TestInterviewPipeline(unittest.TestCase):
                     return_value=True,
                 ) as callback_mock,
                 patch("app.pipeline.interview_pipeline.text_to_speech", return_value=b"tts-bytes"),
+                patch(
+                    "app.pipeline.interview_pipeline._REFINEMENT_EXECUTOR.submit",
+                    side_effect=lambda *args, **kwargs: self._build_completed_future(
+                        args[0](**kwargs)
+                    ),
+                ),
             ):
                 run_interview_pipeline_from_stt_text(
                     str(audio_file),
@@ -396,8 +424,9 @@ class TestInterviewPipeline(unittest.TestCase):
             stt_mock.assert_called_once_with(str(audio_file), label="refinement")
             format_mock.assert_called_once()
             self.assertEqual(llm_mock.call_count, 2)
-            question_call, magazine_call = llm_mock.call_args_list
-            llm_kwargs = question_call.kwargs
+            llm_kwargs = self._find_call_kwargs_by_label(
+                llm_mock.call_args_list, "followup_question"
+            )
             self.assertEqual(llm_kwargs["system"], INTERVIEW_SYSTEM_PROMPT)
             self.assertEqual(llm_kwargs["max_tokens"], 128)
             self.assertEqual(llm_kwargs["label"], "followup_question")
@@ -405,10 +434,13 @@ class TestInterviewPipeline(unittest.TestCase):
             self.assertIn("[state prompt]", llm_kwargs["messages"][0]["content"])
             self.assertIn("rag context block", llm_kwargs["messages"][0]["content"])
             self.assertIn("external [RRN_1]", llm_kwargs["messages"][0]["content"])
-            self.assertEqual(magazine_call.kwargs["label"], "answer_refinement")
-            self.assertIn("[Task]", magazine_call.kwargs["messages"][0]["content"])
-            self.assertIn("[Interview Answer]", magazine_call.kwargs["messages"][0]["content"])
-            self.assertIn("full audio stt answer", magazine_call.kwargs["messages"][0]["content"])
+            magazine_kwargs = self._find_call_kwargs_by_label(
+                llm_mock.call_args_list, "answer_refinement"
+            )
+            self.assertEqual(magazine_kwargs["label"], "answer_refinement")
+            self.assertIn("[Task]", magazine_kwargs["messages"][0]["content"])
+            self.assertIn("[Interview Answer]", magazine_kwargs["messages"][0]["content"])
+            self.assertIn("full audio stt answer", magazine_kwargs["messages"][0]["content"])
 
 
 if __name__ == "__main__":
