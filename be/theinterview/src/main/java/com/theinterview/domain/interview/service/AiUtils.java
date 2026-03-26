@@ -9,10 +9,15 @@ import com.theinterview.domain.interview.dto.AiRagDto.UpsertResponse;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiStartTtsRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
+import com.theinterview.domain.interview.dto.FastApiRequest.KeywordRequest;
+import com.theinterview.domain.interview.dto.FastApiRequest.LastAnswerRequest;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.KeywordResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerEmotionResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerTextResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.SttChunkResponse;
 import com.theinterview.global.response.exception.GeneralException;
@@ -82,11 +87,14 @@ public class AiUtils {
     // todo: 지금은 감정을 받지 않도록 설계됨. 감정 로직이 확실해지면 추가
     public Mono<AiPipelineResponse> callFastApiForNextQuestionV2(
             byte[] audioBytes,
+            Integer interviewId,
+            Integer questionId,
             int sequence,
             String nickname,
             String previousQuestion,
             Boolean isFirstFinished,
-            String sttText) {
+            String sttText,
+            String voice) {
 
         // multipart/form-data 생성을 위한 빌더
         MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
@@ -115,6 +123,16 @@ public class AiUtils {
 
         // 5. 조립된 사용자 답변 텍스트 세팅
         bodyBuilder.part("stt_text", sttText);
+        /*
+         * AI 서버가 정제 텍스트를 다시 백엔드로 콜백할 때 현재 답변 대상을 식별할 수 있어야 한다.
+         * 그래서 after-stt 요청 자체에 interview_id, question_id를 함께 넘겨서
+         * AI 서버가 별도 상태 추적 없이 그대로 콜백 payload를 구성할 수 있게 한다.
+         */
+        bodyBuilder.part("interview_id", interviewId);
+        bodyBuilder.part("question_id", questionId);
+        if (voice != null && !voice.isBlank()) {
+            bodyBuilder.part("voice", voice);
+        }
 
         log.info("AI 서버와 통신 시작 요청 URI: {}", "/api/v1/ai/interview/pipeline/after-stt");
 
@@ -139,10 +157,13 @@ public class AiUtils {
     // fast api를 호출하여 꼬리질문 관련 파이프라인을 거치는 헬퍼 메서드
     public AiPipelineResponse callFastApiForNextQuestion(
             byte[] audioBytes,
+            Integer interviewId,
+            Integer questionId,
             int sequence,
             String nickname,
             String previousQuestion,
-            Boolean isFirstFinished) {
+            Boolean isFirstFinished,
+            String voice) {
 
         // multipart/form-data 생성을 위한 빌더
         MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
@@ -167,6 +188,16 @@ public class AiUtils {
         // 4. sequence >= 2 일 경우 이전 질문 텍스트 세팅
         if (sequence >= 2 && previousQuestion != null) {
             bodyBuilder.part("previous_question", previousQuestion);
+        }
+        /*
+         * 기본 pipeline 경로도 동일하게 interview_id, question_id를 함께 전달한다.
+         * 이렇게 해야 AI 서버가 STT를 직접 수행하는 경로에서도
+         * 정제 답변 저장 콜백을 같은 규약으로 처리할 수 있다.
+         */
+        bodyBuilder.part("interview_id", interviewId);
+        bodyBuilder.part("question_id", questionId);
+        if (voice != null && !voice.isBlank()) {
+            bodyBuilder.part("voice", voice);
         }
 
         log.info("AI 서버와 통신 시작 요청 URI: {}", "/api/v1/ai/interview/pipeline");
@@ -299,6 +330,30 @@ public class AiUtils {
                 .bodyToMono(AiNextOpeningResponse.class);
     }
 
+    // 키워드 생성 메서드
+    public Mono<KeywordResponse> callFastApiKeyword(KeywordRequest request) {
+
+        log.info("FastAPI 키워드 추출 요청 시작");
+
+        return webClient.post()
+                .uri("api/v1/ai/interview/keyword")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError(), clientResponse -> {
+                    log.error("FastAPI RAG Reindex 클라이언트 에러 발생 (4xx): {}",
+                            clientResponse.statusCode());
+                    // 4xx 에러는 재시도를 방지하기 위해 IllegalArgumentException으로 던집니다.
+                    return Mono.error(new IllegalArgumentException("4xx Client Error"));
+                })
+                .onStatus(status -> status.is5xxServerError(), clientResponse -> {
+                    log.error("FastAPI RAG Reindex 서버 에러 발생 (5xx): {}",
+                            clientResponse.statusCode());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                .bodyToMono(KeywordResponse.class);
+    }
+
     // RAG 호출 관련 메서드 -----------------------------------------------------------------------------------------------------
 
     /**
@@ -373,6 +428,53 @@ public class AiUtils {
                 })
                 .bodyToMono(DeleteResponse.class)
                 .retryWhen(getRagRetrySpec());
+    }
+
+    // 사용자의 종료를 누르기 직전 마지막 답변을 정제하는 API를 호출함
+    public Mono<LastAnswerTextResponse> lastAnswerStt(String answerText) {
+
+        return webClient.post()
+                .uri("/api/v1/ai/interview/refine-answer")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(LastAnswerRequest.builder().sttText(answerText).build())
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError(), clientResponse -> {
+                    log.error("FastAPI RAG Delete 클라이언트 에러 발생 (4xx): {}",
+                            clientResponse.statusCode());
+                    return Mono.error(new IllegalArgumentException("4xx Client Error"));
+                })
+                .onStatus(status -> status.is5xxServerError(), clientResponse -> {
+                    log.error("FastAPI RAG Delete 서버 에러 발생 (5xx): {}", clientResponse.statusCode());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                .bodyToMono(LastAnswerTextResponse.class);
+
+    }
+
+    // 사용자의 종료를 누르기 직전 마지막 답변의 감정을 호출하는 API를 호출함
+    public Mono<LastAnswerEmotionResponse> lastAnswerEmotion(String answerText, byte[] audio) {
+
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("stt_text", answerText);
+        builder.part("audio_file", audio)
+                .header("Content-Disposition", "form-data; name=audio_file; filename=audio.webm")
+                .header("Content-Type", "audio/webm");
+
+        return webClient.post()
+                .uri("/api/v1/ai/interview/state-analysis")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .bodyValue(builder.build())
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError(), clientResponse -> {
+                    log.error("FastAPI RAG Delete 클라이언트 에러 발생 (4xx): {}",
+                            clientResponse.statusCode());
+                    return Mono.error(new IllegalArgumentException("4xx Client Error"));
+                })
+                .onStatus(status -> status.is5xxServerError(), clientResponse -> {
+                    log.error("FastAPI RAG Delete 서버 에러 발생 (5xx): {}", clientResponse.statusCode());
+                    return Mono.error(new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR));
+                })
+                .bodyToMono(LastAnswerEmotionResponse.class);
     }
 
     /**

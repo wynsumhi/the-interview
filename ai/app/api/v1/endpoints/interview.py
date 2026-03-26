@@ -1,11 +1,14 @@
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.api.v1.schemas import (
+    InterviewAnswerRefinementRequest,
+    InterviewAnswerRefinementResponse,
     InterviewClosingRequest,
     InterviewClosingResponse,
     InterviewPipelineResponse,
     InterviewStartTTSRequest,
     InterviewStartTTSResponse,
+    InterviewStateAnalysisResponse,
     InterviewStateSaveRequest,
     InterviewStateSaveResponse,
     KeywordRequest,
@@ -15,18 +18,21 @@ from app.api.v1.schemas import (
     NextOpeningRequest,
     NextOpeningResponse,
 )
+from app.core.auth import require_scopes
 from app.services.interview_service import (
+    analyze_interview_state_from_payload,
     generate_closing_message,
     generate_interview_start_tts,
     generate_keyword,
     generate_magazine_title,
     generate_next_opening_question,
+    refine_answer_for_magazine,
     run_interview_pipeline_from_stt_payload,
     run_interview_pipeline_from_upload,
     save_interview_state_temp,
 )
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_scopes("ai:invoke"))])
 
 
 @router.post(
@@ -59,6 +65,7 @@ def generate_interview_start_tts_endpoint(
             is_first_finished=request.is_first_finished,
             nickname=request.nickname,
             db_question=request.db_question,
+            voice=request.voice,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -144,9 +151,11 @@ def generate_keyword_endpoint(
     summary="Run interview pipeline",
 )
 def run_interview_pipeline_endpoint(
-    answer_id: int = Form(...),
     audio_file: UploadFile = File(...),
     is_first_finished: bool = Form(default=False),
+    interview_id: int | None = Form(default=None),
+    question_id: int | None = Form(default=None),
+    voice: str | None = Form(default=None),
     user_id: str | None = Form(default=None),
     sequence: int | None = Form(default=None),
     nickname: str | None = Form(default=None),
@@ -164,9 +173,6 @@ def run_interview_pipeline_endpoint(
     6. TTS 생성
 
     주요 입력값 의미는 다음과 같다.
-    - `answer_id`
-      이번 답변을 백엔드 DB 레코드와 연결하기 위한 식별자다.
-      인터뷰 상태 DB 저장 payload에도 그대로 포함된다.
     - `audio_file`
       사용자의 실제 답변 음성 파일이다.
       현재는 `webm`만 허용한다.
@@ -186,8 +192,10 @@ def run_interview_pipeline_endpoint(
     try:
         result = run_interview_pipeline_from_upload(
             audio_file=audio_file,
-            answer_id=answer_id,
             is_first_finished=is_first_finished,
+            interview_id=interview_id,
+            question_id=question_id,
+            voice=voice,
             user_id=user_id,
             sequence=sequence,
             nickname=nickname,
@@ -212,6 +220,9 @@ def run_interview_pipeline_after_stt_endpoint(
     stt_text: str = Form(...),
     audio_file: UploadFile = File(...),
     is_first_finished: bool = Form(default=False),
+    interview_id: int | None = Form(default=None),
+    question_id: int | None = Form(default=None),
+    voice: str | None = Form(default=None),
     user_id: str | None = Form(default=None),
     sequence: int | None = Form(default=None),
     nickname: str | None = Form(default=None),
@@ -225,6 +236,9 @@ def run_interview_pipeline_after_stt_endpoint(
             audio_file=audio_file,
             stt_text=stt_text,
             is_first_finished=is_first_finished,
+            interview_id=interview_id,
+            question_id=question_id,
+            voice=voice,
             user_id=user_id,
             sequence=sequence,
             nickname=nickname,
@@ -238,6 +252,52 @@ def run_interview_pipeline_after_stt_endpoint(
         ) from exc
 
     return InterviewPipelineResponse.model_validate(result)
+
+
+@router.post(
+    "/refine-answer",
+    response_model=InterviewAnswerRefinementResponse,
+    summary="Refine interview answer text",
+)
+def refine_answer_for_magazine_endpoint(
+    request: InterviewAnswerRefinementRequest,
+) -> InterviewAnswerRefinementResponse:
+    try:
+        result = refine_answer_for_magazine(
+            stt_text=request.stt_text,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return InterviewAnswerRefinementResponse.model_validate(result)
+
+
+@router.post(
+    "/state-analysis",
+    response_model=InterviewStateAnalysisResponse,
+    summary="Analyze interview state only",
+)
+def analyze_interview_state_endpoint(
+    stt_text: str = Form(...),
+    audio_file: UploadFile = File(...),
+) -> InterviewStateAnalysisResponse:
+    """외부 STT 결과를 받아 인터뷰 상태 분석만 별도로 수행한다."""
+
+    try:
+        result = analyze_interview_state_from_payload(
+            audio_file=audio_file,
+            stt_text=stt_text,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return InterviewStateAnalysisResponse.model_validate(result)
 
 
 @router.post(
@@ -258,6 +318,7 @@ def generate_closing_message_endpoint(
     result = generate_closing_message(
         interview_context=request.interview_context,
         nickname=request.nickname,
+        voice=request.voice,
     )
     return InterviewClosingResponse.model_validate(result)
 

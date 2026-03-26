@@ -1,12 +1,17 @@
 package com.theinterview.global.security.config;
 
 import com.theinterview.global.config.redis.RedisService;
+import com.theinterview.global.security.config.internal.InternalApiTokenFilter;
 import com.theinterview.global.security.config.jwt.JwtFilter;
 import com.theinterview.global.security.config.jwt.JwtProvider;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,6 +23,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.ForwardedHeaderFilter;
 
 @Configuration
 @EnableWebSecurity // 스프링 시큐리티 필터 체인을 위해 활성화
@@ -26,6 +32,14 @@ public class SecurityConfig {
 
     private final JwtProvider jwtProvider;
     private final RedisService redisService;
+
+    /*
+     * AI 서버가 백엔드 내부 callback API를 호출할 때 사용할 전용 토큰이다.
+     * 일반 사용자 JWT와 완전히 분리된 내부 서버 간 인증 값을 사용해야 하므로
+     * SecurityConfig에서 별도 프로퍼티로 주입받아 InternalApiTokenFilter에 전달한다.
+     */
+    @Value("${internal.api.ai-callback-token:}")
+    private String internalAiCallbackToken;
 
     // 비밀번호 암호화 메서드 등록
     @Bean
@@ -44,8 +58,11 @@ public class SecurityConfig {
                         session -> session.sessionCreationPolicy((SessionCreationPolicy.STATELESS)))
                 // 요청에 대한 권한 설정
                 .authorizeHttpRequests(auth -> auth
-                        // 로그인 하지 않은 사용자의 요청을 허용 할 엔드포인트는 여기에 작성하세요.
                         .requestMatchers(
+                                "/v1/interview/sound/play/**",
+                                "/v1/interview/internal/**",
+                                "/api/v1/interview/internal/**",
+                                "/v1/interview/share/**",
                                 "/v1/auth/signup",
                                 "/v1/auth/exists/**",
                                 "/v1/api-docs/**",
@@ -59,8 +76,17 @@ public class SecurityConfig {
                                 "/ws-connect/**",
                                 "/error"
                         ).permitAll()
+                        // 공유 보드 GET 조회는 userUuid만 알면 접근 가능하도록 공개
+                        .requestMatchers(HttpMethod.GET, "/v1/share-board/member/**").permitAll()
                         .anyRequest().authenticated()
                 ).cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                /*
+                 * 내부 callback 경로는 사용자 JWT 검증보다 먼저 별도 토큰 검증을 통과해야 한다.
+                 * permitAll로 공개 경로에 포함하더라도 실제 접근은 InternalApiTokenFilter가 막기 때문에
+                 * 기존 사용자 인증 체계를 건드리지 않고 AI 서버 전용 진입점만 따로 보호할 수 있다.
+                 */
+                .addFilterBefore(new InternalApiTokenFilter(internalAiCallbackToken),
+                        UsernamePasswordAuthenticationFilter.class)
                 // JwtFilter를 시큐리티 체인에 등록함
                 .addFilterBefore(new JwtFilter(jwtProvider, redisService),
                         UsernamePasswordAuthenticationFilter.class);
@@ -91,5 +117,13 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration); // 모든 API 경로에 이 규칙 적용
         return source;
+    }
+
+    @Bean
+    public FilterRegistrationBean<ForwardedHeaderFilter> forwardedHeaderFilter() {
+        FilterRegistrationBean<ForwardedHeaderFilter> bean = new FilterRegistrationBean<>();
+        bean.setFilter(new ForwardedHeaderFilter());
+        bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return bean;
     }
 }

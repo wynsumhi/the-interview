@@ -12,6 +12,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -51,6 +52,9 @@ public class Member {
     @Column(name = "is_first_finished", nullable = false)
     private Boolean isFirstFinished;
 
+    @Column(name = "user_uuid", nullable = false, length = 300)
+    private String userUuid;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -69,6 +73,13 @@ public class Member {
         this.password = password;
         this.nickname = nickname;
         this.isFirstFinished = false;
+    }
+
+    @PrePersist
+    public void createUserUuid() {
+        if (this.userUuid == null) {
+            this.userUuid = java.util.UUID.randomUUID().toString();
+        }
     }
 
     // 첫 인터뷰가 완료되었다면 호출 할 메서드

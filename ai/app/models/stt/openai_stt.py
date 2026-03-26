@@ -1,6 +1,11 @@
 from openai import OpenAI
 
-from app.core.settings import DEFAULT_STT_LANGUAGE, DEFAULT_STT_MODEL, GMS_KEY, GMS_OPENAI_BASE_URL
+from app.core.settings import (
+    DEFAULT_STT_LANGUAGE,
+    DEFAULT_STT_MODEL,
+    GMS_KEY,
+    GMS_OPENAI_BASE_URL,
+)
 
 # OpenAI 기반 STT 클라이언트는 provider 구현 세부사항이므로 models 레이어에 둔다.
 client = OpenAI(
@@ -20,5 +25,6 @@ def transcribe_audio_file(
             file=audio_file,
             model=model,
             language=language,
+            temperature=0,
         )
     return response.text

@@ -13,4 +13,7 @@ public interface MemberRepository extends JpaRepository<Member, Integer> {
 
     Optional<Member> findByEmail(String email);
 
+    // 사용자 공유 보드 조회를 위해 userUuid로 회원을 조회한다
+    Optional<Member> findByUserUuid(String userUuid);
+
 }

@@ -1,6 +1,6 @@
 import axios from "axios";
 import instance from "@/lib/axios";
-import type { ApiResponse, InterviewDetailItem, InterviewHistoryPage } from "@/types/interview";
+import type { ApiResponse, InterviewDetailItem, InterviewHistoryPage, ExplorePage } from "@/types/interview";
 
 // POST /api/v1/interview 응답 타입
 export interface CreateInterviewResult {
@@ -29,6 +29,14 @@ export async function createInterview(
   signal?: AbortSignal,
 ): Promise<CreateInterviewResult> {
   const res = await instance.post("/interview", { isPrevAffected }, { timeout: 60000, signal });
+  return res.data.result;
+}
+
+// GET /api/v1/interview/explore?page=N - 공개 인터뷰 탐색 목록 조회
+export async function fetchExploreInterviews(page: number): Promise<ExplorePage> {
+  const res = await instance.get<ApiResponse<ExplorePage>>("/interview/explore", {
+    params: { page },
+  });
   return res.data.result;
 }
 

@@ -73,6 +73,7 @@ public class RedisService {
         String valueWithIndex = (int) chunkIndex + ":" + chunkText;
         // add(key, value, score) - score 기준으로 자동 오름차순 정렬
         zSetOps.add(key, valueWithIndex, chunkIndex);
+        redisTemplate.expire(key, Duration.ofSeconds(30)); // 매 청크마다 TTL 갱신
         log.info("Redis Sorted Set에 청크 저장 완료 - Key: {}, Index: {}", key, chunkIndex);
     }
 
