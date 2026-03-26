@@ -82,7 +82,7 @@ export default function MemoCard({
     <motion.div
       className={styles.card}
       initial={{ opacity: 0, y: offsetY + 24 }}
-      animate={{ opacity: 1, x: offsetX, y: offsetY, rotate: rotationDeg }}
+      animate={{ opacity: dimmed ? 0.4 : 1, x: offsetX, y: offsetY, rotate: rotationDeg }}
       onHoverStart={disableHover ? undefined : () => setHovered(true)}
       onHoverEnd={disableHover ? undefined : () => setHovered(false)}
       transition={{ type: "spring", stiffness: 240, damping: 24 }}

@@ -173,9 +173,9 @@ export default function BoardPage({
         {activeTab === "questions" &&
           questionItems.map((item) => {
             const props = toQuestionMemoCardProps(item);
-            // startedInterviewId가 null인 경우에만 인터뷰 시작 버튼 표시
-            // 보드 주인과 방문자 모두 해당 질문으로 인터뷰 시작 가능
-            const canStart = item.startedInterviewId === null;
+            // questionStatus가 "USED"이면 이미 인터뷰가 진행된 질문
+            // 해당 경우 버튼을 숨기고 카드 투명도를 낮춰 비활성 상태를 표시
+            const canStart = item.status !== "USED";
             return (
               <MemoCard
                 key={props.id}
@@ -183,6 +183,7 @@ export default function BoardPage({
                 disableHover
                 onAction={canStart ? () => handleStartInterview(item.questionId) : undefined}
                 actionLabel={canStart ? "Start Interview" : undefined}
+                dimmed={!canStart}
               />
             );
           })}
