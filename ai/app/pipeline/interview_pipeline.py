@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import concurrent.futures
+import logging
 from dataclasses import asdict, dataclass
 
+import requests
 from app.pipeline.pii_masking import build_guardrail_payload
 from app.prompts.interview_prompts import (
     FIRST_INTERVIEW_QUESTION_MAP,
@@ -10,6 +12,7 @@ from app.prompts.interview_prompts import (
     INTERVIEW_SYSTEM_PROMPT,
     MAGAZINE_GENERATION_SYSTEM_PROMPT,
 )
+from app.services.backend_callback_service import save_refined_answer_to_backend
 from app.services.interview_state_service import (
     InterviewStateDbPayload,
     InterviewStatePromptPayload,
@@ -24,6 +27,8 @@ from app.services.rag_service import (
 )
 from app.services.stt_service import speech_to_text
 from app.services.tts_service import text_to_speech
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -106,6 +111,8 @@ def _build_first_interview_messages(
 def run_interview_pipeline(
     audio_file_path: str,
     is_first_finished: bool,
+    interview_id: int | None = None,
+    question_id: int | None = None,
     voice: str | None = None,
     user_id: str | None = None,
     sequence: int | None = None,
@@ -121,6 +128,8 @@ def run_interview_pipeline(
         stt_text=stt_text,
         refinement_stt_text=stt_text,
         is_first_finished=is_first_finished,
+        interview_id=interview_id,
+        question_id=question_id,
         voice=voice,
         user_id=user_id,
         sequence=sequence,
@@ -135,6 +144,8 @@ def run_interview_pipeline_from_stt_text(
     stt_text: str,
     is_first_finished: bool,
     refinement_stt_text: str | None = None,
+    interview_id: int | None = None,
+    question_id: int | None = None,
     voice: str | None = None,
     user_id: str | None = None,
     sequence: int | None = None,
@@ -213,8 +224,23 @@ def run_interview_pipeline_from_stt_text(
             label="followup_question",
         )
         magazine_future = executor.submit(create_message, **_magazine_kwargs)
-        llm_text = question_future.result()
         refined_answer = magazine_future.result()
+        if interview_id is not None and question_id is not None:
+            try:
+                save_refined_answer_to_backend(
+                    interview_id=interview_id,
+                    question_id=question_id,
+                    refined_answer=refined_answer,
+                )
+            except requests.RequestException:
+                logger.exception(
+                    "Failed to save refined answer to backend.",
+                    extra={
+                        "interview_id": interview_id,
+                        "question_id": question_id,
+                    },
+                )
+        llm_text = question_future.result()
 
     tts_audio = text_to_speech(llm_text, voice=voice)
 

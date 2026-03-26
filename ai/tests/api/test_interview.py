@@ -63,7 +63,6 @@ def build_pipeline_response(stt_text: str) -> dict[str, object]:
         "question_text": "next question",
         "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
         "tts_audio_mime_type": "audio/wav",
-        "refined_answer": "refined answer",
     }
 
 
@@ -163,6 +162,8 @@ def test_interview_pipeline_after_stt_returns_follow_up_tts_and_state_payloads()
     assert response.json() == build_pipeline_response("candidate answer from external stt")
     pipeline_mock.assert_called_once()
     assert pipeline_mock.call_args.kwargs["voice"] == "F3"
+    assert pipeline_mock.call_args.kwargs["interview_id"] is None
+    assert pipeline_mock.call_args.kwargs["question_id"] is None
 
 
 def test_interview_pipeline_after_stt_returns_bad_request_when_text_is_missing() -> None:

@@ -61,7 +61,6 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
             "interview_state_prompt": build_pipeline_prompt_response(),
             "question_text": "follow up",
             "tts_audio": b"tts-bytes",
-            "refined_answer": "refined answer",
         }
 
         result = run_interview_pipeline_from_upload(
@@ -81,12 +80,13 @@ def test_run_interview_pipeline_from_upload_returns_encoded_audio() -> None:
         "question_text": "follow up",
         "tts_audio_base64": base64.b64encode(b"tts-bytes").decode("ascii"),
         "tts_audio_mime_type": "audio/wav",
-        "refined_answer": "refined answer",
     }
     pipeline_mock.assert_called_once()
     _, kwargs = pipeline_mock.call_args
     assert kwargs == {
         "is_first_finished": False,
+        "interview_id": None,
+        "question_id": None,
         "voice": "Robert",
         "user_id": "user-123",
         "sequence": None,
