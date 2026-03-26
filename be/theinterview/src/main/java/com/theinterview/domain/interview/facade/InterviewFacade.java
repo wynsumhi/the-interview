@@ -381,6 +381,10 @@ public class InterviewFacade {
                                         // 성공 시 isSaving 키 삭제
                                         redisService.deleteValues(
                                                 "interviewId:" + request.getInterviewId() + "isSaving");
+                                        // DB 저장 완료 신호 전송
+                                        messagingTemplate.convertAndSend(
+                                                "/topic/interview/tmp/" + request.getInterviewId(),
+                                                (Object) Map.of("type", "SAVE_COMPLETE"));
                                     }).subscribeOn(Schedulers.boundedElastic())
                             ).retry(3)
                             // 파이프라인 완료 후 RAG 적재
@@ -443,6 +447,10 @@ public class InterviewFacade {
                                 aiNextOpeningResponse.getDbQuestion());
                         redisService.deleteValues(redisKey + "lock");
                         redisService.deleteValues(redisKey + "isSaving");
+                        // DB 저장 완료 신호 전송
+                        messagingTemplate.convertAndSend(
+                                "/topic/interview/tmp/" + request.getInterviewId(),
+                                (Object) Map.of("type", "SAVE_COMPLETE"));
                     }).subscribeOn(Schedulers.boundedElastic());
         }).subscribe(
                 null,

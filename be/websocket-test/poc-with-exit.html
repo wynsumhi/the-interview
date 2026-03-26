@@ -100,6 +100,14 @@
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        /* 인터뷰 종료 모달 */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 999; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; }
+        .modal-box { background: var(--surface); border: 1px solid rgba(0,255,136,0.3); border-radius: 16px; padding: 40px 48px; text-align: center; max-width: 420px; width: 90%; box-shadow: 0 0 40px rgba(0,255,136,0.15); }
+        .modal-icon { font-size: 48px; margin-bottom: 20px; }
+        .modal-title { font-size: 22px; font-weight: 700; color: var(--accent); margin-bottom: 12px; }
+        .modal-desc { font-family: var(--mono); font-size: 13px; color: var(--text-dim); line-height: 1.7; }
     </style>
 </head>
 <body>
@@ -164,6 +172,15 @@
 </div>
 
 <audio id="ttsAudio" style="display:none;"></audio>
+
+<!-- 인터뷰 종료 완료 모달 -->
+<div class="modal-overlay" id="saveCompleteModal">
+    <div class="modal-box">
+        <div class="modal-icon">✅</div>
+        <div class="modal-title">인터뷰가 저장되었습니다</div>
+        <div class="modal-desc">모든 답변이 정상적으로 저장되었습니다.<br>WebSocket 연결이 종료되었습니다.</div>
+    </div>
+</div>
 
 <script>
     let stompClient = null;
@@ -325,6 +342,14 @@ addLog(`첫 질문: ${payload.interviewTitle}`, 'success');
 
                 try {
                     const data = JSON.parse(message.body);
+
+                    // DB 저장 완료 신호 수신 시 WebSocket 종료 및 모달 표시
+                    if (data.type === 'SAVE_COMPLETE') {
+                        addLog('✅ SAVE_COMPLETE 수신 — 저장 완료. WebSocket 연결 종료', 'success');
+                        stompClient.disconnect();
+                        document.getElementById('saveCompleteModal').classList.add('active');
+                        return;
+                    }
 
                     if (data.questionId && data.questionId !== currentQuestionId) {
                         const prevId = currentQuestionId;
