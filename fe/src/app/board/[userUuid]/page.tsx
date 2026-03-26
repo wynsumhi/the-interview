@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useShareBoardInfo } from "@/hooks/useShareBoardInfo";
 import { useBookmarkPostits } from "@/hooks/useBookmarkPostits";
 import { useQuestionPostits } from "@/hooks/useQuestionPostits";
@@ -70,6 +71,7 @@ export default function BoardPage({
   // 비동기인 params를 React.use()로 풀어줌
   const resolvedParams = use(params);
   const userUuid = resolvedParams.userUuid;
+  const router = useRouter();
 
   // 활성 탭 상태 관리 ("bookmarks" | "questions")
   const [activeTab, setActiveTab] = useState<TabType>("bookmarks");
@@ -100,6 +102,12 @@ export default function BoardPage({
 
   // 질문 생성 뮤테이션: 성공 시 questionPostits 캐시 자동 무효화
   const { mutate: submitQuestion, isPending: isSubmitting } = useCreateQuestion(userUuid);
+
+  // 질문 포스트잇 기반으로 인터뷰 시작: conversation 페이지로 이동
+  // questionId를 URL 파라미터로 전달하면 conversation 페이지에서 start-interview API를 호출함
+  const handleStartInterview = (questionId: number) => {
+    router.push(`/interview/conversation?questionId=${questionId}`);
+  };
 
   // 모든 페이지의 items를 하나의 배열로 합침
   // 공유 허용(shareRange) 필터링은 백엔드 JPQL 쿼리에서 처리하므로 프론트 추가 필터 불필요
@@ -165,7 +173,18 @@ export default function BoardPage({
         {activeTab === "questions" &&
           questionItems.map((item) => {
             const props = toQuestionMemoCardProps(item);
-            return <MemoCard key={props.id} {...props} disableHover />;
+            // startedInterviewId가 null인 경우에만 인터뷰 시작 버튼 표시
+            // 보드 주인과 방문자 모두 해당 질문으로 인터뷰 시작 가능
+            const canStart = item.startedInterviewId === null;
+            return (
+              <MemoCard
+                key={props.id}
+                {...props}
+                disableHover
+                onAction={canStart ? () => handleStartInterview(item.questionId) : undefined}
+                actionLabel={canStart ? "Start Interview" : undefined}
+              />
+            );
           })}
       </div>
     </div>
