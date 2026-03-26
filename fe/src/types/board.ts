@@ -92,6 +92,14 @@ export interface QuestionPostitPageResult {
   hasNext: boolean;
 }
 
+/** GET /api/v1/share-board/me 응답 items 배열 한 항목 */
+export interface MyBookmarkItem {
+  /** 북마크된 답변의 고유 ID (interviewAnswerId와 동일) */
+  sourceId: number;
+  /** 공개 공유 여부: true = 공개, false = 비공개 */
+  shareRange: boolean;
+}
+
 /** POST /v1/share-board/question/{questionId}/start-interview 응답의 interview 필드 */
 export interface StartQuestionInterviewData {
   interviewId: number;

@@ -113,5 +113,12 @@ public class RedisService {
         values.set(key, String.valueOf(totalChunks));
     }
 
+    // 키가 없을 때만 저장 (Redis SETNX) — 파이프라인 중복 트리거 방지용
+    public boolean setIfAbsent(String key, String value, Duration duration) {
+        ValueOperations<String, String> values = redisTemplate.opsForValue();
+        Boolean result = values.setIfAbsent(key, value, duration);
+        return Boolean.TRUE.equals(result);
+    }
+
 }
 
