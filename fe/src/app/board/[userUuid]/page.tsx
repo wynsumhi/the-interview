@@ -124,6 +124,16 @@ export default function BoardPage({
   const itemCount =
     activeTab === "bookmarks" ? bookmarkItems.length : questionItems.length;
 
+  // 공유 버튼 클릭: 현재 URL을 클립보드에 복사하고 토스트 메시지를 표시
+  const [toastVisible, setToastVisible] = useState(false);
+
+  const handleShare = async () => {
+    await navigator.clipboard.writeText(window.location.href);
+    setToastVisible(true);
+    // 2초 후 토스트 자동 숨김
+    setTimeout(() => setToastVisible(false), 2000);
+  };
+
   return (
     <div className={styles.page}>
       <header className={styles.stickyHeader}>
@@ -219,6 +229,18 @@ export default function BoardPage({
             );
           })}
       </div>
+
+      {/* 보드 소유자에게만 표시되는 공유 버튼 (우측 하단 고정) */}
+      {isOwner && (
+        <button className={styles.shareButton} onClick={handleShare}>
+          Share
+        </button>
+      )}
+
+      {/* URL 복사 완료 토스트 메시지 */}
+      {toastVisible && (
+        <div className={styles.toast}>링크가 복사되었습니다!</div>
+      )}
     </div>
   );
 }
