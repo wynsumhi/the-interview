@@ -32,6 +32,7 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -47,6 +48,7 @@ public class ShareBoardQuestionService {
 
     // 무한 스크롤에서 한 번에 내려줄 포스트잇 개수입니다.
     private static final int PAGE_SIZE = 12;
+    private static final Random RANDOM = new Random();
     // 포스트잇 색상은 사용자가 선택하지 않고 시스템 팔레트에서 자동 지정합니다.
     private static final List<String> COLOR_PALETTE = List.of(
             "#F3C5C5",
@@ -55,7 +57,7 @@ public class ShareBoardQuestionService {
             "#BCCEF6",
             "#FBCDB6"
     );
-    private static final String DEFAULT_COLOR = "#F3C5C5";
+
 
     // 공유 보드 메타데이터를 조회하는 저장소입니다.
     private final ShareBoardRepository shareBoardRepository;
@@ -280,7 +282,8 @@ public class ShareBoardQuestionService {
                 .build());
 
         // 기존 인터뷰 생성 흐름을 재사용하기 위해 파사드를 호출합니다.
-        WebSocketConnectResponse response = interviewFacade.issueWebSocketId(email, "Jessica", false, null)
+        WebSocketConnectResponse response = interviewFacade.issueWebSocketId(email, "Jessica",
+                        false, null)
                 .block();
         if (response == null) {
             throw new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR);
@@ -313,7 +316,7 @@ public class ShareBoardQuestionService {
                                 .postitType(ShareBoardPostitType.BOOKMARK)
                                 .sourceId(answer.getId())
                                 .colorCode(
-                                        resolveColor(ShareBoardPostitType.BOOKMARK, answer.getId()))
+                                        resolveColor())
                                 .rotationDeg(defaultRotation(answer.getId()))
                                 .positionX(defaultPositionX(answer.getId()))
                                 .positionY(defaultPositionY(answer.getId()))
@@ -381,7 +384,7 @@ public class ShareBoardQuestionService {
                 .shareBoard(shareBoard)
                 .postitType(postitType)
                 .sourceId(sourceId)
-                .colorCode(resolveColor(postitType, sourceId))
+                .colorCode(resolveColor())
                 .rotationDeg(defaultRotation(sourceId))
                 .positionX(defaultPositionX(sourceId))
                 .positionY(defaultPositionY(sourceId))
@@ -427,9 +430,9 @@ public class ShareBoardQuestionService {
         return question.getAuthor().getId().equals(requesterId);
     }
 
-    private String resolveColor(ShareBoardPostitType postitType, Integer sourceId) {
-        // 기본 색상은 시스템에서 임의로 하나 고정 배정합니다.
-        return DEFAULT_COLOR;
+    // 색상을 랜덤으로 지정
+    private String resolveColor() {
+        return COLOR_PALETTE.get(RANDOM.nextInt(COLOR_PALETTE.size()));
     }
 
     private BigDecimal defaultRotation(Integer sourceId) {
