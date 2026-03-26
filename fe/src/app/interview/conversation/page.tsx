@@ -2,25 +2,23 @@
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import {
+  FilesetResolver,
+  GestureRecognizer,
+  type GestureRecognizerResult,
+} from "@mediapipe/tasks-vision";
 import { useStompInterview } from "@/hooks/useStompInterview";
 import { createInterview, exitInterview } from "@/services/interview";
 import type { FollowUpQuestionDTO } from "@/services/interview";
 import { startQuestionInterview } from "@/services/board";
 import styles from "./page.module.css";
 
-// 인터뷰 진행 상태 머신
 type InterviewStatus =
-  | "CONNECTING" // 초기화 중
-  | "AI_SPEAKING" // AI 질문 재생 + 타이핑
-  | "USER_RECORDING" // 사용자 답변 녹음 중
-  | "WAITING_AI"; // AI 응답 대기 중
+  | "CONNECTING"
+  | "AI_SPEAKING"
+  | "USER_RECORDING"
+  | "WAITING_AI";
 
-const BAR_COUNT = 12;
-const DEFAULT_HEIGHTS = Array<number>(BAR_COUNT).fill(4);
-const SILENCE_THRESHOLD = 10; // 침묵으로 판단하는 평균 볼륨 기준
-const SILENCE_DELAY_MS = 3000; // 침묵 감지 후 전송까지 대기 시간
-
-// 현재 질문 정보
 interface CurrentQuestion {
   interviewId: number;
   questionId: number;
@@ -28,12 +26,25 @@ interface CurrentQuestion {
   ttsAudioBase64: string;
 }
 
+const BAR_COUNT = 12;
+const DEFAULT_HEIGHTS = Array<number>(BAR_COUNT).fill(4);
+const SILENCE_THRESHOLD = 10;
+const SILENCE_DELAY_MS = 3000;
+const GESTURE_HOLD_MS = 1000;
+const GESTURE_RESET_MS = 4000;
+const GESTURE_SCORE_THRESHOLD = 0.75;
+const VICTORY_GESTURE_NAME = "Victory";
+const MEDIAPIPE_WASM_PATH =
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm";
+const MEDIAPIPE_GESTURE_MODEL_PATH =
+  "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task";
+
 export default function InterviewConversationPage() {
   return (
     <Suspense
       fallback={
         <div className={styles.container}>
-          <p className={styles.statusText}>불러오는 중...</p>
+          <p className={styles.statusText}>인터뷰를 준비하고 있습니다...</p>
         </div>
       }
     >
@@ -53,11 +64,13 @@ function ConversationContent() {
   const [waveHeights, setWaveHeights] = useState<number[]>(DEFAULT_HEIGHTS);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExiting, setIsExiting] = useState(false);
+  const [gestureNotice, setGestureNotice] = useState<string | null>(null);
 
   const questionRef = useRef<CurrentQuestion | null>(null);
   const statusRef = useRef<InterviewStatus>("CONNECTING");
 
   const streamRef = useRef<MediaStream | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -66,17 +79,152 @@ function ConversationContent() {
   const animationFrameRef = useRef<number | null>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  const gestureAnimationFrameRef = useRef<number | null>(null);
+  const gestureRecognizerRef = useRef<GestureRecognizer | null>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
+  const gesturePhaseRef = useRef<0 | 1>(0);
+  const gestureHoldStartedAtRef = useRef<number | null>(null);
+  const gestureCandidateActiveRef = useRef(false);
+  const gestureResetTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const { connect, sendAudio, disconnect } = useStompInterview();
 
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
 
+  const resetGestureState = useCallback(() => {
+    gesturePhaseRef.current = 0;
+    gestureHoldStartedAtRef.current = null;
+    gestureCandidateActiveRef.current = false;
+    if (gestureResetTimerRef.current) {
+      clearTimeout(gestureResetTimerRef.current);
+      gestureResetTimerRef.current = null;
+    }
+    setGestureNotice(null);
+  }, []);
+
+  const initGestureRecognizer = useCallback(async () => {
+    if (gestureRecognizerRef.current) return;
+
+    const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_PATH);
+    gestureRecognizerRef.current = await GestureRecognizer.createFromOptions(
+      vision,
+      {
+        baseOptions: {
+          modelAssetPath: MEDIAPIPE_GESTURE_MODEL_PATH,
+        },
+        runningMode: "VIDEO",
+        numHands: 1,
+      },
+    );
+  }, []);
+
+  const scheduleGestureReset = useCallback(() => {
+    if (gestureResetTimerRef.current) {
+      clearTimeout(gestureResetTimerRef.current);
+    }
+    gestureResetTimerRef.current = setTimeout(() => {
+      resetGestureState();
+    }, GESTURE_RESET_MS);
+  }, [resetGestureState]);
+
+  const getTopGesture = useCallback(
+    (result: GestureRecognizerResult) => {
+      const [firstHand] = result.gestures;
+      const [topGesture] = firstHand ?? [];
+      if (!topGesture) return null;
+      if (topGesture.score < GESTURE_SCORE_THRESHOLD) return null;
+      return topGesture;
+    },
+    [],
+  );
+
+  const handleGestureResult = useCallback(
+    (result: GestureRecognizerResult, now: number) => {
+      if (isExiting || statusRef.current === "CONNECTING") {
+        resetGestureState();
+        return;
+      }
+
+      if (
+        statusRef.current !== "AI_SPEAKING" &&
+        statusRef.current !== "USER_RECORDING"
+      ) {
+        resetGestureState();
+        return;
+      }
+
+      const topGesture = getTopGesture(result);
+      const isVictory = topGesture?.categoryName === VICTORY_GESTURE_NAME;
+
+      if (!isVictory) {
+        gestureCandidateActiveRef.current = false;
+        gestureHoldStartedAtRef.current = null;
+        return;
+      }
+
+      if (!gestureCandidateActiveRef.current) {
+        gestureCandidateActiveRef.current = true;
+        gestureHoldStartedAtRef.current = now;
+        return;
+      }
+
+      const holdStartedAt = gestureHoldStartedAtRef.current;
+      if (!holdStartedAt || now - holdStartedAt < GESTURE_HOLD_MS) return;
+
+      if (gesturePhaseRef.current === 0) {
+        gesturePhaseRef.current = 1;
+        gestureCandidateActiveRef.current = false;
+        gestureHoldStartedAtRef.current = null;
+        setGestureNotice(
+          "브이 제스처가 감지되었습니다. 종료하려면 한 번 더 유지하세요.",
+        );
+        scheduleGestureReset();
+        return;
+      }
+
+      if (gestureResetTimerRef.current) {
+        clearTimeout(gestureResetTimerRef.current);
+        gestureResetTimerRef.current = null;
+      }
+      void handleExit();
+    },
+    [getTopGesture, handleExit, isExiting, resetGestureState, scheduleGestureReset],
+  );
+
+  const startGestureLoop = useCallback(() => {
+    const loop = () => {
+      const recognizer = gestureRecognizerRef.current;
+      const video = cameraVideoRef.current;
+
+      if (
+        recognizer &&
+        video &&
+        video.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA &&
+        video.videoWidth > 0 &&
+        video.videoHeight > 0 &&
+        !video.paused &&
+        !video.ended
+      ) {
+        try {
+          const now = performance.now();
+          const result = recognizer.recognizeForVideo(video, now);
+          handleGestureResult(result, now);
+        } catch {
+          // MediaPipe video pipeline can throw briefly while the camera stream stabilizes.
+        }
+      }
+
+      gestureAnimationFrameRef.current = requestAnimationFrame(loop);
+    };
+
+    if (!gestureAnimationFrameRef.current) {
+      gestureAnimationFrameRef.current = requestAnimationFrame(loop);
+    }
+  }, [handleGestureResult]);
+
   useEffect(() => {
-    // cancelled 플래그: React StrictMode의 이중 실행 방지
-    // StrictMode는 개발 환경에서 mount → cleanup → remount 순서로 effect를 두 번 실행함
-    // async인 initInterview는 cleanup이 호출돼도 실행이 취소되지 않으므로
-    // Promise.all 완료 후 cancelled를 확인해 connect() 중복 호출을 막음
     let cancelled = false;
 
     initInterview(() => cancelled);
@@ -89,8 +237,6 @@ function ConversationContent() {
 
   const initInterview = async (isCancelled: () => boolean) => {
     try {
-      // questionId 파라미터가 있으면 질문 기반 인터뷰 시작 API 호출
-      // 없으면 기존 인터뷰 생성 API 호출
       const interviewDataPromise = questionIdParam
         ? startQuestionInterview(Number(questionIdParam)).then((r) => ({
             interviewId: r.interview.interviewId,
@@ -100,15 +246,22 @@ function ConversationContent() {
           }))
         : createInterview(mode === "AUTO");
 
-      const [data, stream, { apiUrl }] = await Promise.all([
+      const [data, stream, cameraStream, { apiUrl }] = await Promise.all([
         interviewDataPromise,
         navigator.mediaDevices.getUserMedia({ audio: true }),
+        navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+          },
+        }),
         fetch("/api/ws-url").then((r) => r.json()),
       ]);
 
-      // async 작업 완료 후 컴포넌트가 이미 cleanup된 경우 연결하지 않음
       if (isCancelled()) {
-        stream.getTracks().forEach((t) => t.stop());
+        stream.getTracks().forEach((track) => track.stop());
+        cameraStream.getTracks().forEach((track) => track.stop());
         return;
       }
 
@@ -120,8 +273,10 @@ function ConversationContent() {
       };
 
       streamRef.current = stream;
+      cameraStreamRef.current = cameraStream;
+
       const AudioContextClass =
-        window.AudioContext || (window as any).webkitAudioContext;
+        window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       const audioContext = new AudioContextClass();
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
@@ -129,6 +284,16 @@ function ConversationContent() {
       audioContext.createMediaStreamSource(stream).connect(analyser);
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
+
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = cameraStream;
+        cameraVideoRef.current.muted = true;
+        cameraVideoRef.current.playsInline = true;
+        await cameraVideoRef.current.play();
+      }
+
+      await initGestureRecognizer();
+      startGestureLoop();
 
       const token = localStorage.getItem("accessToken") ?? "";
 
@@ -143,15 +308,19 @@ function ConversationContent() {
             questionText: stripMarkdown(dto.followUpQuestion),
             ttsAudioBase64: dto.ttsAudioBase64,
           };
+          resetGestureState();
           setStatus("AI_SPEAKING");
         },
-        () => setStatus("AI_SPEAKING"),
+        () => {
+          resetGestureState();
+          setStatus("AI_SPEAKING");
+        },
       );
     } catch (err) {
       if (!isCancelled()) {
         console.error("인터뷰 초기화 실패:", err);
         setErrorMsg(
-          "인터뷰를 시작할 수 없습니다. 마이크 권한을 확인해 주세요.",
+          "인터뷰를 시작하지 못했습니다. 마이크와 카메라 권한을 확인해주세요.",
         );
       }
     }
@@ -172,7 +341,7 @@ function ConversationContent() {
     let index = 0;
     const interval = setInterval(() => {
       setDisplayText(text.substring(0, index + 1));
-      index++;
+      index += 1;
       if (index >= text.length) clearInterval(interval);
     }, 60);
 
@@ -182,12 +351,10 @@ function ConversationContent() {
       });
       ttsAudioRef.current = audio;
     } else {
-      const timer = setTimeout(
-        () => {
-          if (statusRef.current === "AI_SPEAKING") setStatus("USER_RECORDING");
-        },
-        text.length * 60 + 1500,
-      );
+      const timer = setTimeout(() => {
+        if (statusRef.current === "AI_SPEAKING") setStatus("USER_RECORDING");
+      }, text.length * 60 + 1500);
+
       return () => {
         clearInterval(interval);
         clearTimeout(timer);
@@ -215,7 +382,7 @@ function ConversationContent() {
     if (!streamRef.current) return;
     chunksRef.current = [];
     const recorder = new MediaRecorder(streamRef.current);
-    recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
+    recorder.ondataavailable = (event) => chunksRef.current.push(event.data);
     recorder.onstop = async () => {
       const blob = new Blob(chunksRef.current, { type: "audio/webm" });
       const audioData = await blobToBase64(blob);
@@ -227,11 +394,12 @@ function ConversationContent() {
         audioData,
         isFinal: false,
       });
+      resetGestureState();
       setStatus("WAITING_AI");
     };
     recorder.start();
     recorderRef.current = recorder;
-  }, [sendAudio]);
+  }, [resetGestureState, sendAudio]);
 
   const startVad = useCallback(() => {
     if (!analyserRef.current) return;
@@ -239,15 +407,17 @@ function ConversationContent() {
     const loop = () => {
       if (statusRef.current !== "USER_RECORDING") return;
       if (!analyserRef.current) return;
+
       analyserRef.current.getByteFrequencyData(dataArray);
       const step = Math.floor(dataArray.length / BAR_COUNT);
-      const heights = Array.from({ length: BAR_COUNT }, (_, i) => {
-        const slice = dataArray.slice(i * step, (i + 1) * step);
-        const avg = slice.reduce((a, b) => a + b, 0) / slice.length;
+      const heights = Array.from({ length: BAR_COUNT }, (_, index) => {
+        const slice = dataArray.slice(index * step, (index + 1) * step);
+        const avg = slice.reduce((sum, value) => sum + value, 0) / slice.length;
         return Math.max(4, Math.round((avg / 255) * 80));
       });
       setWaveHeights(heights);
-      const avg = dataArray.reduce((p, c) => p + c, 0) / dataArray.length;
+
+      const avg = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
       if (avg < SILENCE_THRESHOLD) {
         if (!silenceTimerRef.current) {
           silenceTimerRef.current = setTimeout(() => {
@@ -256,12 +426,11 @@ function ConversationContent() {
             }
           }, SILENCE_DELAY_MS);
         }
-      } else {
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = null;
-        }
+      } else if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
       }
+
       animationFrameRef.current = requestAnimationFrame(loop);
     };
     loop();
@@ -276,39 +445,7 @@ function ConversationContent() {
     recorderRef.current?.stop();
   };
 
-  // 인터뷰 종료 버튼 핸들러
-  // 1) 진행 중인 녹음/오디오 정리 → 2) POST /interview/exit 호출 → 3) 리소스 cleanup → 4) /archive로 이동
-  const handleExit = async () => {
-    if (isExiting) return; // 중복 클릭 방지
-    setIsExiting(true);
-
-    // 녹음 중이었다면 onstop 핸들러를 먼저 제거 후 중단
-    // onstop을 그대로 두면 stop() 호출 시 sendAudio + setStatus("WAITING_AI")가
-    // 실행되어 종료 중에 불필요한 상태 전환과 백엔드 요청이 발생함
-    if (recorderRef.current) {
-      recorderRef.current.onstop = null;
-      recorderRef.current.stop();
-    }
-    ttsAudioRef.current?.pause();
-    // WebSocket을 먼저 끊어 백엔드로부터 메시지 수신 차단
-    disconnect();
-
-    const question = questionRef.current;
-    try {
-      if (question) {
-        // 서버에 종료 신호 전송 → AI가 요약 제목 생성해 반환 (현재는 사용하지 않고 archive로 이동)
-        await exitInterview(question.interviewId, question.questionId);
-      }
-    } catch (err) {
-      // 종료 API 실패해도 로컬 cleanup 후 이동
-      console.error("인터뷰 종료 요청 실패:", err);
-    } finally {
-      cleanup();
-      router.push("/archive");
-    }
-  };
-
-  const stopVad = () => {
+  const stopVad = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
@@ -318,21 +455,66 @@ function ConversationContent() {
       silenceTimerRef.current = null;
     }
     setWaveHeights(DEFAULT_HEIGHTS);
-  };
+  }, []);
 
-  const cleanup = () => {
+  const cleanup = useCallback(() => {
+    resetGestureState();
     stopVad();
+
+    if (gestureAnimationFrameRef.current) {
+      cancelAnimationFrame(gestureAnimationFrameRef.current);
+      gestureAnimationFrameRef.current = null;
+    }
+
     recorderRef.current?.stop();
     recorderRef.current = null;
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+
+    streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
-    // ref를 null로 초기화하여 중복 호출 시 "Cannot close a closed AudioContext" 방지
+
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+
     audioContextRef.current?.close();
     audioContextRef.current = null;
+
     ttsAudioRef.current?.pause();
     ttsAudioRef.current = null;
+
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.pause();
+      cameraVideoRef.current.srcObject = null;
+    }
+
+    gestureRecognizerRef.current?.close();
+    gestureRecognizerRef.current = null;
     disconnect();
-  };
+  }, [disconnect, resetGestureState, stopVad]);
+
+  async function handleExit() {
+    if (isExiting) return;
+    setIsExiting(true);
+    resetGestureState();
+
+    const question = questionRef.current;
+
+    if (recorderRef.current) {
+      recorderRef.current.onstop = null;
+      recorderRef.current.stop();
+    }
+    ttsAudioRef.current?.pause();
+    cleanup();
+
+    try {
+      if (question) {
+        await exitInterview(question.interviewId, question.questionId);
+      }
+    } catch (err) {
+      console.warn("인터뷰 종료 요청 실패:", err);
+    } finally {
+      router.push("/archive");
+    }
+  }
 
   const isFocusMode = status === "USER_RECORDING";
 
@@ -344,11 +526,12 @@ function ConversationContent() {
         <div className={`${styles.orb} ${styles.orb1}`} />
         <div className={`${styles.orb} ${styles.orb2}`} />
       </div>
+      <video ref={cameraVideoRef} className={styles.hiddenVideo} playsInline />
 
       {status === "CONNECTING" && !errorMsg && (
         <div className={styles.analyzingUI}>
           <div className={styles.loadingBar} />
-          <p className={styles.statusText}>연결 중입니다...</p>
+          <p className={styles.statusText}>인터뷰를 준비하고 있습니다...</p>
         </div>
       )}
 
@@ -356,22 +539,17 @@ function ConversationContent() {
 
       {status !== "CONNECTING" && (
         <section className={styles.content}>
-          {/* 인터뷰 종료 버튼 - 우상단 고정
-               WAITING_AI: 음성 전송 후 백엔드 처리 중 → 도중에 종료 시 데이터 유실 위험
-               isExiting: 종료 API 호출 중 → 중복 클릭 방지 */}
-          <button
-            className={styles.exitBtn}
-            onClick={handleExit}
-            disabled={isExiting || status === "WAITING_AI"}
-          >
+          <button className={styles.exitBtn} onClick={() => void handleExit()} disabled={isExiting}>
             {isExiting ? "종료 중..." : "인터뷰 종료"}
           </button>
+          {gestureNotice && (
+            <p className={styles.gestureNotice}>{gestureNotice}</p>
+          )}
+
           <div className={styles.questionBox}>
             <h2 className={styles.questionText}>
               {displayText}
-              {status === "AI_SPEAKING" && (
-                <span className={styles.cursor}>|</span>
-              )}
+              {status === "AI_SPEAKING" && <span className={styles.cursor}>|</span>}
             </h2>
           </div>
 
@@ -379,8 +557,6 @@ function ConversationContent() {
             {isFocusMode && (
               <button className={styles.recordingBtn} onClick={handleSubmit}>
                 <div className={styles.blobWrapper}>
-                  {/* 사진 느낌의 멀티 컬러 Blob 배경 */}
-                  {/* 디자인 blob SVG */}
                   <svg
                     className={styles.blobSvg}
                     viewBox="0 0 435 416"
@@ -494,18 +670,16 @@ function ConversationContent() {
                     />
                   </svg>
 
-                  {/* 중앙 파형 비주얼라이저 */}
                   <div className={styles.waveContainer}>
-                    {waveHeights.map((h, i) => (
+                    {waveHeights.map((height, index) => (
                       <div
-                        key={i}
+                        key={index}
                         className={styles.waveBar}
-                        style={{ height: `${h}px` }}
+                        style={{ height: `${height}px` }}
                       />
                     ))}
                   </div>
 
-                  {/* 하단 라벨 */}
                   <span className={styles.nextLabel}>NEXT &gt;</span>
                 </div>
               </button>
@@ -515,7 +689,7 @@ function ConversationContent() {
               <div className={styles.analyzingUI}>
                 <div className={styles.loadingBar} />
                 <p className={styles.statusText}>
-                  문장을 아카이빙하고 있습니다...
+                  다음 질문을 생성하고 있습니다...
                 </p>
               </div>
             )}
@@ -526,15 +700,14 @@ function ConversationContent() {
   );
 }
 
-// Markdown 문법 제거 함수
 function stripMarkdown(text: string): string {
   return text
-    .replace(/#{1,6}\s*/g, "") // ## 헤더
-    .replace(/\*{1,2}([^*]*)\*{1,2}/g, "$1") // **bold**, *italic*
-    .replace(/_{1,2}([^_]*)_{1,2}/g, "$1") // __bold__, _italic_
-    .replace(/`{1,3}[^`]*`{1,3}/g, "") // `code`, ```code```
-    .replace(/^[-*>]\s+/gm, "") // 목록 (-), 인용 (>)
-    .replace(/[()[\]]/g, "") // 괄호
+    .replace(/#{1,6}\s*/g, "")
+    .replace(/\*{1,2}([^*]*)\*{1,2}/g, "$1")
+    .replace(/_{1,2}([^_]*)_{1,2}/g, "$1")
+    .replace(/`{1,3}[^`]*`{1,3}/g, "")
+    .replace(/^[-*>]\s+/gm, "")
+    .replace(/[()[\]]/g, "")
     .trim();
 }
 
@@ -544,7 +717,9 @@ function playBase64Audio(
 ): HTMLAudioElement {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
   const blob = new Blob([bytes], { type: "audio/mpeg" });
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);

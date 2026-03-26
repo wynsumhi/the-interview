@@ -17,6 +17,7 @@ export interface FollowUpQuestionDTO {
   sttResult: string;
   followUpQuestion: string;
   ttsAudioBase64: string;
+  isExit?: boolean;
 }
 
 // 인터뷰 생성 + 첫 질문 생성
