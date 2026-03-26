@@ -126,11 +126,24 @@ def _build_magazine_refinement_messages(stt_text: str) -> list[dict[str, str]]:
 
 def _run_refinement_and_callback(
     *,
+    audio_file_path: str,
+    refinement_stt_text: str | None,
     magazine_kwargs: dict[str, object],
     interview_id: int | None,
     question_id: int | None,
 ) -> str:
-    refined_answer = create_message(**magazine_kwargs)
+    normalized_refinement_stt_text = (
+        refinement_stt_text.strip()
+        if refinement_stt_text is not None
+        else speech_to_text(audio_file_path, label="refinement")
+    )
+    refinement_messages = _build_magazine_refinement_messages(normalized_refinement_stt_text)
+    refined_answer = create_message(
+        messages=refinement_messages,
+        system=magazine_kwargs["system"],
+        max_tokens=magazine_kwargs["max_tokens"],
+        label=magazine_kwargs["label"],
+    )
 
     if interview_id is not None and question_id is not None:
         try:
@@ -211,14 +224,7 @@ def run_interview_pipeline_from_stt_text(
     interview_state = analyze_interview_state(audio_file_path, stt_text)
     interview_state_db = build_interview_state_db_payload(interview_state)
     interview_state_prompt = build_interview_state_prompt_payload(interview_state)
-    normalized_refinement_stt_text = (
-        refinement_stt_text.strip()
-        if refinement_stt_text is not None
-        else speech_to_text(audio_file_path, label="refinement")
-    )
-
     _magazine_kwargs = {
-        "messages": _build_magazine_refinement_messages(normalized_refinement_stt_text),
         "system": MAGAZINE_GENERATION_SYSTEM_PROMPT,
         "max_tokens": 300,
         "label": "answer_refinement",
@@ -269,6 +275,8 @@ def run_interview_pipeline_from_stt_text(
     # 두 작업 모두 LLM 호출이므로 ThreadPoolExecutor로 동시에 처리한다.
     refinement_future = _REFINEMENT_EXECUTOR.submit(
         _run_refinement_and_callback,
+        audio_file_path=audio_file_path,
+        refinement_stt_text=refinement_stt_text,
         magazine_kwargs=_magazine_kwargs,
         interview_id=interview_id,
         question_id=question_id,
