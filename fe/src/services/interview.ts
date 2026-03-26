@@ -79,6 +79,7 @@ export async function fetchInterviewDetail(
       const status = error.response?.status;
       if (status === 403) throw new Error("FORBIDDEN");
       if (status === 404) throw new Error("NOT_FOUND");
+      if (status === 502) throw new Error("BAD_GATEWAY");
     }
     throw error;
   }
@@ -100,16 +101,17 @@ export async function deleteInterview(interviewId: number): Promise<void> {
 // POST /api/v1/interview/{interviewId}/share/bookmark - Q&A 북마크 토글
 // interviewAnswerID: 북마크할 답변의 고유 ID
 // interviewShareRange: 공개 공유 여부 (true = 공개, false = 비공개)
-// 이미 북마크된 항목에 다시 호출하면 북마크가 해제됨
+// 응답 result: { interviewShareRange: boolean } — 서버가 확정한 북마크 상태
 export async function toggleBookmark(
   interviewId: number,
   interviewAnswerId: number,
   interviewShareRange: boolean,
-): Promise<void> {
-  await instance.post(`/interview/${interviewId}/share/bookmark`, {
-    interviewAnswerID: interviewAnswerId,
-    interviewShareRange,
-  });
+): Promise<boolean> {
+  const res = await instance.post<ApiResponse<{ interviewShareRange: boolean }>>(
+    `/interview/${interviewId}/share/bookmark`,
+    { interviewAnswerID: interviewAnswerId, interviewShareRange },
+  );
+  return res.data.result.interviewShareRange;
 }
 
 // POST /api/v1/interview/exit - 인터뷰 강제 종료
