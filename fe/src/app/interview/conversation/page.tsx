@@ -57,11 +57,8 @@ function ConversationContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const mode = searchParams.get("mode") ?? "AUTO";
-<<<<<<< HEAD
   const voice = searchParams.get("voice") ?? "";
-=======
   const questionIdParam = searchParams.get("questionId");
->>>>>>> 3b6486ee17f707ee0df6f0108a831844cc5dcba8
 
   const [status, setStatus] = useState<InterviewStatus>("CONNECTING");
   const [displayText, setDisplayText] = useState("");
@@ -122,13 +119,6 @@ function ConversationContent() {
 
   const initInterview = async (signal: AbortSignal) => {
     try {
-<<<<<<< HEAD
-      const [data, stream, { apiUrl }] = await Promise.all([
-        createInterview(mode === "AUTO", voice || undefined),
-        navigator.mediaDevices.getUserMedia({ audio: true }),
-        fetch("/api/ws-url").then((r) => r.json()),
-      ]);
-=======
       // questionId 파라미터가 있으면 질문 기반 인터뷰 시작 API 호출
       // 없으면 기존 인터뷰 생성 API 호출
       const interviewDataPromise = questionIdParam
@@ -138,16 +128,13 @@ function ConversationContent() {
             interviewTitle: r.interview.interviewTitle,
             ttsAudioBase64: r.interview.ttsAudioBase64,
           }))
-        : createInterview(mode === "AUTO");
+        : createInterview(mode === "AUTO", voice || undefined, signal);
 
-      const [interviewResult, interviewData, stream, { apiUrl }] =
-        await Promise.all([
-          createInterview(mode === "AUTO", signal), // Our changes
-          interviewDataPromise, // Their changes
-          navigator.mediaDevices.getUserMedia({ audio: true }),
-          fetch("/api/ws-url").then((r) => r.json()),
-        ]);
->>>>>>> 3b6486ee17f707ee0df6f0108a831844cc5dcba8
+      const [interviewData, stream, { apiUrl }] = await Promise.all([
+        interviewDataPromise,
+        navigator.mediaDevices.getUserMedia({ audio: true }),
+        fetch("/api/ws-url").then((r) => r.json()),
+      ]);
 
       // async 작업 완료 후 컴포넌트가 이미 cleanup된 경우 연결하지 않음
       if (signal.aborted) {
