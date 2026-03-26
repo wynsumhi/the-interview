@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -46,9 +47,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class ShareBoardQuestionService {
 
+    @Value("${url.shareboard.endpoint}")
+    private String shareboardEndpoint;
+
     // 무한 스크롤에서 한 번에 내려줄 포스트잇 개수입니다.
     private static final int PAGE_SIZE = 12;
+
     private static final Random RANDOM = new Random();
+
     // 포스트잇 색상은 사용자가 선택하지 않고 시스템 팔레트에서 자동 지정합니다.
     private static final List<String> COLOR_PALETTE = List.of(
             "#F3C5C5",
@@ -57,7 +63,6 @@ public class ShareBoardQuestionService {
             "#BCCEF6",
             "#FBCDB6"
     );
-
 
     // 공유 보드 메타데이터를 조회하는 저장소입니다.
     private final ShareBoardRepository shareBoardRepository;
@@ -141,7 +146,7 @@ public class ShareBoardQuestionService {
         List<BookmarkPostitItemResponse> items = layouts.getContent().stream()
                 .filter(layout -> answerMap.containsKey(layout.getSourceId()))
                 .map(layout -> BookmarkPostitItemResponse.from(answerMap.get(layout.getSourceId()),
-                        layout, canEditLayout))
+                        layout, canEditLayout, shareboardEndpoint))
                 .toList();
 
         return BookmarkPostitSliceResponse.builder()
