@@ -57,6 +57,7 @@ function ConversationContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const mode = searchParams.get("mode") ?? "AUTO";
+  const voice = searchParams.get("voice") ?? "";
   const questionIdParam = searchParams.get("questionId");
 
   const [status, setStatus] = useState<InterviewStatus>("CONNECTING");
@@ -127,15 +128,13 @@ function ConversationContent() {
             interviewTitle: r.interview.interviewTitle,
             ttsAudioBase64: r.interview.ttsAudioBase64,
           }))
-        : createInterview(mode === "AUTO");
+        : createInterview(mode === "AUTO", voice || undefined, signal);
 
-      const [interviewResult, interviewData, stream, { apiUrl }] =
-        await Promise.all([
-          createInterview(mode === "AUTO", signal), // Our changes
-          interviewDataPromise, // Their changes
-          navigator.mediaDevices.getUserMedia({ audio: true }),
-          fetch("/api/ws-url").then((r) => r.json()),
-        ]);
+      const [interviewData, stream, { apiUrl }] = await Promise.all([
+        interviewDataPromise,
+        navigator.mediaDevices.getUserMedia({ audio: true }),
+        fetch("/api/ws-url").then((r) => r.json()),
+      ]);
 
       // async 작업 완료 후 컴포넌트가 이미 cleanup된 경우 연결하지 않음
       if (signal.aborted) {

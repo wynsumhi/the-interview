@@ -1,6 +1,11 @@
 import axios from "axios";
 import instance from "@/lib/axios";
-import type { ApiResponse, InterviewDetailItem, InterviewHistoryPage, ExplorePage } from "@/types/interview";
+import type {
+  ApiResponse,
+  InterviewDetailItem,
+  InterviewHistoryPage,
+  ExplorePage,
+} from "@/types/interview";
 
 // POST /api/v1/interview 응답 타입
 export interface CreateInterviewResult {
@@ -28,17 +33,27 @@ export interface FollowUpQuestionDTO {
 // signal: React StrictMode 이중 실행 등으로 컴포넌트가 정리될 때 요청을 중단하기 위한 AbortSignal
 export async function createInterview(
   isPrevAffected: boolean,
+  voice?: string,
   signal?: AbortSignal,
 ): Promise<CreateInterviewResult> {
-  const res = await instance.post("/interview", { isPrevAffected }, { timeout: 60000, signal });
+  const res = await instance.post(
+    "/interview",
+    { isPrevAffected, voice },
+    { timeout: 60000, signal },
+  );
   return res.data.result;
 }
 
 // GET /api/v1/interview/explore?page=N - 공개 인터뷰 탐색 목록 조회
-export async function fetchExploreInterviews(page: number): Promise<ExplorePage> {
-  const res = await instance.get<ApiResponse<ExplorePage>>("/interview/explore", {
-    params: { page },
-  });
+export async function fetchExploreInterviews(
+  page: number,
+): Promise<ExplorePage> {
+  const res = await instance.get<ApiResponse<ExplorePage>>(
+    "/interview/explore",
+    {
+      params: { page },
+    },
+  );
   return res.data.result;
 }
 
@@ -47,9 +62,12 @@ export async function fetchExploreInterviews(page: number): Promise<ExplorePage>
 export async function fetchInterviewHistory(
   page: number,
 ): Promise<InterviewHistoryPage> {
-  const res = await instance.get<ApiResponse<InterviewHistoryPage>>("/interview", {
-    params: { page },
-  });
+  const res = await instance.get<ApiResponse<InterviewHistoryPage>>(
+    "/interview",
+    {
+      params: { page },
+    },
+  );
   return res.data.result;
 }
 
