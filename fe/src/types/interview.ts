@@ -4,9 +4,11 @@
 
 /** 상세 페이지의 단일 Q&A 항목 (result.interview 배열 원소) */
 export interface InterviewDetailEntry {
-  interviewQuestion: string; // AI 질문 원문
-  interviewText: string;     // STT 처리된 사용자 답변 텍스트
-  interviewVoice: string;    // 사용자 답변 음성 URL (.webm)
+  interviewAnswerId: number;   // 북마크 API 요청에 사용하는 답변 고유 ID
+  interviewQuestion: string;   // AI 질문 원문
+  interviewText: string;       // STT 처리된 사용자 답변 텍스트
+  interviewVoice: string;      // 사용자 답변 음성 URL (.webm)
+  shareRange?: boolean;        // 북마크 여부: true = 북마크됨(공개), false = 북마크 해제 (백엔드 추가 예정)
 }
 
 /** GET /api/v1/interview/{interviewId} 응답의 result 필드 */
