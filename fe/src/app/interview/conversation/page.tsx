@@ -26,6 +26,15 @@ interface CurrentQuestion {
   ttsAudioBase64: string;
 }
 
+interface GestureDebugInfo {
+  topGesture: string;
+  topScore: number | null;
+  handedness: string;
+  directionX: number | null;
+  directionY: number | null;
+  lastEvent: string;
+}
+
 const BAR_COUNT = 12;
 const DEFAULT_HEIGHTS = Array<number>(BAR_COUNT).fill(4);
 const SILENCE_THRESHOLD = 10;
@@ -34,9 +43,11 @@ const GESTURE_HOLD_MS = 850;
 const GESTURE_RESET_MS = 4000;
 const GESTURE_SCORE_THRESHOLD = 0.75;
 const VICTORY_GESTURE_NAME = "Victory";
-const POINTING_UP_GESTURE_NAME = "Pointing_Up";
+const NEXT_GESTURE_HOLD_MS = 500;
 const NEXT_GESTURE_COOLDOWN_MS = 1200;
 const GESTURE_INFERENCE_INTERVAL_MS = 120;
+const POINT_RIGHT_MIN_DELTA_X = 0.08;
+const POINT_RIGHT_MAX_DELTA_Y = 0.08;
 const MEDIAPIPE_WASM_PATH =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm";
 const MEDIAPIPE_GESTURE_MODEL_PATH =
@@ -71,6 +82,14 @@ function ConversationContent() {
   const [nextGestureNotice, setNextGestureNotice] = useState<string | null>(
     null,
   );
+  const [, setGestureDebugInfo] = useState<GestureDebugInfo>({
+    topGesture: "-",
+    topScore: null,
+    handedness: "-",
+    directionX: null,
+    directionY: null,
+    lastEvent: "idle",
+  });
 
   const questionRef = useRef<CurrentQuestion | null>(null);
   const statusRef = useRef<InterviewStatus>("CONNECTING");
@@ -92,6 +111,7 @@ function ConversationContent() {
   const gestureHoldStartedAtRef = useRef<number | null>(null);
   const gestureCandidateActiveRef = useRef(false);
   const gestureResetTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const nextGestureHoldStartedAtRef = useRef<number | null>(null);
   const nextGestureCooldownUntilRef = useRef(0);
   const nextGestureNoticeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const handleExitRef = useRef<() => Promise<void>>(async () => {});
@@ -111,14 +131,17 @@ function ConversationContent() {
       clearTimeout(gestureResetTimerRef.current);
       gestureResetTimerRef.current = null;
     }
+    nextGestureHoldStartedAtRef.current = null;
     setGestureNotice(null);
   }, []);
 
-  const showNextGestureNotice = useCallback((message: string) => {
+  const showNextGestureNotice = useCallback(() => {
     if (nextGestureNoticeTimerRef.current) {
       clearTimeout(nextGestureNoticeTimerRef.current);
     }
-    setNextGestureNotice(message);
+    setNextGestureNotice(
+      "다음 질문으로 이동합니다. 실제 동작은 tmp 전환 이후 연결됩니다.",
+    );
     nextGestureNoticeTimerRef.current = setTimeout(() => {
       setNextGestureNotice(null);
       nextGestureNoticeTimerRef.current = null;
@@ -158,6 +181,45 @@ function ConversationContent() {
     return topGesture;
   }, []);
 
+  const getHandedness = useCallback((result: GestureRecognizerResult) => {
+    const [firstHandedness] = result.handedness;
+    const [topHandedness] = firstHandedness ?? [];
+    return topHandedness?.categoryName ?? null;
+  }, []);
+
+  const isPointingRightWithLeftHand = useCallback(
+    (result: GestureRecognizerResult) => {
+      const handedness = getHandedness(result);
+      const [firstHandLandmarks] = result.landmarks;
+      const indexMcp = firstHandLandmarks?.[5];
+      const indexTip = firstHandLandmarks?.[8];
+
+      if (!indexMcp || !indexTip) {
+        return {
+          matched: false,
+          handedness,
+          directionX: null,
+          directionY: null,
+        };
+      }
+
+      const directionX = indexTip.x - indexMcp.x;
+      const directionY = Math.abs(indexTip.y - indexMcp.y);
+      const matched =
+        handedness === "Left" &&
+        directionX <= -POINT_RIGHT_MIN_DELTA_X &&
+        directionY <= POINT_RIGHT_MAX_DELTA_Y;
+
+      return {
+        matched,
+        handedness,
+        directionX,
+        directionY,
+      };
+    },
+    [getHandedness],
+  );
+
   const handleGestureResult = useCallback(
     (result: GestureRecognizerResult, now: number) => {
       if (isExiting || statusRef.current === "CONNECTING") {
@@ -174,15 +236,35 @@ function ConversationContent() {
       }
 
       const topGesture = getTopGesture(result);
-      const isPointingUp =
-        topGesture?.categoryName === POINTING_UP_GESTURE_NAME;
       const isVictory = topGesture?.categoryName === VICTORY_GESTURE_NAME;
+      const pointRightState = isPointingRightWithLeftHand(result);
+      setGestureDebugInfo({
+        topGesture: topGesture?.categoryName ?? "-",
+        topScore: topGesture?.score ?? null,
+        handedness: pointRightState.handedness ?? "-",
+        directionX: pointRightState.directionX,
+        directionY: pointRightState.directionY,
+        lastEvent: pointRightState.matched ? "point_right_detected" : "idle",
+      });
+
+      if (!pointRightState.matched || statusRef.current !== "USER_RECORDING") {
+        nextGestureHoldStartedAtRef.current = null;
+      }
 
       if (
-        isPointingUp &&
+        true &&
+        pointRightState.matched &&
         statusRef.current === "USER_RECORDING" &&
         now >= nextGestureCooldownUntilRef.current
       ) {
+        if (!nextGestureHoldStartedAtRef.current) {
+          nextGestureHoldStartedAtRef.current = now;
+          return;
+        }
+        if (now - nextGestureHoldStartedAtRef.current < NEXT_GESTURE_HOLD_MS) {
+          return;
+        }
+        nextGestureHoldStartedAtRef.current = null;
         nextGestureCooldownUntilRef.current = now + NEXT_GESTURE_COOLDOWN_MS;
         showNextGestureNotice(
           "검지 제스처가 감지되었습니다. 다음 질문 연결은 추후 활성화됩니다.",
@@ -223,6 +305,7 @@ function ConversationContent() {
     },
     [
       getTopGesture,
+      isPointingRightWithLeftHand,
       isExiting,
       resetGestureState,
       scheduleGestureReset,
@@ -520,6 +603,16 @@ function ConversationContent() {
     }
     setNextGestureNotice(null);
     lastGestureInferenceAtRef.current = 0;
+    nextGestureHoldStartedAtRef.current = null;
+    nextGestureCooldownUntilRef.current = 0;
+    setGestureDebugInfo({
+      topGesture: "-",
+      topScore: null,
+      handedness: "-",
+      directionX: null,
+      directionY: null,
+      lastEvent: "cleanup",
+    });
     stopVad();
 
     if (gestureAnimationFrameRef.current) {
