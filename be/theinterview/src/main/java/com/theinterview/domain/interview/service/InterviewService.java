@@ -394,6 +394,12 @@ public class InterviewService {
                 .build());
     }
 
+    // 파이프라인 에러 발생 시 저장된 답변 삭제 — 재시도 시 중복 저장 방지
+    @Transactional
+    public void deleteAnswerByQuestionId(Integer questionId) {
+        interviewAnswerRepository.deleteAllByInterviewQuestionId(questionId);
+    }
+
     @Transactional
     public InterviewQuestion saveAnswer(Integer questionId, String answerText,
             String savedPath) {

@@ -41,6 +41,8 @@ interface MemoProps {
   canDelete?: boolean;
   /** 삭제 버튼 클릭 시 호출 */
   onDelete?: () => void;
+  /** 카드 클릭 시 호출할 핸들러 (상세 페이지 이동 등) */
+  onCardClick?: () => void;
 }
 
 /** "Q. 한국어 텍스트" → { label: "Q.", text: "한국어 텍스트" } */
@@ -88,6 +90,7 @@ export default function MemoCard({
   isSaving = false,
   canDelete = false,
   onDelete,
+  onCardClick,
 }: MemoProps) {
   const [hovered, setHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -124,14 +127,25 @@ export default function MemoCard({
     <motion.div
       className={styles.card}
       initial={{ opacity: 0, y: offsetY + 24 }}
-      animate={{ opacity: dimmed ? 0.4 : 1, x: offsetX, y: offsetY, rotate: rotationDeg }}
-      onHoverStart={disableHover || isEditing ? undefined : () => setHovered(true)}
-      onHoverEnd={disableHover || isEditing ? undefined : () => setHovered(false)}
+      animate={{
+        opacity: dimmed ? 0.4 : 1,
+        x: offsetX,
+        y: offsetY,
+        rotate: rotationDeg,
+      }}
+      onHoverStart={
+        disableHover || isEditing ? undefined : () => setHovered(true)
+      }
+      onHoverEnd={
+        disableHover || isEditing ? undefined : () => setHovered(false)
+      }
       transition={{ type: "spring", stiffness: 240, damping: 24 }}
+      onClick={onCardClick}
       style={{
         backgroundColor: colorCode,
         width: 260,
         height: 340,
+        cursor: onCardClick ? "pointer" : "default",
       }}
     >
       <div className={styles.inner}>
@@ -143,7 +157,10 @@ export default function MemoCard({
         {canDelete && !isEditing && (
           <button
             className={styles.deleteIcon}
-            onClick={(e) => { e.stopPropagation(); onDelete?.(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete?.();
+            }}
             title="삭제"
           >
             ✕
@@ -152,7 +169,11 @@ export default function MemoCard({
 
         {/* ── 편집 아이콘 버튼 (canEdit이고 편집 중이 아닐 때 표시) ── */}
         {canEdit && !isEditing && (
-          <button className={styles.editIcon} onClick={handleEditClick} title="편집">
+          <button
+            className={styles.editIcon}
+            onClick={handleEditClick}
+            title="편집"
+          >
             ✎
           </button>
         )}
@@ -224,7 +245,10 @@ export default function MemoCard({
         {!isEditing && onAction && (
           <button
             className={styles.actionBtn}
-            onClick={(e) => { e.stopPropagation(); onAction(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAction();
+            }}
           >
             {actionLabel}
           </button>

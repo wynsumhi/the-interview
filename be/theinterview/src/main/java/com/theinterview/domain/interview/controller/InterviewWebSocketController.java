@@ -71,6 +71,13 @@ public class InterviewWebSocketController {
                     // 서비스에서 반환환 결과가 true라면 파서드 레이어를 호출하여 꼬리 질문 파이프라인 실행
                     if (isLastChunk) {
                         log.info("모든 청크 조각 도착 완료");
+                        // 중복 트리거 방지: 원자적으로 트리거 점유 시도
+                        String triggerKey = "interviewId:" + request.getInterviewId()
+                                + "questionId:" + request.getQuestionId() + "triggered";
+                        if (!redisService.setIfAbsent(triggerKey, "1", Duration.ofMinutes(5))) {
+                            log.info("파이프라인 이미 트리거됨 — 청크 경로 중복 실행 방지");
+                            return Mono.empty();
+                        }
                         // 사용자가 종료를 눌렀는지, 다음을 눌렀는지 분기
                         if (redisService.hasKey(
                                 "interviewId:" + request.getInterviewId() + "isExit")) {
@@ -98,14 +105,43 @@ public class InterviewWebSocketController {
                     // 마지막 청크가 아니라면 아무 행동 하지 않음
                     return Mono.empty();
                 })
-                .subscribe();
+                .subscribe(
+                        null,
+                        error -> {
+                            log.error("청크 STT 파이프라인 에러 발생 interviewId: {}, 원인: {}",
+                                    request.getInterviewId(), error.getMessage());
+                            // 재시도를 위한 Redis 상태 초기화
+                            String retryRedisKey = "interviewId:" + request.getInterviewId()
+                                    + "questionId:" + request.getQuestionId();
+                            redisService.deleteValues(retryRedisKey + "triggered");
+                            redisService.deleteValues(retryRedisKey + "chunks");
+                            redisService.deleteValues(retryRedisKey + "totalChunks");
+                            redisService.deleteValues(retryRedisKey + "savedPath");
+                            redisService.deleteValues("interviewId:" + request.getInterviewId() + "lock");
+                            // 종료 경로에서 saveAnswer가 실행된 경우 고아 InterviewAnswer 삭제
+                            interviewService.deleteAnswerByQuestionId(request.getQuestionId());
+                            messagingTemplate.convertAndSend(
+                                    "/topic/interview/tmp/" + request.getInterviewId(),
+                                    (Object) Map.of("type", "STT_ERROR", "message", error.getMessage()));
+                        },
+                        () -> {
+                            // 파이프라인 성공 완료 후 triggered 키 삭제 — 다음 답변/종료 재진입 보장
+                            String retryRedisKey = "interviewId:" + request.getInterviewId()
+                                    + "questionId:" + request.getQuestionId();
+                            redisService.deleteValues(retryRedisKey + "triggered");
+                            log.info("파이프라인 완료 — triggered 키 삭제 interviewId: {}",
+                                    request.getInterviewId());
+                        }
+                );
 
     }
 
     @MessageMapping("/next")
     public void receiveTotalChunk(
-            @Payload TotalChunkRequest request
+            @Payload TotalChunkRequest request,
+            @Header("simpSessionAttributes") Map<String, Object> sessionAttributes
     ) throws IOException {
+        String email = (String) sessionAttributes.get("email");
         String redisKey =
                 "interviewId:" + request.getInterviewId() + "questionId:" + request.getQuestionId();
         // 저장 요청이 들어오면 redis에 락을 걸어 저장 중 종료를 못하도록 방지함
@@ -120,5 +156,77 @@ public class InterviewWebSocketController {
         // 음성 파일 저장 경로 redis에 저장
         redisService.setValues(redisKey + "savedPath", savedPath, Duration.ofMinutes(3));
 
+        // 레이스 조건 보완: totalChunks 저장 시점에 이미 모든 청크 STT가 완료된 경우 파이프라인 트리거
+        int totalChunks = Integer.parseInt(request.getTotalChunk());
+        if (totalChunks == redisService.savedChunkCount(redisKey + "chunks")) {
+            String triggerKey = redisKey + "triggered";
+            if (redisService.setIfAbsent(triggerKey, "1", Duration.ofMinutes(5))) {
+                log.info("totalChunks 도착 시점에 모든 청크 완료 확인 — 파이프라인 트리거 (/next 경로)");
+                if (redisService.hasKey("interviewId:" + request.getInterviewId() + "isExit")) {
+                    log.info("인터뷰 종료 로직 실행 (/next 경로)");
+                    interviewFacade.exitInterviewFacade(email,
+                            InterviewExitRequest.builder()
+                                    .interviewId(request.getInterviewId())
+                                    .questionId(request.getQuestionId())
+                                    .build()).subscribe(
+                            null,
+                            error -> {
+                                log.error("종료 파이프라인 에러 발생 (/next 경로) interviewId: {}, 원인: {}",
+                                        request.getInterviewId(), error.getMessage());
+                                // 재시도를 위한 Redis 상태 초기화
+                                redisService.deleteValues(redisKey + "triggered");
+                                redisService.deleteValues(redisKey + "chunks");
+                                redisService.deleteValues(redisKey + "totalChunks");
+                                redisService.deleteValues(redisKey + "savedPath");
+                                redisService.deleteValues("interviewId:" + request.getInterviewId() + "lock");
+                                // 종료 경로에서 saveAnswer가 실행된 경우 고아 InterviewAnswer 삭제
+                                interviewService.deleteAnswerByQuestionId(request.getQuestionId());
+                                messagingTemplate.convertAndSend(
+                                        "/topic/interview/tmp/" + request.getInterviewId(),
+                                        (Object) Map.of("type", "STT_ERROR", "message", error.getMessage()));
+                            },
+                            () -> {
+                                // 파이프라인 성공 완료 후 triggered 키 삭제
+                                redisService.deleteValues(redisKey + "triggered");
+                                log.info("종료 파이프라인 완료 — triggered 키 삭제 (/next 경로) interviewId: {}",
+                                        request.getInterviewId());
+                            }
+                    );
+                } else {
+                    log.info("꼬리 질문 생성 로직 실행 (/next 경로)");
+                    interviewFacade.generateNextQuestionFacade(
+                                    request.getInterviewId(),
+                                    request.getQuestionId(), System.currentTimeMillis(), email)
+                            .doOnNext(followUpQuestionDTO ->
+                                    messagingTemplate.convertAndSend(
+                                            "/topic/interview/tmp/" + request.getInterviewId(),
+                                            followUpQuestionDTO))
+                            .subscribe(
+                                    null,
+                                    error -> {
+                                        log.error("꼬리질문 파이프라인 에러 발생 (/next 경로) interviewId: {}, 원인: {}",
+                                                request.getInterviewId(), error.getMessage());
+                                        // 재시도를 위한 Redis 상태 초기화
+                                        redisService.deleteValues(redisKey + "triggered");
+                                        redisService.deleteValues(redisKey + "chunks");
+                                        redisService.deleteValues(redisKey + "totalChunks");
+                                        redisService.deleteValues(redisKey + "savedPath");
+                                        redisService.deleteValues("interviewId:" + request.getInterviewId() + "lock");
+                                        // 종료 경로에서 saveAnswer가 실행된 경우 고아 InterviewAnswer 삭제
+                                        interviewService.deleteAnswerByQuestionId(request.getQuestionId());
+                                        messagingTemplate.convertAndSend(
+                                                "/topic/interview/tmp/" + request.getInterviewId(),
+                                                (Object) Map.of("type", "STT_ERROR", "message", error.getMessage()));
+                                    },
+                                    () -> {
+                                        // 파이프라인 성공 완료 후 triggered 키 삭제
+                                        redisService.deleteValues(redisKey + "triggered");
+                                        log.info("꼬리질문 파이프라인 완료 — triggered 키 삭제 (/next 경로) interviewId: {}",
+                                                request.getInterviewId());
+                                    }
+                            );
+                }
+            }
+        }
     }
 }

@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useInterviewDetail } from "@/hooks/useInterviewDetail";
-import { deleteInterview } from "@/services/interview";
+import { deleteInterview, toggleBookmark } from "@/services/interview";
+import { useBookmarkStore } from "@/store/useBookmarkStore";
 import type { InterviewDetailEntry } from "@/types/interview";
 import styles from "./page.module.css";
 
@@ -25,7 +26,10 @@ function AudioPlayer({ voiceUuid }: { voiceUuid: string }) {
         const res = await fetch(`/api/v1/interview/sound/play/${voiceUuid}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
-        if (!res.ok) { setLoadError(true); return; }
+        if (!res.ok) {
+          setLoadError(true);
+          return;
+        }
         const blob = await res.blob();
         objectUrl = URL.createObjectURL(blob);
         setBlobUrl(objectUrl);
@@ -34,11 +38,12 @@ function AudioPlayer({ voiceUuid }: { voiceUuid: string }) {
       }
     };
     fetchAudio();
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [voiceUuid]);
 
   if (loadError) return null;
-
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -60,11 +65,19 @@ function AudioPlayer({ voiceUuid }: { voiceUuid: string }) {
       <audio
         ref={audioRef}
         src={blobUrl ?? undefined}
-        onTimeUpdate={() => audioRef.current && setCurrentTime(audioRef.current.currentTime)}
-        onLoadedMetadata={() => audioRef.current && setDuration(audioRef.current.duration)}
+        onTimeUpdate={() =>
+          audioRef.current && setCurrentTime(audioRef.current.currentTime)
+        }
+        onLoadedMetadata={() =>
+          audioRef.current && setDuration(audioRef.current.duration)
+        }
         onEnded={() => setIsPlaying(false)}
       />
-      <button className={styles.playBtn} onClick={togglePlay} aria-label={isPlaying ? "pause" : "play"}>
+      <button
+        className={styles.playBtn}
+        onClick={togglePlay}
+        aria-label={isPlaying ? "pause" : "play"}
+      >
         {isPlaying ? (
           <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
             <rect x="1" y="1" width="3.5" height="10" rx="1" />
@@ -87,7 +100,9 @@ function AudioPlayer({ voiceUuid }: { voiceUuid: string }) {
           onChange={handleSeek}
         />
       </div>
-      <span className={styles.timestamp}>{fmt(currentTime)} / {fmt(duration)}</span>
+      <span className={styles.timestamp}>
+        {fmt(currentTime)} / {fmt(duration)}
+      </span>
     </div>
   );
 }
@@ -96,9 +111,13 @@ function AudioPlayer({ voiceUuid }: { voiceUuid: string }) {
 function QnaModule({
   entry,
   index,
+  isBookmarked,
+  onToggleBookmark,
 }: {
   entry: InterviewDetailEntry;
   index: number;
+  isBookmarked: boolean;
+  onToggleBookmark: () => void;
 }) {
   const seq = String(index + 1).padStart(2, "0");
   return (
@@ -107,12 +126,36 @@ function QnaModule({
         <header className={styles.moduleHeader}>
           <span className={styles.seqLabel}>{seq}</span>
           <div className={styles.rule} />
+          {/* 북마크(핀) 토글 버튼 */}
+          <button
+            className={`${styles.pinBtn} ${isBookmarked ? styles.pinActive : ""}`}
+            onClick={onToggleBookmark}
+            aria-label={isBookmarked ? "북마크 해제" : "북마크 추가"}
+          >
+            <svg
+              width="13"
+              height="16"
+              viewBox="0 0 13 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M1 1h11v13l-5.5-3.5L1 14V1z"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinejoin="round"
+                fill={isBookmarked ? "currentColor" : "none"}
+              />
+            </svg>
+          </button>
         </header>
         <blockquote className={styles.question}>
           {entry.interviewQuestion}
         </blockquote>
         <div className={styles.answerBlock}>
-          {entry.interviewVoice && <AudioPlayer voiceUuid={entry.interviewVoice} />}
+          {entry.interviewVoice && (
+            <AudioPlayer voiceUuid={entry.interviewVoice} />
+          )}
           {entry.interviewText ? (
             <p className={styles.answerText}>{entry.interviewText}</p>
           ) : (
@@ -141,9 +184,7 @@ function DeleteModal({
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <p className={styles.modalTitle}>이 인터뷰를 삭제할까요?</p>
         <p className={styles.modalDesc}>삭제된 기록은 복구할 수 없습니다.</p>
-        {deleteError && (
-          <p className={styles.modalError}>{deleteError}</p>
-        )}
+        {deleteError && <p className={styles.modalError}>{deleteError}</p>}
         <div className={styles.modalActions}>
           <button
             className={styles.cancelBtn}
@@ -169,12 +210,30 @@ function DeleteModal({
 export default function MagazinePage() {
   const params = useParams();
   const router = useRouter();
-  const interviewId = Number(params.id);
+  // useParams()는 string | string[]을 반환할 수 있으므로 안전하게 단일 값으로 변환
+  const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const interviewId = rawId ? Number(rawId) : NaN;
   const { data, isLoading, error } = useInterviewDetail(interviewId);
 
   const [showModal, setShowModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // localStorage에 영구 저장되는 북마크 스토어 (새로고침 후에도 상태 유지)
+  const { bookmarks, setBookmark } = useBookmarkStore();
+
+  const handleToggleBookmark = async (interviewAnswerId: number) => {
+    const wasBookmarked = bookmarks[interviewAnswerId] === true;
+    // 낙관적으로 UI 먼저 전환
+    setBookmark(interviewAnswerId, !wasBookmarked);
+    try {
+      // POST 응답의 interviewShareRange로 최종 상태 확정
+      const confirmed = await toggleBookmark(interviewId, interviewAnswerId, !wasBookmarked);
+      setBookmark(interviewAnswerId, confirmed);
+    } catch {
+      setBookmark(interviewAnswerId, wasBookmarked);
+    }
+  };
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
@@ -208,18 +267,25 @@ export default function MagazinePage() {
     const msg = (error as Error).message;
     const is403 = msg === "FORBIDDEN";
     const is404 = msg === "NOT_FOUND";
+    const is502 = msg === "BAD_GATEWAY";
     return (
       <main className={styles.container}>
         <div className={styles.stateBox}>
-          <span className={styles.stateCode}>{is403 ? "403" : is404 ? "404" : "ERR"}</span>
+          <span className={styles.stateCode}>
+            {is403 ? "403" : is404 ? "404" : is502 ? "502" : "ERR"}
+          </span>
           <p className={styles.stateMsg}>
             {is403
               ? "이 인터뷰에 접근할 권한이 없습니다."
-              : is404
+              : is502
+                ? "서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
+                : is404
                 ? "인터뷰를 찾을 수 없습니다."
                 : "불러오는 중 오류가 발생했습니다."}
           </p>
-          <Link href="/archive" className={styles.backLink}>← 아카이브로 돌아가기</Link>
+          <Link href="/archive" className={styles.backLink}>
+            ← 아카이브로 돌아가기
+          </Link>
         </div>
       </main>
     );
@@ -265,7 +331,10 @@ export default function MagazinePage() {
       {showModal && (
         <DeleteModal
           onConfirm={handleDeleteConfirm}
-          onCancel={() => { setShowModal(false); setDeleteError(null); }}
+          onCancel={() => {
+            setShowModal(false);
+            setDeleteError(null);
+          }}
           isDeleting={isDeleting}
           deleteError={deleteError}
         />
@@ -276,13 +345,29 @@ export default function MagazinePage() {
         {/* 왼쪽 열: 짝수 인덱스 (0, 2, 4 …) */}
         <div className={styles.col}>
           {leftCol.map((entry, i) => (
-            <QnaModule key={i * 2} entry={entry} index={i * 2} />
+            <QnaModule
+              key={i * 2}
+              entry={entry}
+              index={i * 2}
+              isBookmarked={bookmarks[entry.interviewAnswerId] === true}
+              onToggleBookmark={() =>
+                handleToggleBookmark(entry.interviewAnswerId)
+              }
+            />
           ))}
         </div>
         {/* 오른쪽 열: 홀수 인덱스 (1, 3, 5 …) — 아래로 오프셋돼 스태거 효과 */}
         <div className={`${styles.col} ${styles.colOffset}`}>
           {rightCol.map((entry, i) => (
-            <QnaModule key={i * 2 + 1} entry={entry} index={i * 2 + 1} />
+            <QnaModule
+              key={i * 2 + 1}
+              entry={entry}
+              index={i * 2 + 1}
+              isBookmarked={bookmarks[entry.interviewAnswerId] === true}
+              onToggleBookmark={() =>
+                handleToggleBookmark(entry.interviewAnswerId)
+              }
+            />
           ))}
         </div>
       </div>
