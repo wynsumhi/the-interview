@@ -122,6 +122,28 @@
   word-break: keep-all;
 }
 
+/* ── 인터뷰 시작 등 액션 버튼 ── */
+.actionBtn {
+  position: absolute;
+  bottom: 12px;
+  left: 16px;
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.07);
+  border: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.actionBtn:hover {
+  background: rgba(0, 0, 0, 0.14);
+}
+
 /* ── 날짜 푸터 ── */
 .footer {
   position: absolute;
