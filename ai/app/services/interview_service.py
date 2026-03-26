@@ -43,6 +43,17 @@ NEW_USER_START_QUESTION_TEMPLATE = (
 )
 
 
+def _build_magazine_refinement_messages(stt_text: str) -> list[dict[str, str]]:
+    user_message = (
+        "[Task]\n"
+        "Refine the following interview answer into magazine style.\n"
+        "Do not answer the speaker's question. Do not add guidance or refusal.\n\n"
+        "[Interview Answer]\n"
+        f"{stt_text}"
+    )
+    return [{"role": "user", "content": user_message}]
+
+
 def _to_plain_dict(value: Any) -> dict[str, Any]:
     if is_dataclass(value):
         return asdict(value)
@@ -161,7 +172,7 @@ def refine_answer_for_magazine(
         raise ValueError("stt_text is required.")
 
     refined = create_message(
-        messages=[{"role": "user", "content": normalized_stt_text}],
+        messages=_build_magazine_refinement_messages(normalized_stt_text),
         system=MAGAZINE_GENERATION_SYSTEM_PROMPT,
         max_tokens=max_tokens,
         label="answer_refinement",

@@ -165,7 +165,9 @@ class TestInterviewPipeline(unittest.TestCase):
             self.assertIn("[state prompt]\n- top_state: calm", llm_kwargs["messages"][0]["content"])
             self.assertIn("candidate [PHONE_1]", llm_kwargs["messages"][0]["content"])
             self.assertEqual(magazine_call.kwargs["label"], "answer_refinement")
-            self.assertEqual(magazine_call.kwargs["messages"][0]["content"], "candidate answer")
+            self.assertIn("[Task]", magazine_call.kwargs["messages"][0]["content"])
+            self.assertIn("[Interview Answer]", magazine_call.kwargs["messages"][0]["content"])
+            self.assertIn("candidate answer", magazine_call.kwargs["messages"][0]["content"])
             callback_mock.assert_not_called()
             tts_mock.assert_called_once_with(
                 "follow-up interview question",
@@ -257,10 +259,9 @@ class TestInterviewPipeline(unittest.TestCase):
             self.assertIn("[state prompt]\n- top_state: calm", llm_kwargs["messages"][0]["content"])
             self.assertIn("external [EMAIL_1]", llm_kwargs["messages"][0]["content"])
             self.assertEqual(magazine_call.kwargs["label"], "answer_refinement")
-            self.assertEqual(
-                magazine_call.kwargs["messages"][0]["content"],
-                "full audio stt answer",
-            )
+            self.assertIn("[Task]", magazine_call.kwargs["messages"][0]["content"])
+            self.assertIn("[Interview Answer]", magazine_call.kwargs["messages"][0]["content"])
+            self.assertIn("full audio stt answer", magazine_call.kwargs["messages"][0]["content"])
             callback_mock.assert_not_called()
             tts_mock.assert_called_once_with(
                 "follow-up interview question",
@@ -405,10 +406,9 @@ class TestInterviewPipeline(unittest.TestCase):
             self.assertIn("rag context block", llm_kwargs["messages"][0]["content"])
             self.assertIn("external [RRN_1]", llm_kwargs["messages"][0]["content"])
             self.assertEqual(magazine_call.kwargs["label"], "answer_refinement")
-            self.assertEqual(
-                magazine_call.kwargs["messages"][0]["content"],
-                "full audio stt answer",
-            )
+            self.assertIn("[Task]", magazine_call.kwargs["messages"][0]["content"])
+            self.assertIn("[Interview Answer]", magazine_call.kwargs["messages"][0]["content"])
+            self.assertIn("full audio stt answer", magazine_call.kwargs["messages"][0]["content"])
 
 
 if __name__ == "__main__":
