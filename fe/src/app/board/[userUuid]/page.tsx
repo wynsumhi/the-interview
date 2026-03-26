@@ -6,6 +6,7 @@ import { useShareBoardInfo } from "@/hooks/useShareBoardInfo";
 import { useBookmarkPostits } from "@/hooks/useBookmarkPostits";
 import { useQuestionPostits } from "@/hooks/useQuestionPostits";
 import { useCreateQuestion } from "@/hooks/useCreateQuestion";
+import { useUpdateQuestion } from "@/hooks/useUpdateQuestion";
 import { useBoardStore } from "@/store/useBoardStore";
 import MemoCard from "@/components/board/MemoCard";
 import AddQuestionCard from "@/components/board/AddQuestionCard";
@@ -50,7 +51,8 @@ function toQuestionMemoCardProps(item: QuestionPostitItem) {
     // 질문 내용을 카드 기본 화면의 타이틀로 사용
     title: item.content,
     category: "Question",
-    date: formatDate(item.createdAt),
+    // 수정된 경우 updatedAt을 표시, 그렇지 않으면 createdAt 사용
+    date: formatDate(item.updatedAt ?? item.createdAt),
     colorCode: item.layout.colorCode,
     rotationDeg: item.layout.rotationDeg,
     positionX: item.layout.positionX,
@@ -102,6 +104,9 @@ export default function BoardPage({
 
   // 질문 생성 뮤테이션: 성공 시 questionPostits 캐시 자동 무효화
   const { mutate: submitQuestion, isPending: isSubmitting } = useCreateQuestion(userUuid);
+
+  // 질문 수정 뮤테이션: 성공 시 캐시의 content/updatedAt을 즉시 갱신
+  const { mutate: submitEdit, isPending: isSavingEdit } = useUpdateQuestion(userUuid);
 
   // 질문 포스트잇 기반으로 인터뷰 시작: conversation 페이지로 이동
   // questionId를 URL 파라미터로 전달하면 conversation 페이지에서 start-interview API를 호출함
@@ -184,6 +189,9 @@ export default function BoardPage({
                 onAction={canStart ? () => handleStartInterview(item.questionId) : undefined}
                 actionLabel={canStart ? "Start Interview" : undefined}
                 dimmed={!canStart}
+                canEdit={item.permissions.canEditContent}
+                onSaveEdit={(content) => submitEdit({ questionId: item.questionId, content })}
+                isSaving={isSavingEdit}
               />
             );
           })}
