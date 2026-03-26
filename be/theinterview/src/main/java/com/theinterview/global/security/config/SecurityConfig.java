@@ -1,15 +1,17 @@
 package com.theinterview.global.security.config;
 
 import com.theinterview.global.config.redis.RedisService;
+import com.theinterview.global.security.config.internal.InternalApiTokenFilter;
 import com.theinterview.global.security.config.jwt.JwtFilter;
 import com.theinterview.global.security.config.jwt.JwtProvider;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.core.Ordered;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -31,6 +33,14 @@ public class SecurityConfig {
     private final JwtProvider jwtProvider;
     private final RedisService redisService;
 
+    /*
+     * AI 서버가 백엔드 내부 callback API를 호출할 때 사용할 전용 토큰이다.
+     * 일반 사용자 JWT와 완전히 분리된 내부 서버 간 인증 값을 사용해야 하므로
+     * SecurityConfig에서 별도 프로퍼티로 주입받아 InternalApiTokenFilter에 전달한다.
+     */
+    @Value("${internal.api.ai-callback-token:}")
+    private String internalAiCallbackToken;
+
     // 비밀번호 암호화 메서드 등록
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -50,6 +60,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/v1/interview/sound/play/**",
+                                "/v1/interview/internal/**",
+                                "/api/v1/interview/internal/**",
                                 "/v1/interview/share/**",
                                 "/v1/auth/signup",
                                 "/v1/auth/exists/**",
@@ -68,6 +80,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/v1/share-board/member/**").permitAll()
                         .anyRequest().authenticated()
                 ).cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                /*
+                 * 내부 callback 경로는 사용자 JWT 검증보다 먼저 별도 토큰 검증을 통과해야 한다.
+                 * permitAll로 공개 경로에 포함하더라도 실제 접근은 InternalApiTokenFilter가 막기 때문에
+                 * 기존 사용자 인증 체계를 건드리지 않고 AI 서버 전용 진입점만 따로 보호할 수 있다.
+                 */
+                .addFilterBefore(new InternalApiTokenFilter(internalAiCallbackToken),
+                        UsernamePasswordAuthenticationFilter.class)
                 // JwtFilter를 시큐리티 체인에 등록함
                 .addFilterBefore(new JwtFilter(jwtProvider, redisService),
                         UsernamePasswordAuthenticationFilter.class);

@@ -94,6 +94,17 @@ public class InterviewAnswer {
         this.answerKeyword = keyword;
     }
 
+    /**
+     * AI 서버가 정제한 답변 텍스트만 늦게 도착했을 때 answerText만 안전하게 교체하기 위한 메서드다.
+     *
+     * <p>이번 변경 이후에는 꼬리질문 응답 저장과 정제 텍스트 저장이 서로 다른 시점에 일어난다.
+     * 따라서 이미 저장된 InterviewAnswer 행에 대해 오디오 경로나 감정 점수를 건드리지 않고,
+     * 텍스트 컬럼만 독립적으로 갱신할 수 있어야 해서 별도 메서드를 추가한다.
+     */
+    public void updateAnswerText(String answerText) {
+        this.answerText = answerText;
+    }
+
     // 감정 상태, 정제 텍스트 저장
     public void updateTextEmotion(String text, InterviewStateDb interviewStateDb) {
 

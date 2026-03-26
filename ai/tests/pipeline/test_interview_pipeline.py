@@ -122,6 +122,10 @@ class TestInterviewPipeline(unittest.TestCase):
                     return_value="follow-up interview question",
                 ) as llm_mock,
                 patch(
+                    "app.pipeline.interview_pipeline.save_refined_answer_to_backend",
+                    return_value=True,
+                ) as callback_mock,
+                patch(
                     "app.pipeline.interview_pipeline.text_to_speech",
                     return_value=b"tts-bytes",
                 ) as tts_mock,
@@ -164,6 +168,7 @@ class TestInterviewPipeline(unittest.TestCase):
             self.assertIn("[Task]", magazine_call.kwargs["messages"][0]["content"])
             self.assertIn("[Interview Answer]", magazine_call.kwargs["messages"][0]["content"])
             self.assertIn("candidate answer", magazine_call.kwargs["messages"][0]["content"])
+            callback_mock.assert_not_called()
             tts_mock.assert_called_once_with(
                 "follow-up interview question",
                 voice="Sarah",
@@ -210,6 +215,10 @@ class TestInterviewPipeline(unittest.TestCase):
                     return_value="follow-up interview question",
                 ) as llm_mock,
                 patch(
+                    "app.pipeline.interview_pipeline.save_refined_answer_to_backend",
+                    return_value=True,
+                ) as callback_mock,
+                patch(
                     "app.pipeline.interview_pipeline.text_to_speech",
                     return_value=b"tts-bytes",
                 ) as tts_mock,
@@ -253,9 +262,72 @@ class TestInterviewPipeline(unittest.TestCase):
             self.assertIn("[Task]", magazine_call.kwargs["messages"][0]["content"])
             self.assertIn("[Interview Answer]", magazine_call.kwargs["messages"][0]["content"])
             self.assertIn("full audio stt answer", magazine_call.kwargs["messages"][0]["content"])
+            callback_mock.assert_not_called()
             tts_mock.assert_called_once_with(
                 "follow-up interview question",
                 voice="Sam",
+            )
+
+    def test_run_interview_pipeline_from_stt_text_saves_refined_answer_when_ids_are_present(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            audio_file = Path(tmp_dir) / "sample.wav"
+            audio_file.write_bytes(b"fake-audio")
+
+            def create_message_side_effect(*args, **kwargs):
+                if kwargs["label"] == "answer_refinement":
+                    return "refined answer"
+                return "follow-up interview question"
+
+            with (
+                patch(
+                    "app.pipeline.interview_pipeline.analyze_interview_state",
+                    return_value=object(),
+                ),
+                patch(
+                    "app.pipeline.interview_pipeline.build_guardrail_payload",
+                    return_value=self._build_guardrail_payload(
+                        original_text="external stt answer",
+                        masked_text="external [EMAIL_1]",
+                        entity_type="EMAIL",
+                        original_entity="hello@example.com",
+                        duration_seconds=0.0008,
+                        source="rule:email",
+                    ),
+                ),
+                patch(
+                    "app.pipeline.interview_pipeline.build_interview_state_db_payload",
+                    return_value=self._build_state_db(),
+                ),
+                patch(
+                    "app.pipeline.interview_pipeline.build_interview_state_prompt_payload",
+                    return_value=self._build_state_prompt("[state prompt]"),
+                ),
+                patch(
+                    "app.pipeline.interview_pipeline.speech_to_text",
+                    return_value="full audio stt answer",
+                ),
+                patch(
+                    "app.pipeline.interview_pipeline.create_message",
+                    side_effect=create_message_side_effect,
+                ),
+                patch(
+                    "app.pipeline.interview_pipeline.save_refined_answer_to_backend",
+                    return_value=True,
+                ) as callback_mock,
+                patch("app.pipeline.interview_pipeline.text_to_speech", return_value=b"tts-bytes"),
+            ):
+                run_interview_pipeline_from_stt_text(
+                    str(audio_file),
+                    stt_text="external stt answer",
+                    is_first_finished=True,
+                    interview_id=11,
+                    question_id=22,
+                )
+
+            callback_mock.assert_called_once_with(
+                interview_id=11,
+                question_id=22,
+                refined_answer="refined answer",
             )
 
     def test_run_interview_pipeline_from_stt_text_includes_rag_context_for_regular_interview(self):

@@ -276,6 +276,8 @@ def save_interview_state_temp(request: dict[str, Any]) -> dict[str, Any]:
 def run_interview_pipeline_from_upload(
     audio_file: UploadFile,
     is_first_finished: bool = False,
+    interview_id: int | None = None,
+    question_id: int | None = None,
     voice: str | None = None,
     user_id: str | None = None,
     sequence: int | None = None,
@@ -308,6 +310,8 @@ def run_interview_pipeline_from_upload(
         pipeline_result = run_interview_pipeline(
             str(temp_file_path),
             is_first_finished=is_first_finished,
+            interview_id=interview_id,
+            question_id=question_id,
             voice=voice,
             user_id=user_id,
             sequence=sequence,
@@ -328,7 +332,6 @@ def run_interview_pipeline_from_upload(
             "question_text": response["question_text"],
             "tts_audio_base64": base64.b64encode(response["tts_audio"]).decode("ascii"),
             "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
-            "refined_answer": response["refined_answer"],
         }
     finally:
         audio_file.file.close()
@@ -340,6 +343,8 @@ def run_interview_pipeline_from_stt_payload(
     audio_file: UploadFile,
     stt_text: str,
     is_first_finished: bool = False,
+    interview_id: int | None = None,
+    question_id: int | None = None,
     voice: str | None = None,
     user_id: str | None = None,
     sequence: int | None = None,
@@ -367,6 +372,8 @@ def run_interview_pipeline_from_stt_payload(
             str(temp_file_path),
             stt_text=normalized_stt_text,
             is_first_finished=is_first_finished,
+            interview_id=interview_id,
+            question_id=question_id,
             voice=voice,
             user_id=user_id,
             sequence=sequence,
@@ -385,7 +392,6 @@ def run_interview_pipeline_from_stt_payload(
             "question_text": response["question_text"],
             "tts_audio_base64": base64.b64encode(response["tts_audio"]).decode("ascii"),
             "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
-            "refined_answer": response["refined_answer"],
         }
     finally:
         audio_file.file.close()
