@@ -109,7 +109,9 @@ def _build_first_interview_messages(
 
 
 def _build_magazine_refinement_messages(stt_text: str) -> list[dict[str, str]]:
-    """Build a task-scoped prompt so the LLM treats the input strictly as interview-answer text."""
+    """
+    LLM이 인터뷰 답변을 잡지 기사 스타일로 다듬도록 하는 메시지를 구성한다.
+    """
 
     user_message = (
         "[Task]\n"
