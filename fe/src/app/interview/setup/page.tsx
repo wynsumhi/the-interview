@@ -137,7 +137,7 @@ export default function InterviewSetupPage() {
       </section>
 
       <section className={styles.section}>
-        <p className={styles.label}>Voice</p>
+        <p className={styles.label}>Voice Type</p>
 
         <div className={styles.voiceGrid}>
           {voiceOptions.map((option) => (
