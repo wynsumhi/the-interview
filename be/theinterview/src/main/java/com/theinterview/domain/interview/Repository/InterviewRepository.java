@@ -22,4 +22,8 @@ public interface InterviewRepository extends JpaRepository<Interview, Integer> {
 
     // 특정 UUID를 가지고 일치하는 인터뷰를 가져옵니다.
     Optional<Interview> findByShareLink(String shareLink);
+
+    // 특정 사용자의 마지막(가장 최신) 인터뷰를 가져옵니다.
+    Optional<Interview> findTopByMemberIdAndStatusNotOrderByUpdatedAtDesc(Integer memberId,
+            InterviewStatus status);
 }

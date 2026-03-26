@@ -6,7 +6,6 @@ import com.theinterview.domain.interview.Repository.InterviewAnswerRepository;
 import com.theinterview.domain.interview.Repository.InterviewQuestionRepository;
 import com.theinterview.domain.interview.Repository.InterviewRepository;
 import com.theinterview.domain.interview.Repository.QuestionCandidateRepository;
-import com.theinterview.domain.interview.dto.AiRagDto;
 import com.theinterview.domain.interview.dto.AiRagDto.Turn;
 import com.theinterview.domain.interview.dto.FacadeInnerDto.AnswerTts;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
@@ -34,6 +33,7 @@ import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryD
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItBoardResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewUnfinishedResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewResponseDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
@@ -108,31 +108,49 @@ public class InterviewService {
     public WebSocketConnectResponse saveInterviewAndQuestion(
             Member member,
             AiStartTtsResponse aiStartTtsResponse,
-            String voice
+            String voice,
+            Boolean restartFlag,
+            Integer interviewId
     )
             throws JsonProcessingException {
 
-        // interview 객체 생성
-        Interview interview = interviewRepository.save(Interview.builder()
-                .member(member)
-                .shareRange(true) // 기본 공개 설정
-                .title(aiStartTtsResponse.getQuestionText())
-                .status(InterviewStatus.BEFORE_START)
-                .build());
-        log.info("인터뷰 세션 생성 성공 interviewId: {}", interview.getId());
+        Interview interview;
+        InterviewQuestion question;
 
-        // 인터뷰 진행중으로 상태 변경
-        interview.interviewInProgress();
+        if (Boolean.TRUE.equals(restartFlag)) {
+            // 비정상 종료 이어서 하기
+            interview = domainFindUtils.getInterviewById(interviewId);
+            question = interviewQuestionRepository.findTopByInterviewIdOrderBySequenceDesc(
+                            interviewId)
+                    .orElseThrow(() -> new GeneralException(ErrorStatus.QUESTION_NOT_FOUND));
 
-        // 첫 질문 DB에 저장
-        InterviewQuestion question = interviewQuestionRepository.save(InterviewQuestion.builder()
-                .interview(interview)
-                .sequence(1)
-                .questionText(interview.getTitle())
-                .build());
+            // 상태 확인 및 업데이트 (필요시)
+            interview.interviewInProgress();
+        } else {
+            // 기존 로직
+            // interview 객체 생성
+            interview = interviewRepository.save(Interview.builder()
+                    .member(member)
+                    .shareRange(true) // 기본 공개 설정
+                    .title(aiStartTtsResponse.getQuestionText())
+                    .status(InterviewStatus.BEFORE_START)
+                    .build());
+            log.info("인터뷰 세션 생성 성공 interviewId: {}", interview.getId());
+
+            // 인터뷰 진행중으로 상태 변경
+            interview.interviewInProgress();
+
+            // 첫 질문 DB에 저장
+            question = interviewQuestionRepository.save(
+                    InterviewQuestion.builder()
+                            .interview(interview)
+                            .sequence(1)
+                            .questionText(interview.getTitle())
+                            .build());
+        }
 
         AiPipelineReadyDto dto = AiPipelineReadyDto.builder()
-                .sequence(1)
+                .sequence(question.getSequence())
                 .nickname(member.getNickname())
                 .previousQuestion(question.getQuestionText())
                 .isFirstFinished(member.getIsFirstFinished())
@@ -364,7 +382,7 @@ public class InterviewService {
                             + "\n";
 
             // turns 객체 조립
-            turns.add(AiRagDto.Turn.builder()
+            turns.add(Turn.builder()
                     .questionId(String.valueOf(interviewQuestion.getId()))
                     .answerId(String.valueOf(interviewAnswer.getId()))
                     .question(interviewQuestion.getQuestionText())
@@ -970,6 +988,23 @@ public class InterviewService {
         log.info("키워드 저장 성공. 키워드: {}", keyword);
     }
 
+    // 완료되지 않고 종료된 인터뷰가 있는지 확인
+    public InterviewUnfinishedResponse findUnfinishedInterviews(String email) {
+
+        Member member = domainFindUtils.getMemberByEmail(email);
+        // TODO : 인터뷰를 정상종료 하더라도 바로 FINISHED로 변경되지 않기 때문에 인터뷰 시작시 비정상 로직이 있다고 뜰 수 있음.
+
+        // 종료가 되지 않은 인터뷰가 있는지 찾음
+        Integer interviewId = interviewRepository.findTopByMemberIdAndStatusNotOrderByUpdatedAtDesc(
+                        member.getId(), InterviewStatus.FINISHED)
+                .map(Interview::getId)
+                .orElse(null);
+
+        return InterviewUnfinishedResponse.builder()
+                .unfinishedInterviewId(interviewId)
+                .build();
+    }
+
     // 종료 직전 마지막 답변의 감정 상태, 정제 텍스트를 저장하는 메서드
     @Transactional
     public void saveEmotionTts(LastAnswerTextResponse lastAnswerTextResponse,
@@ -983,5 +1018,6 @@ public class InterviewService {
 
         interviewAnswer.updateTextEmotion(lastAnswerTextResponse.getRefinedAnswer(),
                 lastAnswerEmotionResponse.getInterviewStateDb());
+
     }
 }
