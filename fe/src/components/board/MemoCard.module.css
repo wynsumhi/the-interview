@@ -144,6 +144,26 @@
   background: rgba(0, 0, 0, 0.14);
 }
 
+/* ── 삭제 아이콘 버튼 (카드 우상단, 편집 아이콘 왼쪽) ── */
+.deleteIcon {
+  position: absolute;
+  top: 6px;
+  right: 32px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.32);
+  font-size: 0.65rem;
+  padding: 2px 4px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.deleteIcon:hover {
+  background: rgba(180, 0, 0, 0.08);
+  color: rgba(180, 0, 0, 0.7);
+}
+
 /* ── 편집 아이콘 버튼 (카드 우상단) ── */
 .editIcon {
   position: absolute;
