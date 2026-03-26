@@ -10,10 +10,15 @@ import com.theinterview.domain.member.dto.MemberRequest.MemberJoinRequest;
 import com.theinterview.domain.member.dto.MemberResponse.MemberInfoDTO;
 import com.theinterview.domain.member.dto.MemberResponse.TokenResponseDTO;
 import com.theinterview.domain.member.repository.MemberRepository;
+import com.theinterview.domain.shareboard.entity.ShareBoard;
+import com.theinterview.domain.shareboard.repository.ShareBoardPostitLayoutRepository;
+import com.theinterview.domain.shareboard.repository.ShareBoardQuestionRepository;
+import com.theinterview.domain.shareboard.repository.ShareBoardRepository;
 import com.theinterview.global.config.redis.RedisService;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
 import com.theinterview.global.security.config.jwt.JwtProvider;
+import com.theinterview.global.util.DomainFindUtils;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
@@ -35,6 +40,10 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final InterviewRepository interviewRepository;
     private final InterviewService interviewService;
+    private final ShareBoardRepository shareBoardRepository;
+    private final ShareBoardQuestionRepository shareBoardQuestionRepository;
+    private final ShareBoardPostitLayoutRepository shareBoardPostitLayoutRepository;
+    private final DomainFindUtils domainFindUtils;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final JwtProvider jwtProvider;
@@ -46,14 +55,8 @@ public class MemberService {
 
     // 회원가입 메서드
     @Transactional
-    public MemberInfoDTO createMember(
-            MemberJoinRequest request
-    ) {
-        if (!checkEmail(request.getEmail())) {
-            throw new GeneralException(ErrorStatus.MEMBER_ALREADY_EXISTS);
-        }
-
-        if (!checkNickname(request.getNickname())) {
+    public MemberInfoDTO createMember(MemberJoinRequest request) {
+        if (!checkEmail(request.getEmail()) || !checkNickname(request.getNickname())) {
             throw new GeneralException(ErrorStatus.MEMBER_ALREADY_EXISTS);
         }
 
@@ -69,16 +72,24 @@ public class MemberService {
         log.info("회원가입 완료 memberId: {}, email: {}, nickname: {}", saveMember.getId(),
                 saveMember.getEmail(), saveMember.getNickname());
 
+        // 회원 저장 직후 회원과 1:1인 공유 보드를 자동 생성
+        shareBoardRepository.save(ShareBoard.builder()
+                .owner(saveMember)
+                .build());
+
         return new MemberInfoDTO(saveMember);
     }
 
     // 로그인 및 토큰 발급 로직
     @Transactional(readOnly = true)
     public TokenResponseDTO login(LoginRequestDTO request) {
+        // Respnse - userUuid를 전달하기 위함
+        Member member = domainFindUtils.getMemberByEmail(request.getEmail());
 
-        // 클라이언트에서 보맨 이메일과 비밀번호를 기반으로 임시 토큰 생성
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                request.getEmail(), request.getPassword());
+        // 클라이언트에서 보낸 이메일과 비밀번호를 기반으로 임시 토큰 생성
+        UsernamePasswordAuthenticationToken authenticationToken =
+                new UsernamePasswordAuthenticationToken(request.getEmail(),
+                        request.getPassword());
 
         // loadUserByUsername 메서드가 실행되면서 Db에서 사용자를 찾고 비밀번호를 비교함(CustomUserDetailsService)
         Authentication authenticate = authenticationManagerBuilder.getObject()
@@ -95,7 +106,7 @@ public class MemberService {
                 Duration.ofSeconds(refreshTokenValidityInSeconds)
         );
 
-        return new TokenResponseDTO(refreshToken, accessToken,
+        return new TokenResponseDTO(refreshToken, accessToken, member.getUserUuid(),
                 jwtProvider.getRefreshTokenValidityTime(),
                 jwtProvider.getAccessTokenValidityTime()
         );
@@ -104,7 +115,6 @@ public class MemberService {
     // 로그아웃 메서드
     @Transactional
     public void logout(String email, String accessToken) {
-
         // Redis에 해당 이메일로 저장된 데이터가 있는지 확인하고 데이터 삭제
         if (email != null && redisService.hasKey(email)) {
             redisService.deleteValues(email);
@@ -145,25 +155,21 @@ public class MemberService {
 
         // 닉네임 중복 검사, 만약 자기 자신의 닉네임과 현재 닉네임이 같다면 패스
         if (!Objects.equals(request.getNickname(), member.getNickname())
-                && !checkNickname(
-                request.getNickname())) {
+                && !checkNickname(request.getNickname())) {
             throw new GeneralException(ErrorStatus.MEMBER_ALREADY_EXISTS);
         }
 
         member.changeMemberInfo(request, passwordEncoder);
         return new MemberInfoDTO(member);
-
     }
 
     // 회원탈퇴
     public void deleteMemberInfo(String email) {
-
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
 
         // FK 제약조건으로 인하여 자식부터 삭제하기 위해서 모든 인터뷰 내역을 가져옴
         List<Interview> interviews = interviewRepository.findAllByMemberId(member.getId());
-
         log.info("[MemberService - deleteMemberInfo] memberID : {} / Load Interviews Size : {}",
                 member.getId(), interviews.size());
 
@@ -174,12 +180,18 @@ public class MemberService {
                     interviewService.deleteInterview(interview.getId(), member.getId()));
         }
 
+        // 공유 보드 하위 데이터는 FK 순서에 맞춰 레이아웃 -> 질문 -> 보드 순으로 삭제
+        shareBoardRepository.findByOwnerId(member.getId()).ifPresent(shareBoard -> {
+            shareBoardPostitLayoutRepository.deleteAllByShareBoardId(shareBoard.getId());
+            shareBoardQuestionRepository.deleteAllByShareBoardId(shareBoard.getId());
+            shareBoardRepository.deleteByOwnerId(member.getId());
+        });
+
         memberRepository.deleteById(member.getId());
     }
 
     // 이메일 중복 체크 헬퍼 메서드
     public boolean checkEmail(String email) {
-        // 이메일 중복 체크
         return !memberRepository.existsByEmail(email);
     }
 

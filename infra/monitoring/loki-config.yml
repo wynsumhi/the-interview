@@ -4,6 +4,7 @@ auth_enabled: false # 멀티테넌시(사용자별 분리) 기능을 끕니다. 
 server:
   http_listen_port: 3100 # Grafana나 Promtail이 접속할 HTTP 포트입니다.
   grpc_listen_port: 9096 # Loki 내부 컴포넌트끼리 통신할 때 사용하는 고속 포트입니다.
+  http_listen_address: 0.0.0.0 # 외부에서 동작중인 FastAPI 서버를 위함
 
 # 공통 저장소 및 네트워크 설정
 common:

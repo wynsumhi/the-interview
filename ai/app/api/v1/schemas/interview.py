@@ -43,7 +43,6 @@ class InterviewStateDbPayloadResponse(BaseModel):
     텍스트/음성 개별 상태는 내부 계산에는 사용하지만, 현재 저장 최소 집합에서는 제외한다.
     """
 
-    answer_id: int
     top_state: str
     fused_scores: dict[str, float]
     audio_features: AudioFeaturesResponse
@@ -64,6 +63,12 @@ class InterviewStatePromptResponse(BaseModel):
     top_state: str
     fused_scores: dict[str, float]
     formatted_prompt: str
+
+
+class InterviewStateAnalysisResponse(BaseModel):
+    """인터뷰 상태 분석 전용 API 응답 스키마다."""
+
+    interview_state_db: InterviewStateDbPayloadResponse
 
 
 class NextOpeningRequest(BaseModel):
@@ -109,6 +114,14 @@ class InterviewPipelineResponse(BaseModel):
     tts_audio_mime_type: str = "audio/wav"
 
 
+class InterviewAnswerRefinementRequest(BaseModel):
+    stt_text: str
+
+
+class InterviewAnswerRefinementResponse(BaseModel):
+    refined_answer: str
+
+
 class InterviewStateSaveRequest(BaseModel):
     """임시 인터뷰 상태 저장 요청 스키마다.
 
@@ -117,7 +130,6 @@ class InterviewStateSaveRequest(BaseModel):
     현재 필드 구성은 `InterviewStateDbPayloadResponse`와 동일하게 맞춰 두었다.
     """
 
-    answer_id: int
     top_state: str
     fused_scores: dict[str, float]
     audio_features: AudioFeaturesResponse
@@ -160,6 +172,7 @@ class InterviewClosingRequest(BaseModel):
 
     interview_context: str
     nickname: str
+    voice: str | None = None
 
 
 class InterviewClosingResponse(BaseModel):
@@ -198,6 +211,7 @@ class InterviewStartTTSRequest(BaseModel):
     nickname: str | None = None
     is_first_finished: bool
     db_question: str | None = None
+    voice: str | None = None
 
 
 class InterviewStartTTSResponse(BaseModel):

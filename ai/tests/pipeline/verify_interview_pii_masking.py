@@ -56,12 +56,6 @@ def parse_args() -> argparse.Namespace:
         default="Tell me about a moment that changed how you work.",
         help="Previous question used for the regular interview branch.",
     )
-    parser.add_argument(
-        "--answer-id",
-        type=int,
-        default=999,
-        help="Answer id used for interview-state payload generation.",
-    )
     return parser.parse_args()
 
 
@@ -98,7 +92,6 @@ def build_fake_interview_state() -> tuple[InterviewStateDbPayload, InterviewStat
         pitch_std_hz=10.0,
     )
     interview_state_db = InterviewStateDbPayload(
-        answer_id=999,
         top_state="calm",
         fused_scores=fused_scores,
         audio_features=audio_features,
@@ -122,18 +115,19 @@ def main() -> None:
     created_temp_audio = args.audio_file is None
     audio_file_path = str(args.audio_file) if args.audio_file else create_silent_wav_file()
     interview_state_db, interview_state_prompt = build_fake_interview_state()
-    interview_state_db = InterviewStateDbPayload(
-        answer_id=args.answer_id,
-        top_state=interview_state_db.top_state,
-        fused_scores=interview_state_db.fused_scores,
-        audio_features=interview_state_db.audio_features,
-    )
     captured_messages: dict[str, Any] = {}
 
-    def fake_create_message(*, messages: list[dict[str, str]], system: str, max_tokens: int) -> str:
+    def fake_create_message(
+        *,
+        messages: list[dict[str, str]],
+        system: str,
+        max_tokens: int,
+        label: str = "generic",
+    ) -> str:
         captured_messages["messages"] = messages
         captured_messages["system"] = system
         captured_messages["max_tokens"] = max_tokens
+        captured_messages["label"] = label
         return "What detail from that experience still feels vivid to you?"
 
     try:
@@ -174,7 +168,6 @@ def main() -> None:
             if args.run_stt:
                 result = run_interview_pipeline(
                     audio_file_path=audio_file_path,
-                    answer_id=args.answer_id,
                     is_first_finished=True,
                     user_id=args.user_id,
                     previous_question=args.previous_question,
@@ -183,7 +176,6 @@ def main() -> None:
                 result = run_interview_pipeline_from_stt_text(
                     audio_file_path=audio_file_path,
                     stt_text=args.stt_text,
-                    answer_id=args.answer_id,
                     is_first_finished=True,
                     user_id=args.user_id,
                     previous_question=args.previous_question,

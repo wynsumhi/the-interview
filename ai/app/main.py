@@ -1,7 +1,9 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import api_router
 from app.core import DEFAULT_TTS_PRELOAD_ON_STARTUP
@@ -27,6 +29,18 @@ _configure_app_logging()
 logger = logging.getLogger(__name__)
 
 
+def _resolve_cors_origins() -> list[str]:
+    configured = os.getenv("CORS_ALLOW_ORIGINS", "").strip()
+    if configured:
+        return [origin.strip() for origin in configured.split(",") if origin.strip()]
+    return [
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """애플리케이션 startup과 shutdown 사이에서 공통 리소스 준비를 관리한다.
@@ -37,7 +51,10 @@ async def lifespan(_: FastAPI):
 
     if DEFAULT_TTS_PRELOAD_ON_STARTUP:
         logger.info("Preloading Supertonic TTS engine during FastAPI startup.")
-        warm_up_speech_engine()
+        try:
+            warm_up_speech_engine()
+        except Exception:
+            logger.exception("TTS warmup failed during startup. Continuing without preload.")
 
     yield
 
@@ -51,6 +68,13 @@ app = FastAPI(
     title="The Interview AI API",
     version="0.1.0",
     lifespan=lifespan,
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_resolve_cors_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.include_router(api_router, prefix="/api/v1/ai")
 

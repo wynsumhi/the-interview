@@ -429,3 +429,7 @@ $RECYCLE.BIN/
 !fe/src/lib/**
 
 .pre-commit-cache/
+
+.gradle
+.gradle-cache
+.gradle-user

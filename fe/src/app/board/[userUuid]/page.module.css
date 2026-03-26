@@ -1,0 +1,86 @@
+/* ── 페이지 래퍼: 자연스러운 세로 스크롤 ── */
+.page {
+  min-height: 100vh;
+  background: #202020;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── 스티키 헤더 ── */
+.stickyHeader {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #202020;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.headerInner {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 20px var(--px);
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.headerTitle {
+  font-family: var(--font-montserrat);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.headerCount {
+  font-family: var(--font-montserrat);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* ── 탭 바: 헤더 안 뷰 전환 버튼 type ── */
+.tabBar {
+  max-width: var(--max-w);
+  margin: 20px auto 0; /* 위 제목과 여유 간격 type */
+  padding: 0 var(--px);
+  display: flex;
+  justify-content: center; /* 가운데 정렬 type */
+  gap: 40px;
+}
+
+/* 기본 탭 버튼 type */
+.tab {
+  font-family: var(--font-montserrat);
+  font-size: 14px; /* 가독성을 위한 크기 type */
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 12px 0;
+  color: rgba(255, 255, 255, 0.3);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+/* 선택된 탭 type */
+.tabActive {
+  color: rgba(255, 255, 255, 0.85);
+  border-bottom-color: rgba(255, 255, 255, 0.85);
+}
+
+/* ── 카드 캔버스: 4열 그리드, 행 수는 아이템 수에 따라 자동 증가 ── */
+.canvas {
+  display: grid;
+  grid-template-columns: repeat(4, 260px);
+  gap: 32px;
+  justify-content: center;
+  max-width: var(--max-w);
+  margin: 0 auto;
+  /* 세로 패딩에 최대 오프셋(20px)만큼 여유를 추가해 카드가 잘리지 않도록 함 */
+  padding: 60px var(--px) 100px;
+}

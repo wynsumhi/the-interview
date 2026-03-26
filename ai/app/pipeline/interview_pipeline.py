@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import concurrent.futures
+import logging
 from dataclasses import asdict, dataclass
 
+import requests
 from app.pipeline.pii_masking import build_guardrail_payload
 from app.prompts.interview_prompts import (
     FIRST_INTERVIEW_QUESTION_MAP,
     FIRST_INTERVIEW_SYSTEM_PROMPT,
     INTERVIEW_SYSTEM_PROMPT,
+    MAGAZINE_GENERATION_SYSTEM_PROMPT,
 )
+from app.services.backend_callback_service import save_refined_answer_to_backend
 from app.services.interview_state_service import (
     InterviewStateDbPayload,
     InterviewStatePromptPayload,
@@ -22,6 +27,8 @@ from app.services.rag_service import (
 )
 from app.services.stt_service import speech_to_text
 from app.services.tts_service import text_to_speech
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -39,6 +46,7 @@ class InterviewPipelineResult:
     interview_state_prompt: InterviewStatePromptPayload
     llm_text: str
     tts_audio: bytes
+    refined_answer: str
 
     def to_response_dict(self) -> dict[str, object]:
         """서비스 계층에서 바로 API 응답으로 바꿀 수 있게 dict로 직렬화한다."""
@@ -51,6 +59,7 @@ class InterviewPipelineResult:
             "interview_state_prompt": asdict(self.interview_state_prompt),
             "question_text": self.llm_text,
             "tts_audio": self.tts_audio,
+            "refined_answer": self.refined_answer,
         }
 
 
@@ -61,8 +70,8 @@ def _build_regular_messages(
 ) -> list[dict[str, str]]:
     """일반 인터뷰 단계에서 사용할 사용자 메시지를 구성한다.
 
-    기존 상태 프롬프트는 유지하고,
-    필요하면 유사한 과거 인터뷰 히스토리를 참고 블록으로 덧붙인다.
+    감정 상태 블록은 항상 포함하고,
+    rag_context가 있을 때만 과거 인터뷰 참고 블록을 포함하여 LLM에 전달한다.
     """
 
     sections = [prompt_payload.formatted_prompt]
@@ -99,10 +108,27 @@ def _build_first_interview_messages(
     return [{"role": "user", "content": user_message}]
 
 
+def _build_magazine_refinement_messages(stt_text: str) -> list[dict[str, str]]:
+    """
+    LLM이 인터뷰 답변을 잡지 기사 스타일로 다듬도록 하는 메시지를 구성한다.
+    """
+
+    user_message = (
+        "[Task]\n"
+        "Refine the following interview answer into magazine style.\n"
+        "Do not answer the speaker's question. Do not add guidance or refusal.\n\n"
+        "[Interview Answer]\n"
+        f"{stt_text}"
+    )
+    return [{"role": "user", "content": user_message}]
+
+
 def run_interview_pipeline(
     audio_file_path: str,
-    answer_id: int,
     is_first_finished: bool,
+    interview_id: int | None = None,
+    question_id: int | None = None,
+    voice: str | None = None,
     user_id: str | None = None,
     sequence: int | None = None,
     nickname: str | None = None,
@@ -111,12 +137,15 @@ def run_interview_pipeline(
 ) -> InterviewPipelineResult:
     """STT부터 상태 분석, 꼬리질문 생성, TTS까지 한 번에 실행한다."""
 
-    stt_text = speech_to_text(audio_file_path)
+    stt_text = speech_to_text(audio_file_path, label="primary")
     return run_interview_pipeline_from_stt_text(
         audio_file_path=audio_file_path,
         stt_text=stt_text,
-        answer_id=answer_id,
+        refinement_stt_text=stt_text,
         is_first_finished=is_first_finished,
+        interview_id=interview_id,
+        question_id=question_id,
+        voice=voice,
         user_id=user_id,
         sequence=sequence,
         nickname=nickname,
@@ -128,8 +157,11 @@ def run_interview_pipeline(
 def run_interview_pipeline_from_stt_text(
     audio_file_path: str,
     stt_text: str,
-    answer_id: int,
     is_first_finished: bool,
+    refinement_stt_text: str | None = None,
+    interview_id: int | None = None,
+    question_id: int | None = None,
+    voice: str | None = None,
     user_id: str | None = None,
     sequence: int | None = None,
     nickname: str | None = None,
@@ -140,11 +172,25 @@ def run_interview_pipeline_from_stt_text(
 
     guardrail_payload = build_guardrail_payload(stt_text)
     interview_state = analyze_interview_state(audio_file_path, stt_text)
-    interview_state_db = build_interview_state_db_payload(answer_id, interview_state)
+    interview_state_db = build_interview_state_db_payload(interview_state)
     interview_state_prompt = build_interview_state_prompt_payload(interview_state)
+    normalized_refinement_stt_text = (
+        refinement_stt_text.strip()
+        if refinement_stt_text is not None
+        else speech_to_text(audio_file_path, label="refinement")
+    )
+
+    _magazine_kwargs = {
+        "messages": _build_magazine_refinement_messages(normalized_refinement_stt_text),
+        "system": MAGAZINE_GENERATION_SYSTEM_PROMPT,
+        "max_tokens": 300,
+        "label": "answer_refinement",
+    }
 
     # 첫 인터뷰의 마지막 답변까지 도달하면 추가 질문은 만들지 않는다.
+    # 매거진 정제는 마지막 답변에도 그대로 수행한다.
     if not is_first_finished and (sequence or 1) >= 6:
+        refined_answer = create_message(**_magazine_kwargs)
         return InterviewPipelineResult(
             stt_text=stt_text,
             masked_stt_text=guardrail_payload.masked_text,
@@ -153,6 +199,7 @@ def run_interview_pipeline_from_stt_text(
             interview_state_prompt=interview_state_prompt,
             llm_text="",
             tts_audio=b"",
+            refined_answer=refined_answer,
         )
 
     if not is_first_finished:
@@ -181,12 +228,36 @@ def run_interview_pipeline_from_stt_text(
             rag_context=rag_context,
         )
 
-    llm_text = create_message(
-        messages=messages,
-        system=system,
-        max_tokens=max_tokens,
-    )
-    tts_audio = text_to_speech(llm_text)
+    # 후속 질문 생성과 매거진 정제를 병렬로 실행한다.
+    # 두 작업 모두 LLM 호출이므로 ThreadPoolExecutor로 동시에 처리한다.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        question_future = executor.submit(
+            create_message,
+            messages=messages,
+            system=system,
+            max_tokens=max_tokens,
+            label="followup_question",
+        )
+        magazine_future = executor.submit(create_message, **_magazine_kwargs)
+        refined_answer = magazine_future.result()
+        if interview_id is not None and question_id is not None:
+            try:
+                save_refined_answer_to_backend(
+                    interview_id=interview_id,
+                    question_id=question_id,
+                    refined_answer=refined_answer,
+                )
+            except requests.RequestException:
+                logger.exception(
+                    "Failed to save refined answer to backend.",
+                    extra={
+                        "interview_id": interview_id,
+                        "question_id": question_id,
+                    },
+                )
+        llm_text = question_future.result()
+
+    tts_audio = text_to_speech(llm_text, voice=voice)
 
     return InterviewPipelineResult(
         stt_text=stt_text,
@@ -196,4 +267,5 @@ def run_interview_pipeline_from_stt_text(
         interview_state_prompt=interview_state_prompt,
         llm_text=llm_text,
         tts_audio=tts_audio,
+        refined_answer=refined_answer,
     )

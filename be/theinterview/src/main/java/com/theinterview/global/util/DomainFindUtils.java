@@ -30,7 +30,6 @@ public class DomainFindUtils {
     /**
      * pk를 통해 member 도메인 객체를 조회
      */
-
     public Member getMemberById(int memberId) {
         return memberRepository.findById(memberId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
@@ -64,7 +63,7 @@ public class DomainFindUtils {
      * pk를 통해 interviewAnswer 도메인 객체 조회
      */
     public InterviewAnswer getInterviewAnswerById(int interviewAnswerId) {
-        return interviewAnswerRepository.findByInterviewQuestionId(interviewAnswerId)
+        return interviewAnswerRepository.findById(interviewAnswerId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
     }
 }
