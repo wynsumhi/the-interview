@@ -7,6 +7,7 @@ import type {
   CreateQuestionRequest,
   CreateQuestionResult,
   UpdateQuestionResult,
+  DeleteQuestionResult,
   MyBookmarkItem,
   StartQuestionInterviewResult,
 } from "@/types/board";
@@ -73,6 +74,17 @@ export async function updateQuestion(
   const res = await instance.patch<ApiResponse<UpdateQuestionResult>>(
     `/share-board/question/${questionId}`,
     { content },
+  );
+  return res.data.result;
+}
+
+// DELETE /v1/share-board/question/{questionId}
+// 질문 포스트잇 삭제, 성공 시 deleted: true 반환
+export async function deleteQuestion(
+  questionId: number,
+): Promise<DeleteQuestionResult> {
+  const res = await instance.delete<ApiResponse<DeleteQuestionResult>>(
+    `/share-board/question/${questionId}`,
   );
   return res.data.result;
 }

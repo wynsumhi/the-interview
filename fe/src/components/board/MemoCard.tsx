@@ -37,6 +37,10 @@ interface MemoProps {
   onSaveEdit?: (content: string) => void;
   /** true이면 저장 버튼 비활성화 (요청 진행 중) */
   isSaving?: boolean;
+  /** true이면 삭제 아이콘 버튼을 표시 */
+  canDelete?: boolean;
+  /** 삭제 버튼 클릭 시 호출 */
+  onDelete?: () => void;
   /** 카드 클릭 시 호출할 핸들러 (상세 페이지 이동 등) */
   onCardClick?: () => void;
 }
@@ -84,6 +88,8 @@ export default function MemoCard({
   canEdit = false,
   onSaveEdit,
   isSaving = false,
+  canDelete = false,
+  onDelete,
   onCardClick,
 }: MemoProps) {
   const [hovered, setHovered] = useState(false);
@@ -146,6 +152,20 @@ export default function MemoCard({
         {/* ── 카테고리 레이블 (항상 표시) ── */}
         <p className={styles.category}>{category}</p>
         <hr className={styles.divider} />
+
+        {/* ── 삭제 아이콘 버튼 (canDelete이고 편집 중이 아닐 때 표시) ── */}
+        {canDelete && !isEditing && (
+          <button
+            className={styles.deleteIcon}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete?.();
+            }}
+            title="삭제"
+          >
+            ✕
+          </button>
+        )}
 
         {/* ── 편집 아이콘 버튼 (canEdit이고 편집 중이 아닐 때 표시) ── */}
         {canEdit && !isEditing && (

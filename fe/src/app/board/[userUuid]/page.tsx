@@ -7,6 +7,7 @@ import { useBookmarkPostits } from "@/hooks/useBookmarkPostits";
 import { useQuestionPostits } from "@/hooks/useQuestionPostits";
 import { useCreateQuestion } from "@/hooks/useCreateQuestion";
 import { useUpdateQuestion } from "@/hooks/useUpdateQuestion";
+import { useDeleteQuestion } from "@/hooks/useDeleteQuestion";
 import { useBoardStore } from "@/store/useBoardStore";
 import MemoCard from "@/components/board/MemoCard";
 import AddQuestionCard from "@/components/board/AddQuestionCard";
@@ -103,6 +104,9 @@ export default function BoardPage({
   // 질문 수정 뮤테이션: 성공 시 캐시의 content/updatedAt을 즉시 갱신
   const { mutate: submitEdit, isPending: isSavingEdit } =
     useUpdateQuestion(userUuid);
+
+  // 질문 삭제 뮤테이션: 성공 시 캐시에서 해당 항목 즉시 제거
+  const { mutate: submitDelete } = useDeleteQuestion(userUuid);
 
   // 질문 포스트잇 기반으로 인터뷰 시작: conversation 페이지로 이동
   // questionId를 URL 파라미터로 전달하면 conversation 페이지에서 start-interview API를 호출함
@@ -204,6 +208,8 @@ export default function BoardPage({
                   submitEdit({ questionId: item.questionId, content })
                 }
                 isSaving={isSavingEdit}
+                canDelete={item.permissions.canDelete}
+                onDelete={() => submitDelete(item.questionId)}
                 onCardClick={
                   item.startedInterviewId
                     ? () => router.push(`/magazine/${item.startedInterviewId}`)
