@@ -280,7 +280,7 @@ public class ShareBoardQuestionService {
                 .build());
 
         // 기존 인터뷰 생성 흐름을 재사용하기 위해 파사드를 호출합니다.
-        WebSocketConnectResponse response = interviewFacade.issueWebSocketId(email, "Jessica")
+        WebSocketConnectResponse response = interviewFacade.issueWebSocketId(email, "Jessica", false, null)
                 .block();
         if (response == null) {
             throw new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR);

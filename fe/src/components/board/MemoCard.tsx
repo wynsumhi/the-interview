@@ -23,6 +23,8 @@ interface MemoProps {
   /** 0–1 비율 → 그리드 셀 내 세로 오프셋 (API: layout.positionY) */
   positionY: number;
   qnaItems?: QnaPreview[];
+  /** true이면 호버 시 Q&A 전환 없이 타이틀만 항상 표시 */
+  disableHover?: boolean;
 }
 
 /** "Q. 한국어 텍스트" → { label: "Q.", text: "한국어 텍스트" } */
@@ -59,6 +61,7 @@ export default function MemoCard({
   positionX,
   positionY,
   qnaItems = [],
+  disableHover = false,
 }: MemoProps) {
   const [hovered, setHovered] = useState(false);
   const featured = qnaItems[0] ?? null;
@@ -71,8 +74,8 @@ export default function MemoCard({
       className={styles.card}
       initial={{ opacity: 0, y: offsetY + 24 }}
       animate={{ opacity: 1, x: offsetX, y: offsetY, rotate: rotationDeg }}
-      onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
+      onHoverStart={disableHover ? undefined : () => setHovered(true)}
+      onHoverEnd={disableHover ? undefined : () => setHovered(false)}
       transition={{ type: "spring", stiffness: 240, damping: 24 }}
       style={{
         backgroundColor: colorCode,

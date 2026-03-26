@@ -267,4 +267,13 @@ public abstract class InterviewResponse {
         private String fusedScores;
         private String shareUuid;
     }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class InterviewUnfinishedResponse {
+
+        private Integer unfinishedInterviewId;
+    }
 }

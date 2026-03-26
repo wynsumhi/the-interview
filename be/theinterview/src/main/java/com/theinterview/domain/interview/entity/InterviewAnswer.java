@@ -1,6 +1,8 @@
 package com.theinterview.domain.interview.entity;
 
 
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerEmotionResponse.FusedScores;
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerEmotionResponse.InterviewStateDb;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -48,19 +50,19 @@ public class InterviewAnswer {
     @Column(name = "answer_keyword", length = 300)
     private String answerKeyword;
 
-    @Column(name = "calm_score", nullable = false, precision = 4, scale = 3)
+    @Column(name = "calm_score", precision = 4, scale = 3)
     private BigDecimal calmScore;
 
-    @Column(name = "tense_score", nullable = false, precision = 4, scale = 3)
+    @Column(name = "tense_score", precision = 4, scale = 3)
     private BigDecimal tenseScore;
 
-    @Column(name = "anxious_score", nullable = false, precision = 4, scale = 3)
+    @Column(name = "anxious_score", precision = 4, scale = 3)
     private BigDecimal anxiousScore;
 
-    @Column(name = "low_score", nullable = false, precision = 4, scale = 3)
+    @Column(name = "low_score", precision = 4, scale = 3)
     private BigDecimal lowScore;
 
-    @Column(name = "engaged_score", nullable = false, precision = 4, scale = 3)
+    @Column(name = "engaged_score", precision = 4, scale = 3)
     private BigDecimal engagedScore;
 
     @Column(name = "created_at", nullable = false)
@@ -90,5 +92,18 @@ public class InterviewAnswer {
     // 키워드 설정 메서드
     public void updateKeyword(String keyword) {
         this.answerKeyword = keyword;
+    }
+
+    // 감정 상태, 정제 텍스트 저장
+    public void updateTextEmotion(String text, InterviewStateDb interviewStateDb) {
+
+        this.answerText = text;
+
+        FusedScores fusedScores = interviewStateDb.toFusedScores();
+        this.calmScore = BigDecimal.valueOf(fusedScores.getCalm());
+        this.tenseScore = BigDecimal.valueOf(fusedScores.getTense());
+        this.anxiousScore = BigDecimal.valueOf(fusedScores.getAnxious());
+        this.lowScore = BigDecimal.valueOf(fusedScores.getLow());
+        this.engagedScore = BigDecimal.valueOf(fusedScores.getEngaged());
     }
 }
