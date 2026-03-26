@@ -56,7 +56,7 @@ def test_save_refined_answer_to_backend_uses_backend_contract() -> None:
 
     assert result is True
     post_mock.assert_called_once_with(
-        "https://j14a307.p.ssafy.io/v1/interview/internal/answers/refined",
+        "https://j14a307.p.ssafy.io/api/v1/interview/internal/answers/refined",
         json={
             "interviewId": 1,
             "questionId": 2,

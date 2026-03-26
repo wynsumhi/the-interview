@@ -26,7 +26,7 @@ def save_refined_answer_to_backend(
         return False
 
     response = requests.post(
-        f"{settings.BACKEND_INTERNAL_BASE_URL}/v1/interview/internal/answers/refined",
+        f"{settings.BACKEND_INTERNAL_BASE_URL}/api/v1/interview/internal/answers/refined",
         json={
             "interviewId": interview_id,
             "questionId": question_id,
