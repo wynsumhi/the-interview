@@ -291,7 +291,8 @@ public class InterviewService {
             throw new GeneralException(ErrorStatus.BAD_REQUEST);
         }
 
-        InterviewAnswer existingAnswer = interviewAnswerRepository.findByInterviewQuestionId(questionId)
+        InterviewAnswer existingAnswer = interviewAnswerRepository.findByInterviewQuestionId(
+                        questionId)
                 .orElse(null);
 
         if (existingAnswer != null) {
@@ -313,9 +314,12 @@ public class InterviewService {
                 normalizedRefinedAnswer,
                 REFINED_ANSWER_TEMP_TTL
         );
+
+        log.info("AI 응답 저장됨 저장된 텍스트: {}", refinedAnswer);
     }
 
-    private String resolveAnswerText(Integer interviewId, Integer questionId, String fallbackAnswerText) {
+    private String resolveAnswerText(Integer interviewId, Integer questionId,
+            String fallbackAnswerText) {
         /*
          * 답변을 최종 저장하는 모든 지점에서 동일한 규칙으로 텍스트를 결정하기 위한 공통 메서드다.
          * 우선순위는 "Redis에 대기 중인 정제 텍스트 > 현재 전달된 fallback 원문" 순서다.

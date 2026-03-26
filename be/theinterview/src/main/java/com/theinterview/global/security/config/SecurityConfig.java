@@ -86,7 +86,7 @@ public class SecurityConfig {
                  * 기존 사용자 인증 체계를 건드리지 않고 AI 서버 전용 진입점만 따로 보호할 수 있다.
                  */
                 .addFilterBefore(new InternalApiTokenFilter(internalAiCallbackToken),
-                        JwtFilter.class)
+                        UsernamePasswordAuthenticationFilter.class)
                 // JwtFilter를 시큐리티 체인에 등록함
                 .addFilterBefore(new JwtFilter(jwtProvider, redisService),
                         UsernamePasswordAuthenticationFilter.class);
