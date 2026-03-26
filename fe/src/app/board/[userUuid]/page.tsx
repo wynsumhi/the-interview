@@ -6,6 +6,7 @@ import { useShareBoardInfo } from "@/hooks/useShareBoardInfo";
 import { useBookmarkPostits } from "@/hooks/useBookmarkPostits";
 import { useQuestionPostits } from "@/hooks/useQuestionPostits";
 import { useCreateQuestion } from "@/hooks/useCreateQuestion";
+import { useUpdateQuestion } from "@/hooks/useUpdateQuestion";
 import { useBoardStore } from "@/store/useBoardStore";
 import MemoCard from "@/components/board/MemoCard";
 import AddQuestionCard from "@/components/board/AddQuestionCard";
@@ -50,15 +51,14 @@ function toQuestionMemoCardProps(item: QuestionPostitItem) {
     // 질문 내용을 카드 기본 화면의 타이틀로 사용
     title: item.content,
     category: "Question",
-    date: formatDate(item.createdAt),
+    // 수정된 경우 updatedAt을 표시, 그렇지 않으면 createdAt 사용
+    date: formatDate(item.updatedAt ?? item.createdAt),
     colorCode: item.layout.colorCode,
     rotationDeg: item.layout.rotationDeg,
     positionX: item.layout.positionX,
     positionY: item.layout.positionY,
     // 호버 시 질문 내용과 현재 상태 레이블을 표시
-    qnaItems: [
-      { question: `Q. ${item.content}`, answer: item.statusLabel },
-    ],
+    qnaItems: [{ question: `Q. ${item.content}`, answer: item.statusLabel }],
   };
 }
 
@@ -89,19 +89,20 @@ export default function BoardPage({
   }, [boardInfo, setBoardInfo, clearBoardInfo]);
 
   // 북마크 탭 포스트잇 목록 (무한 스크롤 지원)
-  const {
-    data: bookmarkData,
-    isLoading: isBookmarkLoading,
-  } = useBookmarkPostits(userUuid);
+  const { data: bookmarkData, isLoading: isBookmarkLoading } =
+    useBookmarkPostits(userUuid);
 
   // 질문 탭 포스트잇 목록 (무한 스크롤 지원)
-  const {
-    data: questionData,
-    isLoading: isQuestionLoading,
-  } = useQuestionPostits(userUuid);
+  const { data: questionData, isLoading: isQuestionLoading } =
+    useQuestionPostits(userUuid);
 
   // 질문 생성 뮤테이션: 성공 시 questionPostits 캐시 자동 무효화
-  const { mutate: submitQuestion, isPending: isSubmitting } = useCreateQuestion(userUuid);
+  const { mutate: submitQuestion, isPending: isSubmitting } =
+    useCreateQuestion(userUuid);
+
+  // 질문 수정 뮤테이션: 성공 시 캐시의 content/updatedAt을 즉시 갱신
+  const { mutate: submitEdit, isPending: isSavingEdit } =
+    useUpdateQuestion(userUuid);
 
   // 질문 포스트잇 기반으로 인터뷰 시작: conversation 페이지로 이동
   // questionId를 URL 파라미터로 전달하면 conversation 페이지에서 start-interview API를 호출함
@@ -114,8 +115,10 @@ export default function BoardPage({
   const bookmarkItems = bookmarkData?.pages.flatMap((page) => page.items) ?? [];
   const questionItems = questionData?.pages.flatMap((page) => page.items) ?? [];
 
-  const isLoading = activeTab === "bookmarks" ? isBookmarkLoading : isQuestionLoading;
-  const itemCount = activeTab === "bookmarks" ? bookmarkItems.length : questionItems.length;
+  const isLoading =
+    activeTab === "bookmarks" ? isBookmarkLoading : isQuestionLoading;
+  const itemCount =
+    activeTab === "bookmarks" ? bookmarkItems.length : questionItems.length;
 
   return (
     <div className={styles.page}>
@@ -146,14 +149,14 @@ export default function BoardPage({
 
       {/* 포스트잇 캔버스: 활성 탭에 따라 다른 항목 렌더링 */}
       <div className={styles.canvas}>
-        {isLoading && (
-          <p className={styles.emptyMsg}>불러오는 중...</p>
-        )}
+        {isLoading && <p className={styles.emptyMsg}>불러오는 중...</p>}
 
         {/* 북마크 탭 */}
-        {!isLoading && activeTab === "bookmarks" && bookmarkItems.length === 0 && (
-          <p className={styles.emptyMsg}>북마크한 포스트잇이 없습니다.</p>
-        )}
+        {!isLoading &&
+          activeTab === "bookmarks" &&
+          bookmarkItems.length === 0 && (
+            <p className={styles.emptyMsg}>북마크한 포스트잇이 없습니다.</p>
+          )}
         {activeTab === "bookmarks" &&
           bookmarkItems.map((item) => {
             const props = toMemoCardProps(item);
@@ -173,9 +176,11 @@ export default function BoardPage({
             isSubmitting={isSubmitting}
           />
         )}
-        {!isLoading && activeTab === "questions" && questionItems.length === 0 && (
-          <p className={styles.emptyMsg}>받은 질문 포스트잇이 없습니다.</p>
-        )}
+        {!isLoading &&
+          activeTab === "questions" &&
+          questionItems.length === 0 && (
+            <p className={styles.emptyMsg}>받은 질문 포스트잇이 없습니다.</p>
+          )}
         {activeTab === "questions" &&
           questionItems.map((item) => {
             const props = toQuestionMemoCardProps(item);
@@ -187,10 +192,23 @@ export default function BoardPage({
                 key={props.id}
                 {...props}
                 disableHover
-                onAction={canStart ? () => handleStartInterview(item.questionId) : undefined}
+                onAction={
+                  canStart
+                    ? () => handleStartInterview(item.questionId)
+                    : undefined
+                }
                 actionLabel={canStart ? "Start Interview" : undefined}
                 dimmed={!canStart}
-                onCardClick={item.startedInterviewId ? () => router.push(`/magazine/${item.startedInterviewId}`) : undefined}
+                canEdit={item.permissions.canEditContent}
+                onSaveEdit={(content) =>
+                  submitEdit({ questionId: item.questionId, content })
+                }
+                isSaving={isSavingEdit}
+                onCardClick={
+                  item.startedInterviewId
+                    ? () => router.push(`/magazine/${item.startedInterviewId}`)
+                    : undefined
+                }
               />
             );
           })}

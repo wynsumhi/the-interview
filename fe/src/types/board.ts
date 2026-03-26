@@ -116,6 +116,22 @@ export interface StartQuestionInterviewResult {
   interview: StartQuestionInterviewData;
 }
 
+/** PATCH /v1/share-board/question/{questionId} 응답의 result 필드 */
+export interface UpdateQuestionResult {
+  questionId: number;
+  shareBoardId: number;
+  author: QuestionAuthor;
+  content: string;
+  status: string;
+  statusLabel: string;
+  startedInterviewId: number | null;
+  createdAt: string;
+  updatedAt: string;
+  isMine: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
 /** POST /v1/share-board/member/{userUuid}/questions 요청 바디 */
 export interface CreateQuestionRequest {
   /** 작성할 질문 내용 */

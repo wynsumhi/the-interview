@@ -6,6 +6,7 @@ import type {
   QuestionPostitPageResult,
   CreateQuestionRequest,
   CreateQuestionResult,
+  UpdateQuestionResult,
   MyBookmarkItem,
   StartQuestionInterviewResult,
 } from "@/types/board";
@@ -59,6 +60,19 @@ export async function startQuestionInterview(
     `/share-board/question/${questionId}/start-interview`,
     {},
     { timeout: 60000 },
+  );
+  return res.data.result;
+}
+
+// PATCH /v1/share-board/question/{questionId}
+// 질문 포스트잇 내용 수정 (최대 300자)
+export async function updateQuestion(
+  questionId: number,
+  content: string,
+): Promise<UpdateQuestionResult> {
+  const res = await instance.patch<ApiResponse<UpdateQuestionResult>>(
+    `/share-board/question/${questionId}`,
+    { content },
   );
   return res.data.result;
 }
