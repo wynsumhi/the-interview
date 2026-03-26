@@ -16,6 +16,8 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse.InterviewStateDb.FusedScores;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerEmotionResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerTextResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.BookmarkSetting;
@@ -399,6 +401,33 @@ public class InterviewService {
                 .member(member)
                 .turns(turns)
                 .build();
+    }
+
+    // 사용자의 질문/답변 쌍을 하나의 문자열로 조합하여 반환하는 메서드
+    @Transactional(readOnly = true)
+    public String makeAnswerQuestionCouple(Integer interviewId) {
+
+        Interview interview = domainFindUtils.getInterviewById(interviewId);
+
+        List<InterviewQuestion> interviewQuestions = interview.getInterviewQuestions();
+
+        String context = "";
+
+        int count = 1;
+
+        for (InterviewQuestion interviewQuestion : interviewQuestions) {
+
+            if (interviewQuestion.getInterviewAnswer() == null) {
+                continue;
+            }
+
+            context =
+                    context + "Q" + count + ": " + interviewQuestion.getQuestionText() + "\n" + "A"
+                            + count + ": " + interviewQuestion.getInterviewAnswer().getAnswerText()
+                            + "\n";
+            count += 1;
+        }
+        return context;
     }
 
     // 인터뷰 종료 시 facade에서 호출되는 메서드
@@ -974,5 +1003,21 @@ public class InterviewService {
         return InterviewUnfinishedResponse.builder()
                 .unfinishedInterviewId(interviewId)
                 .build();
+    }
+
+    // 종료 직전 마지막 답변의 감정 상태, 정제 텍스트를 저장하는 메서드
+    @Transactional
+    public void saveEmotionTts(LastAnswerTextResponse lastAnswerTextResponse,
+            LastAnswerEmotionResponse lastAnswerEmotionResponse, InterviewExitRequest request) {
+
+        // 변경 할 DB 조회
+        InterviewQuestion question = domainFindUtils.getInterviewQuestionById(
+                request.getQuestionId());
+
+        InterviewAnswer interviewAnswer = question.getInterviewAnswer();
+
+        interviewAnswer.updateTextEmotion(lastAnswerTextResponse.getRefinedAnswer(),
+                lastAnswerEmotionResponse.getInterviewStateDb());
+
     }
 }

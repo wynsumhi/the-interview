@@ -49,3 +49,68 @@ export interface BookmarkPostitPageResult {
   /** 다음 페이지 존재 여부 (true면 page + 1로 추가 요청 가능) */
   hasNext: boolean;
 }
+
+/** GET /v1/share-board/member/{userUuid}/postits/questions 응답 items 배열 한 항목의 작성자 정보 */
+export interface QuestionAuthor {
+  memberId: number;
+  nickname: string;
+}
+
+/** GET /v1/share-board/member/{userUuid}/postits/questions 응답 items 배열 한 항목의 권한 정보 */
+export interface QuestionPostitPermissions {
+  canEditContent: boolean;
+  canDelete: boolean;
+  canEditLayout: boolean;
+}
+
+/** GET /v1/share-board/member/{userUuid}/postits/questions 응답 items 배열 한 항목 */
+export interface QuestionPostitItem {
+  postitType: string;
+  /** 포스트잇의 고유 식별자 */
+  sourceId: number;
+  questionId: number;
+  author: QuestionAuthor;
+  /** 질문 내용 (카드 기본 화면에 표시) */
+  content: string;
+  status: string;
+  /** 사람이 읽기 좋은 상태 레이블 (예: "WAITING") */
+  statusLabel: string;
+  /** 연결된 면접 ID, 아직 시작하지 않은 경우 null */
+  startedInterviewId: number | null;
+  createdAt: string;
+  updatedAt: string;
+  permissions: QuestionPostitPermissions;
+  layout: BookmarkPostitLayout;
+}
+
+/** GET /v1/share-board/member/{userUuid}/postits/questions 응답의 result 필드 */
+export interface QuestionPostitPageResult {
+  ownerUserUuid: string;
+  items: QuestionPostitItem[];
+  currentPage: number;
+  /** 다음 페이지 존재 여부 (true면 page + 1로 추가 요청 가능) */
+  hasNext: boolean;
+}
+
+/** POST /v1/share-board/member/{userUuid}/questions 요청 바디 */
+export interface CreateQuestionRequest {
+  /** 작성할 질문 내용 */
+  content: string;
+}
+
+/** POST /v1/share-board/member/{userUuid}/questions 응답의 result 필드 */
+export interface CreateQuestionResult {
+  postitType: string;
+  sourceId: number;
+  questionId: number;
+  shareBoardId: number;
+  author: QuestionAuthor;
+  content: string;
+  status: string;
+  statusLabel: string;
+  startedInterviewId: number | null;
+  createdAt: string;
+  updatedAt: string;
+  permissions: QuestionPostitPermissions;
+  layout: BookmarkPostitLayout;
+}
