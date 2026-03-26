@@ -157,7 +157,13 @@ export default function BoardPage({
         {activeTab === "bookmarks" &&
           bookmarkItems.map((item) => {
             const props = toMemoCardProps(item);
-            return <MemoCard key={props.id} {...props} />;
+            return (
+              <MemoCard
+                key={props.id}
+                {...props}
+                onCardClick={() => router.push(`/magazine/${item.interviewId}`)}
+              />
+            );
           })}
 
         {/* 질문 탭 */}
@@ -184,6 +190,7 @@ export default function BoardPage({
                 onAction={canStart ? () => handleStartInterview(item.questionId) : undefined}
                 actionLabel={canStart ? "Start Interview" : undefined}
                 dimmed={!canStart}
+                onCardClick={item.startedInterviewId ? () => router.push(`/magazine/${item.startedInterviewId}`) : undefined}
               />
             );
           })}
