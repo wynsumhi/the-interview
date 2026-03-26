@@ -101,6 +101,10 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
+        /* STT 에러 토스트 */
+        .error-toast { display: none; position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); background: rgba(255,77,77,0.15); border: 1px solid var(--danger); border-radius: 10px; padding: 14px 24px; font-family: var(--mono); font-size: 13px; color: var(--danger); z-index: 998; white-space: nowrap; }
+        .error-toast.active { display: block; }
+
         /* 인터뷰 종료 모달 */
         .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 999; align-items: center; justify-content: center; }
         .modal-overlay.active { display: flex; }
@@ -172,6 +176,9 @@
 </div>
 
 <audio id="ttsAudio" style="display:none;"></audio>
+
+<!-- STT 에러 토스트 -->
+<div class="error-toast" id="sttErrorToast">❌ STT 처리 중 오류가 발생했습니다. 다시 녹음해주세요.</div>
 
 <!-- 인터뷰 종료 완료 모달 -->
 <div class="modal-overlay" id="saveCompleteModal">
@@ -348,6 +355,25 @@ addLog(`첫 질문: ${payload.interviewTitle}`, 'success');
                         addLog('✅ SAVE_COMPLETE 수신 — 저장 완료. WebSocket 연결 종료', 'success');
                         stompClient.disconnect();
                         document.getElementById('saveCompleteModal').classList.add('active');
+                        return;
+                    }
+
+                    // STT 파이프라인 에러 수신 — 상태 초기화 후 재시도 가능 상태로 복구
+                    if (data.type === 'STT_ERROR') {
+                        addLog(`❌ STT_ERROR 수신 — ${data.message}`, 'error');
+                        // 클라이언트 상태 초기화
+                        chunkIndex = 0;
+                        fullAudioChunks = [];
+                        isExitMode = false;
+                        // UI 상태 복구 (녹음 재시작 가능 상태)
+                        document.getElementById('recordBtn').disabled = false;
+                        document.getElementById('stopBtn').disabled = true;
+                        document.getElementById('exitBtn').disabled = true;
+                        document.getElementById('recIndicator').classList.remove('active');
+                        // 에러 토스트 표시 후 3초 뒤 자동 제거
+                        const toast = document.getElementById('sttErrorToast');
+                        toast.classList.add('active');
+                        setTimeout(() => toast.classList.remove('active'), 3000);
                         return;
                     }
 
