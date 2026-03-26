@@ -113,6 +113,7 @@ public class InterviewController {
                     "interviewId:" + request.getInterviewId());
             redisService.deleteValues("interviewId:" + request.getInterviewId() + "lock");
             // Finished 처리 및 rag 호출
+            return ApiResponse.OK;
         }
 
         // 서버 디렉토리에 음성 파일 저장

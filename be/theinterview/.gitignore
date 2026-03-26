@@ -40,3 +40,8 @@ out/
 
 ### .env ###
 .env
+
+### claude
+docs/
+.claude/
+theinterview/.claude
