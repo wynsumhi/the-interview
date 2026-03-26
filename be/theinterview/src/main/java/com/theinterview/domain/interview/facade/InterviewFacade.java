@@ -2,6 +2,7 @@ package com.theinterview.domain.interview.facade;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.theinterview.domain.interview.Repository.InterviewQuestionRepository;
 import com.theinterview.domain.interview.dto.AiRagDto.DeleteRequest;
 import com.theinterview.domain.interview.dto.AiRagDto.Turn;
 import com.theinterview.domain.interview.dto.AiRagDto.UpsertRequest;
@@ -16,6 +17,7 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.TotalChunkRequest;
+import com.theinterview.domain.interview.dto.InterviewRequest.restartInterviewRequest;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.entity.InterviewQuestion;
@@ -54,12 +56,14 @@ public class InterviewFacade {
     private final DomainFindUtils domainFindUtils;
 
     private final ObjectMapper objectMapper;
+    private final View error;
     private final SimpMessagingTemplate messagingTemplate;
+    private final InterviewQuestionRepository interviewQuestionRepository;
 
     // 인터뷰 첫 질문 TTS 변환을 위해 호춯되는 파서드
     public Mono<WebSocketConnectResponse> issueWebSocketId(
-            String email,
-            String voice
+            String email, String voice, Boolean restartFlag,
+            restartInterviewRequest request
     )
             throws JsonProcessingException {
 
@@ -67,9 +71,14 @@ public class InterviewFacade {
         Member member = domainFindUtils.getMemberByEmail(email);
 
         String dbQuestion = null;
-        if (member.getIsFirstFinished()) {
+        if (member.getIsFirstFinished() && !restartFlag) {
             List<QuestionCandidate> questionCandidates = member.getQuestionCandidates();
             dbQuestion = questionCandidates.get(0).getQuestionText();
+        } else if (restartFlag) {
+            dbQuestion = interviewQuestionRepository.findTopByInterviewIdOrderBySequenceDesc(
+                            request.getInterviewId())
+                    .orElseThrow(() -> new GeneralException(ErrorStatus.QUESTION_NOT_FOUND))
+                    .getQuestionText();
         }
 
         // TTS 변환을 위한 외부 AI 호출 메서드 호출 -> DB 저장 체인 연결
@@ -83,7 +92,9 @@ public class InterviewFacade {
                         Mono.fromCallable(() -> interviewService.saveInterviewAndQuestion(
                                 member,
                                 aiStartTtsResponse,
-                                voice
+                                voice,
+                                restartFlag,
+                                restartFlag ? request.getInterviewId() : null
                         )))
                 .subscribeOn(Schedulers.boundedElastic());
     }
@@ -109,6 +120,8 @@ public class InterviewFacade {
         // todo: 첫 인터뷰에 한하여 시퀀스가 6 이상인 경우에 자동 종료 분기 필요
         // 2. 트랜잭션 X, AI 서버 호출
         AiPipelineResponse aiPipelineResponse = aiUtils.callFastApiForNextQuestion(audioBytes,
+                request.getInterviewId(),
+                request.getQuestionId(),
                 aiPipelineReadyDto.getSequence(), aiPipelineReadyDto.getNickname(),
                 aiPipelineReadyDto.getPreviousQuestion(),
                 aiPipelineReadyDto.getIsFirstFinished(),
@@ -184,6 +197,8 @@ public class InterviewFacade {
                             .subscribeOn(Schedulers.boundedElastic())
                             .flatMap(audioBytes ->
                                     aiUtils.callFastApiForNextQuestionV2(audioBytes,
+                                            interviewId,
+                                            questionId,
                                             aiPipelineReadyDto.getSequence() + 1,
                                             aiPipelineReadyDto.getNickname(),
                                             aiPipelineReadyDto.getPreviousQuestion(),
@@ -199,6 +214,8 @@ public class InterviewFacade {
                                             savedPath,
                                             answerText, aiPipelineResponse.getInterviewStateDb()
                                                     .getFusedScores());
+                                    String savedAnswerText = interviewService.getSavedAnswerText(
+                                            questionId);
 
                                     // redis에 저장하기 위한 데이터 준비
                                     String dto = objectMapper.writeValueAsString(
@@ -216,13 +233,26 @@ public class InterviewFacade {
                                                     + nextQuestionId;
                                     redisService.setValues(newRedisKey + "aiPipelineReadyDto", dto,
                                             Duration.ofMinutes(5));
+                                    interviewService.cacheInterviewVoice(interviewId,
+                                            aiPipelineReadyDto.getVoice());
                                     // 저장 완료 lock 상태 해제
                                     redisService.deleteValues(
                                             "interviewId:" + interviewId + "lock");
                                     log.info("요청 및 반환 종료. 걸린 시간: {}",
                                             System.currentTimeMillis() - start);
-                                    return new FollowUpQuestionDTO(aiPipelineResponse, interviewId,
-                                            nextQuestionId);
+                                    /*
+                                     * after-stt 응답에서는 refined_answer를 더 이상 신뢰할 수 없으므로
+                                     * 방금 저장된 답변 텍스트를 다시 읽어 응답 DTO의 sttResult에 반영한다.
+                                     * 이렇게 해야 Redis 임시 저장값이 merge된 경우에도
+                                     * 사용자에게 전달되는 텍스트와 DB 값이 서로 어긋나지 않는다.
+                                     */
+                                    return FollowUpQuestionDTO.builder()
+                                            .interviewId(interviewId)
+                                            .questionId(nextQuestionId)
+                                            .sttResult(savedAnswerText)
+                                            .followUpQuestion(aiPipelineResponse.getQuestionText())
+                                            .ttsAudioBase64(aiPipelineResponse.getTtsAudioBase64())
+                                            .build();
                                 }).subscribeOn(Schedulers.boundedElastic());
                             })
                             .doOnSuccess(followUpQuestionDTO -> {
@@ -436,5 +466,64 @@ public class InterviewFacade {
                         .userId(String.valueOf(member.getId()))
                         .build())
                 .subscribe();
+    }
+
+    public Mono<Void> forceFinishInterviewFacade(String email, Integer interviewId) {
+        log.info("인터뷰 강제 종료 파이프라인 시작 - interviewId: {}", interviewId);
+
+        // 데이터 조회 및 질문 정리
+        // findDomainMakeQnACouple 메서드에서 내부적으로 답변이 null인 질문을 delete
+        return Mono.fromCallable(() -> interviewService.findDomainMakeQnACouple(email, interviewId))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(answerTts -> {
+
+                    // 만약 대화 내역이 아예 없는 경우 방어 로직
+                    if (answerTts.getQnACouple() == null || answerTts.getQnACouple().isEmpty()) {
+                        answerTts.protectEmptyString();
+                    }
+
+                    // AI 제목 생성 및 다음 오프닝 생성 비동기 호출
+                    Mono<AiTitleResponse> aiTitleResponseMono = aiUtils.callFastApiForInterviewTitleV2(
+                            AiTitleRequest.builder()
+                                    .interviewContext(answerTts.getQnACouple())
+                                    .build());
+
+                    Mono<AiNextOpeningResponse> aiNextOpeningResponseMono = aiUtils.callFastApiForNextOpeningV2(
+                            AiNextOpeningRequest.builder()
+                                    .interviewContext(answerTts.getQnACouple())
+                                    .nickname(answerTts.getMember().getNickname())
+                                    .build());
+
+                    return Mono.zip(aiNextOpeningResponseMono, aiTitleResponseMono)
+                            .flatMap(aiResponse -> Mono.fromRunnable(() -> {
+                                        // 상태 업데이트 및 DB 저장
+                                        AiNextOpeningResponse openingQuestionResponse = aiResponse.getT1();
+                                        AiTitleResponse titleResponse = aiResponse.getT2();
+
+                                        interviewService.saveExitAiResponse(
+                                                interviewId,
+                                                titleResponse.getTitle(),
+                                                openingQuestionResponse.getDbQuestion());
+
+                                        log.info("인터뷰 강제 종료 완료 및 상태 변경 - Title: {}",
+                                                titleResponse.getTitle());
+                                    }).subscribeOn(Schedulers.boundedElastic())
+                            )
+                            .retry(2) // 네트워크 불안정 대비 재시도
+
+                            // RAG 적재
+                            .doOnSuccess(ignored -> {
+                                aiUtils.callFastApiForRagUpsert(UpsertRequest.builder()
+                                                .userId(String.valueOf(answerTts.getMember().getId()))
+                                                .interviewId(String.valueOf(interviewId))
+                                                .turns(answerTts.getTurns()) // 정리된 대화 내역만 적재
+                                                .metadata(Map.of("title", "인터뷰(중단)"))
+                                                .build())
+                                        .doOnError(e -> log.error("강제 종료 인터뷰 RAG 적재 실패: {}",
+                                                e.getMessage()))
+                                        .subscribe(); // 비동기로 별도 실행
+                            });
+                })
+                .then();
     }
 }

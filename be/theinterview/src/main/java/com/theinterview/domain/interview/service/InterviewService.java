@@ -6,17 +6,18 @@ import com.theinterview.domain.interview.Repository.InterviewAnswerRepository;
 import com.theinterview.domain.interview.Repository.InterviewQuestionRepository;
 import com.theinterview.domain.interview.Repository.InterviewRepository;
 import com.theinterview.domain.interview.Repository.QuestionCandidateRepository;
-import com.theinterview.domain.interview.dto.AiRagDto;
 import com.theinterview.domain.interview.dto.AiRagDto.Turn;
 import com.theinterview.domain.interview.dto.FacadeInnerDto.AnswerTts;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
+import com.theinterview.domain.interview.dto.FastApiRequest.KeywordRequest;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse.InterviewStateDb.FusedScores;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.KeywordResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerEmotionResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerTextResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
@@ -26,6 +27,7 @@ import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitReque
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRange;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewExploreDetail;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewExploreFused;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewExploreResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistory;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
@@ -34,6 +36,8 @@ import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryD
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItBoardResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewUnfinishedResponse;
+import com.theinterview.domain.interview.dto.InterviewResponse.QABookmarkSetResultResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewResponseDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
@@ -52,6 +56,7 @@ import com.theinterview.domain.shareboard.repository.ShareBoardRepository;
 import com.theinterview.global.config.redis.RedisService;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
+import com.theinterview.global.util.AvgDecimal;
 import com.theinterview.global.util.DomainFindUtils;
 import com.theinterview.global.util.FileDeleteUtils;
 import java.io.File;
@@ -64,6 +69,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -82,6 +88,7 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 @Slf4j
 public class InterviewService {
+    private static final Duration INTERVIEW_VOICE_TTL = Duration.ofHours(6);
 
     private final MemberRepository memberRepository;
     private final InterviewRepository interviewRepository;
@@ -89,6 +96,7 @@ public class InterviewService {
     private final InterviewAnswerRepository interviewAnswerRepository;
     private final QuestionCandidateRepository questionCandidateRepository;
 
+    private final AvgDecimal toAvgDecimal;
     private final AiUtils aiUtils;
     private final FileDeleteUtils fileDeleteUtils;
     private final DomainFindUtils domainFindUtils;
@@ -101,6 +109,14 @@ public class InterviewService {
 
     private final ObjectMapper objectMapper;
 
+    /*
+     * 정제 답변 텍스트는 꼬리질문 응답보다 먼저 도착할 수 있으므로,
+     * 실제 InterviewAnswer 행이 만들어지기 전까지는 Redis에 임시 보관한다.
+     * TTL을 너무 짧게 두면 네트워크 지연 상황에서 merge 전에 사라질 수 있고,
+     * 너무 길게 두면 불필요한 임시 데이터가 오래 남으므로 인터뷰 한 턴 처리 시간을 감안해 10분으로 둔다.
+     */
+    private static final Duration REFINED_ANSWER_TEMP_TTL = Duration.ofMinutes(10);
+
     // interview 진행 관련 메서드 ----------------------------------------------------------------------------------------------------------------
 
     // 사용자의 첫 질문 요청이 시작되면 인터뷰 객체와 첫번째 질문을 만들어 반환함
@@ -108,31 +124,49 @@ public class InterviewService {
     public WebSocketConnectResponse saveInterviewAndQuestion(
             Member member,
             AiStartTtsResponse aiStartTtsResponse,
-            String voice
+            String voice,
+            Boolean restartFlag,
+            Integer interviewId
     )
             throws JsonProcessingException {
 
-        // interview 객체 생성
-        Interview interview = interviewRepository.save(Interview.builder()
-                .member(member)
-                .shareRange(true) // 기본 공개 설정
-                .title(aiStartTtsResponse.getQuestionText())
-                .status(InterviewStatus.BEFORE_START)
-                .build());
-        log.info("인터뷰 세션 생성 성공 interviewId: {}", interview.getId());
+        Interview interview;
+        InterviewQuestion question;
 
-        // 인터뷰 진행중으로 상태 변경
-        interview.interviewInProgress();
+        if (Boolean.TRUE.equals(restartFlag)) {
+            // 비정상 종료 이어서 하기
+            interview = domainFindUtils.getInterviewById(interviewId);
+            question = interviewQuestionRepository.findTopByInterviewIdOrderBySequenceDesc(
+                            interviewId)
+                    .orElseThrow(() -> new GeneralException(ErrorStatus.QUESTION_NOT_FOUND));
 
-        // 첫 질문 DB에 저장
-        InterviewQuestion question = interviewQuestionRepository.save(InterviewQuestion.builder()
-                .interview(interview)
-                .sequence(1)
-                .questionText(interview.getTitle())
-                .build());
+            // 상태 확인 및 업데이트 (필요시)
+            interview.interviewInProgress();
+        } else {
+            // 기존 로직
+            // interview 객체 생성
+            interview = interviewRepository.save(Interview.builder()
+                    .member(member)
+                    .shareRange(true) // 기본 공개 설정
+                    .title(aiStartTtsResponse.getQuestionText())
+                    .status(InterviewStatus.BEFORE_START)
+                    .build());
+            log.info("인터뷰 세션 생성 성공 interviewId: {}", interview.getId());
+
+            // 인터뷰 진행중으로 상태 변경
+            interview.interviewInProgress();
+
+            // 첫 질문 DB에 저장
+            question = interviewQuestionRepository.save(
+                    InterviewQuestion.builder()
+                            .interview(interview)
+                            .sequence(1)
+                            .questionText(interview.getTitle())
+                            .build());
+        }
 
         AiPipelineReadyDto dto = AiPipelineReadyDto.builder()
-                .sequence(1)
+                .sequence(question.getSequence())
                 .nickname(member.getNickname())
                 .previousQuestion(question.getQuestionText())
                 .isFirstFinished(member.getIsFirstFinished())
@@ -144,6 +178,7 @@ public class InterviewService {
 
         redisService.setValues(redisKey, objectMapper.writeValueAsString(dto),
                 Duration.ofMinutes(3));
+        cacheInterviewVoice(interview.getId(), voice);
 
         return WebSocketConnectResponse.builder()
                 .interviewId(interview.getId())
@@ -205,11 +240,12 @@ public class InterviewService {
 
         InterviewQuestion question = domainFindUtils.getInterviewQuestionById(questionId);
         Interview interview = domainFindUtils.getInterviewById(interviewId);
+        String resolvedAnswerText = resolveAnswerText(interviewId, questionId, answerText);
 
         // DB에 사용자 답변과 오디오 경로 저장
         interviewAnswerRepository.save(InterviewAnswer.builder()
                 .interviewQuestion(question)
-                .answerText(answerText)
+                .answerText(resolvedAnswerText)
                 .answerAudioUrl(savedPath)
                 .calmScore(conversionEmotionScore(fusedScores.getCalm()))
                 .engagedScore(conversionEmotionScore(fusedScores.getEngaged()))
@@ -238,14 +274,122 @@ public class InterviewService {
         return score;
     }
 
+    private String buildRefinedAnswerRedisKey(Integer interviewId, Integer questionId) {
+        /*
+         * interviewId와 questionId를 함께 키에 포함해서
+         * 동일 사용자가 여러 인터뷰를 동시에 진행하거나,
+         * 질문 번호가 우연히 겹치는 경우에도 충돌 없이 임시 텍스트를 분리한다.
+         */
+        return "interviewId:" + interviewId + "questionId:" + questionId + "refinedAnswer";
+    }
+
+    @Transactional
+    public void saveRefinedAnswer(Integer interviewId, Integer questionId, String refinedAnswer) {
+        /*
+         * 내부 콜백 요청은 사용자 입력이 아니라 AI 서버가 보내는 서버 간 요청이다.
+         * 그래도 questionId가 실제 interviewId에 속한 질문인지 검증해 두어야
+         * 잘못된 매핑으로 다른 인터뷰 답변이 덮어써지는 사고를 막을 수 있다.
+         */
+        InterviewQuestion question = domainFindUtils.getInterviewQuestionById(questionId);
+        if (!question.getInterview().getId().equals(interviewId)) {
+            throw new GeneralException(ErrorStatus.FORBIDDEN);
+        }
+
+        String normalizedRefinedAnswer = refinedAnswer == null ? "" : refinedAnswer.trim();
+        if (normalizedRefinedAnswer.isBlank()) {
+            throw new GeneralException(ErrorStatus.BAD_REQUEST);
+        }
+
+        InterviewAnswer existingAnswer = interviewAnswerRepository.findByInterviewQuestionId(
+                        questionId)
+                .orElse(null);
+
+        if (existingAnswer != null) {
+            /*
+             * 꼬리질문 응답 저장이 먼저 끝난 경우에는 이미 InterviewAnswer 행이 존재한다.
+             * 이때는 Redis를 거치지 않고 DB 텍스트만 즉시 갱신하는 것이 가장 단순하고 빠르다.
+             */
+            existingAnswer.updateAnswerText(normalizedRefinedAnswer);
+            redisService.deleteValues(buildRefinedAnswerRedisKey(interviewId, questionId));
+            return;
+        }
+
+        /*
+         * 반대로 정제 텍스트가 먼저 도착한 경우에는 아직 저장 대상 행이 없으므로
+         * Redis에 임시 보관해 두었다가 이후 saveQuestionAndAnswer / saveAnswer 시점에 merge한다.
+         */
+        redisService.setValues(
+                buildRefinedAnswerRedisKey(interviewId, questionId),
+                normalizedRefinedAnswer,
+                REFINED_ANSWER_TEMP_TTL
+        );
+
+        log.info("AI 응답 저장됨 저장된 텍스트: {}", refinedAnswer);
+    }
+
+    private String resolveAnswerText(Integer interviewId, Integer questionId,
+            String fallbackAnswerText) {
+        /*
+         * 답변을 최종 저장하는 모든 지점에서 동일한 규칙으로 텍스트를 결정하기 위한 공통 메서드다.
+         * 우선순위는 "Redis에 대기 중인 정제 텍스트 > 현재 전달된 fallback 원문" 순서다.
+         * Redis 값을 사용한 경우 즉시 삭제해서 같은 임시 텍스트가 다음 질문에 재사용되지 않게 한다.
+         */
+        String redisKey = buildRefinedAnswerRedisKey(interviewId, questionId);
+        String refinedAnswer = redisService.getValues(redisKey);
+        if (refinedAnswer != null && !refinedAnswer.isBlank()) {
+            redisService.deleteValues(redisKey);
+            return refinedAnswer;
+        }
+
+        /*
+         * 기본 pipeline 경로처럼 AI 서버가 STT부터 모두 처리하는 흐름에서는
+         * 백엔드가 fallback 원문을 직접 갖고 있지 않을 수 있다.
+         * 이 경우 콜백이 거의 동시에 도착했지만 아직 Redis 반영 전일 가능성이 있으므로
+         * 짧게 재확인해 보고, 그래도 없으면 마지막 fallback 값으로 저장한다.
+         */
+        if (fallbackAnswerText == null || fallbackAnswerText.isBlank()) {
+            for (int retry = 0; retry < 5; retry++) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+
+                refinedAnswer = redisService.getValues(redisKey);
+                if (refinedAnswer != null && !refinedAnswer.isBlank()) {
+                    redisService.deleteValues(redisKey);
+                    return refinedAnswer;
+                }
+            }
+        }
+        return fallbackAnswerText;
+    }
+
+    public String getSavedAnswerText(Integer questionId) {
+        /*
+         * 꼬리질문 응답 DTO에는 사용자에게 보여 줄 최신 답변 텍스트가 필요하다.
+         * saveQuestionAndAnswer가 내부적으로 Redis merge를 수행한 뒤 저장하므로,
+         * 응답 직전에는 DB에서 다시 읽어 오는 값이 가장 최종 상태에 가깝다.
+         */
+        return interviewAnswerRepository.findByInterviewQuestionId(questionId)
+                .map(InterviewAnswer::getAnswerText)
+                .orElse("");
+    }
+
     @Transactional
     public void saveAnswer(InterviewQuestion interviewQuestion, String answerText,
             String savedPath) {
+        String resolvedAnswerText = resolveAnswerText(
+                interviewQuestion.getInterview().getId(),
+                interviewQuestion.getId(),
+                answerText
+        );
 
         // DB에 사용자의 마지막 답변 저장
         interviewAnswerRepository.save(InterviewAnswer.builder()
                 .interviewQuestion(interviewQuestion)
-                .answerText(answerText)
+                .answerText(resolvedAnswerText)
                 .answerAudioUrl(savedPath)
                 .build());
     }
@@ -255,11 +399,16 @@ public class InterviewService {
             String savedPath) {
 
         InterviewQuestion interviewQuestion = domainFindUtils.getInterviewQuestionById(questionId);
+        String resolvedAnswerText = resolveAnswerText(
+                interviewQuestion.getInterview().getId(),
+                questionId,
+                answerText
+        );
 
         // DB에 사용자의 마지막 답변 저장
         interviewAnswerRepository.save(InterviewAnswer.builder()
                 .interviewQuestion(interviewQuestion)
-                .answerText(answerText)
+                .answerText(resolvedAnswerText)
                 .answerAudioUrl(savedPath)
                 .build());
         return interviewQuestion;
@@ -279,13 +428,18 @@ public class InterviewService {
         Interview interview = question.getInterview();
 
         Member member = interview.getMember();
+        String resolvedAnswerText = resolveAnswerText(
+                request.getInterviewId(),
+                request.getQuestionId(),
+                ""
+        );
 
         log.info("사용자 답변 텍스트 DB에 저장");
         // InterviewAnswer 엔티티 생성 및 save(생성된 꼬리질문 + savedFilePath) 활용
         InterviewAnswer answer = interviewAnswerRepository.save(
                 InterviewAnswer.builder()
                         .interviewQuestion(question)
-                        .answerText(aiPipelineResponse.getRefinedAnswer())
+                        .answerText(resolvedAnswerText)
                         .answerAudioUrl(savedFilePath)
                         .build()
         );
@@ -296,7 +450,7 @@ public class InterviewService {
             // 생성된 텍스트 및 오디오 파일 반환
             return FollowUpQuestionDTO.builder()
                     .interviewId(interview.getId())
-                    .sttResult(aiPipelineResponse.getRefinedAnswer())
+                    .sttResult(answer.getAnswerText())
                     .followUpQuestion(aiPipelineResponse.getQuestionText())
                     .ttsAudioBase64(aiPipelineResponse.getTtsAudioBase64())
                     .build();
@@ -317,7 +471,7 @@ public class InterviewService {
         // 생성된 텍스트 및 오디오 파일 반환
         return FollowUpQuestionDTO.builder()
                 .interviewId(interview.getId())
-                .sttResult(aiPipelineResponse.getRefinedAnswer())
+                .sttResult(answer.getAnswerText())
                 .followUpQuestion(aiPipelineResponse.getQuestionText())
                 .ttsAudioBase64(aiPipelineResponse.getTtsAudioBase64())
                 .questionId(generatedQuestion.getId())
@@ -364,7 +518,7 @@ public class InterviewService {
                             + "\n";
 
             // turns 객체 조립
-            turns.add(AiRagDto.Turn.builder()
+            turns.add(Turn.builder()
                     .questionId(String.valueOf(interviewQuestion.getId()))
                     .answerId(String.valueOf(interviewAnswer.getId()))
                     .question(interviewQuestion.getQuestionText())
@@ -693,7 +847,28 @@ public class InterviewService {
                 .previousQuestion(question.getQuestionText())
                 .nickname(member.getNickname())
                 .sequence(question.getSequence() + 1)
+                .voice(getCachedInterviewVoice(interviewId))
                 .build();
+    }
+
+    public void cacheInterviewVoice(Integer interviewId, String voice) {
+        if (voice == null || voice.isBlank()) {
+            return;
+        }
+
+        redisService.setValues(
+                "interviewId:" + interviewId + "voice",
+                voice,
+                INTERVIEW_VOICE_TTL
+        );
+    }
+
+    private String getCachedInterviewVoice(Integer interviewId) {
+        String voice = redisService.getValues("interviewId:" + interviewId + "voice");
+        if (voice == null || voice.isBlank()) {
+            return null;
+        }
+        return voice;
     }
 
     @Transactional
@@ -810,7 +985,7 @@ public class InterviewService {
 
     // 인터뷰 탐색하기
     public InterviewExploreResponse getInterviewExplore(Integer page) {
-        // 인터뷰의 상태가 FINISHED인 정보만 5개씩 가져오며 업데이트 날짜를 기준으로 가져옴
+        // 인터뷰의 상태가 FINISHED인 정보만 12개씩 가져오며 업데이트 날짜를 기준으로 가져옴
         Pageable pageable = PageRequest.of(page, 12, Sort.by("updatedAt").descending());
         Slice<Interview> interviews = interviewRepository.findAllByStatusAndShareRange(
                 InterviewStatus.FINISHED, true, pageable);
@@ -825,6 +1000,40 @@ public class InterviewService {
                         return null;
                     }
 
+                    // 질문에 해당하는 답변 목록 추출
+                    // N + 1 문제
+                    List<InterviewAnswer> answers = questions.stream()
+                            .map(InterviewQuestion::getInterviewAnswer)
+                            .filter(answer -> answer != null)
+                            .toList();
+
+                    // 감정 수치 평균 계산
+                    // 각 감정 점수 평균 계산
+                    OptionalDouble calmAvg = answers.stream()
+                            .filter(a -> a.getCalmScore() != null)
+                            .mapToDouble(a -> a.getCalmScore().doubleValue())
+                            .average();
+
+                    OptionalDouble tenseAvg = answers.stream()
+                            .filter(a -> a.getTenseScore() != null)
+                            .mapToDouble(a -> a.getTenseScore().doubleValue())
+                            .average();
+
+                    OptionalDouble anxiousAvg = answers.stream()
+                            .filter(a -> a.getAnxiousScore() != null)
+                            .mapToDouble(a -> a.getAnxiousScore().doubleValue())
+                            .average();
+
+                    OptionalDouble lowAvg = answers.stream()
+                            .filter(a -> a.getLowScore() != null)
+                            .mapToDouble(a -> a.getLowScore().doubleValue())
+                            .average();
+
+                    OptionalDouble engagedAvg = answers.stream()
+                            .filter(a -> a.getEngagedScore() != null)
+                            .mapToDouble(a -> a.getEngagedScore().doubleValue())
+                            .average();
+
                     // 첫 질문에 해당하는 답변을 대표 답변으로 지정
                     String representAnswer = questions.get(0).getInterviewAnswer().getAnswerText();
                     Integer answerCount = questions.size();
@@ -835,11 +1044,17 @@ public class InterviewService {
                             .interviewDate(interview.getCreatedAt().toLocalDate())
                             .interviewTitle(interview.getTitle())
                             .answerText(representAnswer)
-                            // TODO : 이미지화 시키기 위한, 감정 지표에 대한 [] 내용 추후 수정필요
-                            .fusedScores("임의 데이터")
+                            .fusedScores(InterviewExploreFused.builder()
+                                    .calm_score(toAvgDecimal.toAvgDecimal(calmAvg))
+                                    .tense_score(toAvgDecimal.toAvgDecimal(tenseAvg))
+                                    .anxious_score(toAvgDecimal.toAvgDecimal(anxiousAvg))
+                                    .low_score(toAvgDecimal.toAvgDecimal(lowAvg))
+                                    .engaged_score(toAvgDecimal.toAvgDecimal(engagedAvg))
+                                    .build())
                             .shareUuid(interview.getShareLink())
                             .build();
                 })
+                .filter(detail -> detail != null)
                 .toList();
 
         return InterviewExploreResponse.builder()
@@ -851,7 +1066,8 @@ public class InterviewService {
 
     // 인터뷰 북마크 추가/삭제
     @Transactional
-    public void setBookmark(String userEmail, Integer interviewId, BookmarkSetting request) {
+    public QABookmarkSetResultResponse setBookmark(String userEmail, Integer interviewId,
+            BookmarkSetting request) {
         // 사용자 정보 조회
         Member member = memberRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
@@ -870,6 +1086,22 @@ public class InterviewService {
                         request.getInterviewAnswerID())
                 .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
 
+        // 만약 현재 북마크 하려는 Q&A의 keyword가 null이라면 keyword를 생성
+        if (interviewAnswer.getAnswerKeyword() == null) {
+
+            InterviewQuestion interviewQuestion = interviewAnswer.getInterviewQuestion();
+
+            KeywordResponse keywordResponse = aiUtils.callFastApiKeyword(KeywordRequest.builder()
+                    .question(interviewQuestion.getQuestionText())
+                    .answer(interviewAnswer.getAnswerText())
+                    .build()
+            ).block();
+
+            if (keywordResponse != null) {
+                interviewAnswer.updateKeyword(keywordResponse.getKeyword());
+            }
+        }
+
         // Request로 오는 값이 true라면 shareRange 수정 / false라면 shareRange 수정
         // 답변의 북마크 공유 여부를 갱신합니다.
         interviewAnswer.updateShareRange(request.getInterviewShareRange());
@@ -877,6 +1109,10 @@ public class InterviewService {
             // 북마크가 공유 상태로 바뀌면 공유 보드용 레이아웃도 함께 보장합니다.
             ensureBookmarkLayout(interviewAnswer);
         }
+
+        return QABookmarkSetResultResponse.builder()
+                .interviewShareRange(interviewAnswer.getShareRange())
+                .build();
     }
 
     private void ensureBookmarkLayout(InterviewAnswer answer) {
@@ -970,6 +1206,23 @@ public class InterviewService {
         log.info("키워드 저장 성공. 키워드: {}", keyword);
     }
 
+    // 완료되지 않고 종료된 인터뷰가 있는지 확인
+    public InterviewUnfinishedResponse findUnfinishedInterviews(String email) {
+
+        Member member = domainFindUtils.getMemberByEmail(email);
+        // TODO : 인터뷰를 정상종료 하더라도 바로 FINISHED로 변경되지 않기 때문에 인터뷰 시작시 비정상 로직이 있다고 뜰 수 있음.
+
+        // 종료가 되지 않은 인터뷰가 있는지 찾음
+        Integer interviewId = interviewRepository.findTopByMemberIdAndStatusNotOrderByUpdatedAtDesc(
+                        member.getId(), InterviewStatus.FINISHED)
+                .map(Interview::getId)
+                .orElse(null);
+
+        return InterviewUnfinishedResponse.builder()
+                .unfinishedInterviewId(interviewId)
+                .build();
+    }
+
     // 종료 직전 마지막 답변의 감정 상태, 정제 텍스트를 저장하는 메서드
     @Transactional
     public void saveEmotionTts(LastAnswerTextResponse lastAnswerTextResponse,
@@ -983,5 +1236,6 @@ public class InterviewService {
 
         interviewAnswer.updateTextEmotion(lastAnswerTextResponse.getRefinedAnswer(),
                 lastAnswerEmotionResponse.getInterviewStateDb());
+
     }
 }

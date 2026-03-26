@@ -6,6 +6,7 @@ import type {
   QuestionPostitPageResult,
   CreateQuestionRequest,
   CreateQuestionResult,
+  StartQuestionInterviewResult,
 } from "@/types/board";
 
 // GET /v1/share-board/member/{userUuid} - 공유 보드 기본 정보 조회
@@ -41,6 +42,20 @@ export async function fetchQuestionPostits(
   const res = await instance.get<ApiResponse<QuestionPostitPageResult>>(
     `/share-board/member/${userUuid}/postits/questions`,
     { params: { page } },
+  );
+  return res.data.result;
+}
+
+// POST /v1/share-board/question/{questionId}/start-interview
+// 질문 포스트잇을 기반으로 인터뷰를 시작
+// LLM 질문 생성 + TTS 변환 포함으로 타임아웃을 60초로 설정
+export async function startQuestionInterview(
+  questionId: number,
+): Promise<StartQuestionInterviewResult> {
+  const res = await instance.post<ApiResponse<StartQuestionInterviewResult>>(
+    `/share-board/question/${questionId}/start-interview`,
+    {},
+    { timeout: 60000 },
   );
   return res.data.result;
 }

@@ -71,4 +71,21 @@ public abstract class InterviewRequest {
         private Boolean interviewShareRange; // 인터튜 북마크 공개범위 설정
         private Integer interviewAnswerID; // 인터뷰 북마크 설정을 위한 답변 ID
     }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    public static class SaveRefinedAnswerRequest {
+
+        private Integer interviewId;
+        private Integer questionId;
+        private String refinedAnswer;
+    }
+
+    // 완료되지 않은 인터뷰 이어서 시작
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    public static class restartInterviewRequest {
+
+        private Integer interviewId;
+    }
 }
