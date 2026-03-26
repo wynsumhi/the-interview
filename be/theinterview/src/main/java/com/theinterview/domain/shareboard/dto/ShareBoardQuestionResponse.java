@@ -23,13 +23,15 @@ public abstract class ShareBoardQuestionResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
     public static class ShareBoardInfoResponse {
+
         private Integer shareBoardId;
         private Integer ownerMemberId;
         private String ownerNickname;
         private String ownerUserUuid;
         private Boolean isOwner;
 
-        public static ShareBoardInfoResponse from(ShareBoard shareBoard, Integer requesterMemberId) {
+        public static ShareBoardInfoResponse from(ShareBoard shareBoard,
+                Integer requesterMemberId) {
             Integer ownerId = shareBoard.getOwner().getId();
             return ShareBoardInfoResponse.builder()
                     .shareBoardId(shareBoard.getId())
@@ -46,6 +48,7 @@ public abstract class ShareBoardQuestionResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
     public static class ShareBoardQuestionAuthorResponse {
+
         private Integer memberId;
         private String nickname;
     }
@@ -55,6 +58,7 @@ public abstract class ShareBoardQuestionResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
     public static class PostitLayoutResponse {
+
         private String colorCode;
         private BigDecimal rotationDeg;
         private BigDecimal positionX;
@@ -77,6 +81,7 @@ public abstract class ShareBoardQuestionResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
     public static class PostitPermissionsResponse {
+
         private Boolean canEditContent;
         private Boolean canDelete;
         private Boolean canEditLayout;
@@ -87,6 +92,7 @@ public abstract class ShareBoardQuestionResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
     public static class ShareBoardQuestionItemResponse {
+
         private ShareBoardPostitType postitType;
         private Integer sourceId;
         private Integer questionId;
@@ -140,6 +146,7 @@ public abstract class ShareBoardQuestionResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
     public static class ShareBoardQuestionSliceResponse {
+
         private String ownerUserUuid;
         private List<ShareBoardQuestionItemResponse> items;
         private int currentPage;
@@ -151,6 +158,7 @@ public abstract class ShareBoardQuestionResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
     public static class BookmarkPostitItemResponse {
+
         private ShareBoardPostitType postitType;
         private Integer sourceId;
         private String question;
@@ -164,7 +172,7 @@ public abstract class ShareBoardQuestionResponse {
         private PostitLayoutResponse layout;
 
         public static BookmarkPostitItemResponse from(InterviewAnswer answer,
-                ShareBoardPostitLayout layout, boolean canEditLayout) {
+                ShareBoardPostitLayout layout, boolean canEditLayout, String shareboardEndpoint) {
             return BookmarkPostitItemResponse.builder()
                     .postitType(ShareBoardPostitType.BOOKMARK)
                     .sourceId(answer.getId())
@@ -172,9 +180,10 @@ public abstract class ShareBoardQuestionResponse {
                     .answer(answer.getAnswerText())
                     .answerKeyword(answer.getAnswerKeyword())
                     .interviewId(answer.getInterviewQuestion().getInterview().getId())
-                    .interviewUrl(answer.getInterviewQuestion().getInterview().getShareLink() == null
-                            ? null : "https://j14a307.p.ssafy.io/interview/share/"
-                            + answer.getInterviewQuestion().getInterview().getShareLink())
+                    .interviewUrl(
+                            answer.getInterviewQuestion().getInterview().getShareLink() == null
+                                    ? null : shareboardEndpoint
+                                    + answer.getInterviewQuestion().getInterview().getShareLink())
                     .createdAt(answer.getCreatedAt())
                     .updatedAt(layout.getUpdatedAt())
                     .permissions(PostitPermissionsResponse.builder()
@@ -192,6 +201,7 @@ public abstract class ShareBoardQuestionResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
     public static class BookmarkPostitSliceResponse {
+
         private String ownerUserUuid;
         private List<BookmarkPostitItemResponse> items;
         private int currentPage;
@@ -203,6 +213,7 @@ public abstract class ShareBoardQuestionResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
     public static class DeleteShareBoardQuestionResponse {
+
         private Integer questionId;
         private Boolean deleted;
     }
@@ -212,6 +223,7 @@ public abstract class ShareBoardQuestionResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
     public static class StartInterviewFromQuestionResponse {
+
         private Integer sourceQuestionId;
         private ShareBoardQuestionStatus questionStatus;
         private String questionStatusLabel;
@@ -223,6 +235,7 @@ public abstract class ShareBoardQuestionResponse {
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @Builder
     public static class UpdateLayoutResponse {
+
         private ShareBoardPostitType postitType;
         private Integer sourceId;
         private PostitLayoutResponse layout;

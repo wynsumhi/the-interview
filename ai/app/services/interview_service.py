@@ -43,6 +43,17 @@ NEW_USER_START_QUESTION_TEMPLATE = (
 )
 
 
+def _build_magazine_refinement_messages(stt_text: str) -> list[dict[str, str]]:
+    user_message = (
+        "[Task]\n"
+        "Refine the following interview answer into magazine style.\n"
+        "Do not answer the speaker's question. Do not add guidance or refusal.\n\n"
+        "[Interview Answer]\n"
+        f"{stt_text}"
+    )
+    return [{"role": "user", "content": user_message}]
+
+
 def _to_plain_dict(value: Any) -> dict[str, Any]:
     if is_dataclass(value):
         return asdict(value)
@@ -161,7 +172,7 @@ def refine_answer_for_magazine(
         raise ValueError("stt_text is required.")
 
     refined = create_message(
-        messages=[{"role": "user", "content": normalized_stt_text}],
+        messages=_build_magazine_refinement_messages(normalized_stt_text),
         system=MAGAZINE_GENERATION_SYSTEM_PROMPT,
         max_tokens=max_tokens,
         label="answer_refinement",
@@ -265,6 +276,8 @@ def save_interview_state_temp(request: dict[str, Any]) -> dict[str, Any]:
 def run_interview_pipeline_from_upload(
     audio_file: UploadFile,
     is_first_finished: bool = False,
+    interview_id: int | None = None,
+    question_id: int | None = None,
     voice: str | None = None,
     user_id: str | None = None,
     sequence: int | None = None,
@@ -297,6 +310,8 @@ def run_interview_pipeline_from_upload(
         pipeline_result = run_interview_pipeline(
             str(temp_file_path),
             is_first_finished=is_first_finished,
+            interview_id=interview_id,
+            question_id=question_id,
             voice=voice,
             user_id=user_id,
             sequence=sequence,
@@ -317,7 +332,6 @@ def run_interview_pipeline_from_upload(
             "question_text": response["question_text"],
             "tts_audio_base64": base64.b64encode(response["tts_audio"]).decode("ascii"),
             "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
-            "refined_answer": response["refined_answer"],
         }
     finally:
         audio_file.file.close()
@@ -329,6 +343,8 @@ def run_interview_pipeline_from_stt_payload(
     audio_file: UploadFile,
     stt_text: str,
     is_first_finished: bool = False,
+    interview_id: int | None = None,
+    question_id: int | None = None,
     voice: str | None = None,
     user_id: str | None = None,
     sequence: int | None = None,
@@ -356,6 +372,8 @@ def run_interview_pipeline_from_stt_payload(
             str(temp_file_path),
             stt_text=normalized_stt_text,
             is_first_finished=is_first_finished,
+            interview_id=interview_id,
+            question_id=question_id,
             voice=voice,
             user_id=user_id,
             sequence=sequence,
@@ -374,7 +392,6 @@ def run_interview_pipeline_from_stt_payload(
             "question_text": response["question_text"],
             "tts_audio_base64": base64.b64encode(response["tts_audio"]).decode("ascii"),
             "tts_audio_mime_type": DEFAULT_AUDIO_MIME_TYPE,
-            "refined_answer": response["refined_answer"],
         }
     finally:
         audio_file.file.close()

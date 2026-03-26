@@ -100,6 +100,22 @@ export interface MyBookmarkItem {
   shareRange: boolean;
 }
 
+/** POST /v1/share-board/question/{questionId}/start-interview 응답의 interview 필드 */
+export interface StartQuestionInterviewData {
+  interviewId: number;
+  questionId: number;
+  interviewTitle: string;
+  ttsAudioBase64: string;
+}
+
+/** POST /v1/share-board/question/{questionId}/start-interview 응답의 result 필드 */
+export interface StartQuestionInterviewResult {
+  sourceQuestionId: number;
+  questionStatus: string;
+  questionStatusLabel: string;
+  interview: StartQuestionInterviewData;
+}
+
 /** POST /v1/share-board/member/{userUuid}/questions 요청 바디 */
 export interface CreateQuestionRequest {
   /** 작성할 질문 내용 */

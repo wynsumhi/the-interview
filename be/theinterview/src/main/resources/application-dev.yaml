@@ -40,3 +40,12 @@ file:
 fastapi:
   base-path: ${FASTAPI_SERVER_URL}
   service-token: ${FASTAPI_SERVICE_TOKEN:}
+
+internal:
+  api:
+    ai-callback-token: ${AI_INTERNAL_TOKEN:}
+
+# shareboard 공유 URL Endpoint
+url:
+  shareboard:
+    endpoint: ${SHARE_INTERVIEW_ENDPOINT}

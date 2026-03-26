@@ -7,11 +7,14 @@ import type {
   CreateQuestionRequest,
   CreateQuestionResult,
   MyBookmarkItem,
+  StartQuestionInterviewResult,
 } from "@/types/board";
 
 // GET /v1/share-board/member/{userUuid} - 공유 보드 기본 정보 조회
 // isOwner: 내 보드인지 여부, ownerNickname: 보드 주인 닉네임 등
-export async function fetchShareBoardInfo(userUuid: string): Promise<ShareBoardInfo> {
+export async function fetchShareBoardInfo(
+  userUuid: string,
+): Promise<ShareBoardInfo> {
   const res = await instance.get<ApiResponse<ShareBoardInfo>>(
     `/share-board/member/${userUuid}`,
   );
@@ -46,6 +49,20 @@ export async function fetchQuestionPostits(
   return res.data.result;
 }
 
+// POST /v1/share-board/question/{questionId}/start-interview
+// 질문 포스트잇을 기반으로 인터뷰를 시작
+// LLM 질문 생성 + TTS 변환 포함으로 타임아웃을 60초로 설정
+export async function startQuestionInterview(
+  questionId: number,
+): Promise<StartQuestionInterviewResult> {
+  const res = await instance.post<ApiResponse<StartQuestionInterviewResult>>(
+    `/share-board/question/${questionId}/start-interview`,
+    {},
+    { timeout: 60000 },
+  );
+  return res.data.result;
+}
+
 // POST /v1/share-board/member/{userUuid}/questions
 // 보드 주인의 질문 탭에 새 질문 포스트잇을 작성
 // 응답으로 생성된 QuestionPostitItem 전체를 반환
@@ -64,8 +81,7 @@ export async function createQuestion(
 // GET /api/v1/share-board/me - 현재 로그인 유저의 북마크 목록 조회
 // 각 항목의 sourceId는 interviewAnswerId와 동일하며 shareRange로 공개 여부를 확인
 export async function fetchMyBookmarks(): Promise<MyBookmarkItem[]> {
-  const res = await instance.get<ApiResponse<MyBookmarkItem[]>>(
-    "/share-board/me",
-  );
+  const res =
+    await instance.get<ApiResponse<MyBookmarkItem[]>>("/share-board/me");
   return res.data.result;
 }

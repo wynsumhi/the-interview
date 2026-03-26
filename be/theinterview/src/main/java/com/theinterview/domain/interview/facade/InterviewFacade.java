@@ -120,6 +120,8 @@ public class InterviewFacade {
         // todo: 첫 인터뷰에 한하여 시퀀스가 6 이상인 경우에 자동 종료 분기 필요
         // 2. 트랜잭션 X, AI 서버 호출
         AiPipelineResponse aiPipelineResponse = aiUtils.callFastApiForNextQuestion(audioBytes,
+                request.getInterviewId(),
+                request.getQuestionId(),
                 aiPipelineReadyDto.getSequence(), aiPipelineReadyDto.getNickname(),
                 aiPipelineReadyDto.getPreviousQuestion(),
                 aiPipelineReadyDto.getIsFirstFinished(),
@@ -195,6 +197,8 @@ public class InterviewFacade {
                             .subscribeOn(Schedulers.boundedElastic())
                             .flatMap(audioBytes ->
                                     aiUtils.callFastApiForNextQuestionV2(audioBytes,
+                                            interviewId,
+                                            questionId,
                                             aiPipelineReadyDto.getSequence() + 1,
                                             aiPipelineReadyDto.getNickname(),
                                             aiPipelineReadyDto.getPreviousQuestion(),
@@ -210,6 +214,8 @@ public class InterviewFacade {
                                             savedPath,
                                             answerText, aiPipelineResponse.getInterviewStateDb()
                                                     .getFusedScores());
+                                    String savedAnswerText = interviewService.getSavedAnswerText(
+                                            questionId);
 
                                     // redis에 저장하기 위한 데이터 준비
                                     String dto = objectMapper.writeValueAsString(
@@ -227,13 +233,26 @@ public class InterviewFacade {
                                                     + nextQuestionId;
                                     redisService.setValues(newRedisKey + "aiPipelineReadyDto", dto,
                                             Duration.ofMinutes(5));
+                                    interviewService.cacheInterviewVoice(interviewId,
+                                            aiPipelineReadyDto.getVoice());
                                     // 저장 완료 lock 상태 해제
                                     redisService.deleteValues(
                                             "interviewId:" + interviewId + "lock");
                                     log.info("요청 및 반환 종료. 걸린 시간: {}",
                                             System.currentTimeMillis() - start);
-                                    return new FollowUpQuestionDTO(aiPipelineResponse, interviewId,
-                                            nextQuestionId);
+                                    /*
+                                     * after-stt 응답에서는 refined_answer를 더 이상 신뢰할 수 없으므로
+                                     * 방금 저장된 답변 텍스트를 다시 읽어 응답 DTO의 sttResult에 반영한다.
+                                     * 이렇게 해야 Redis 임시 저장값이 merge된 경우에도
+                                     * 사용자에게 전달되는 텍스트와 DB 값이 서로 어긋나지 않는다.
+                                     */
+                                    return FollowUpQuestionDTO.builder()
+                                            .interviewId(interviewId)
+                                            .questionId(nextQuestionId)
+                                            .sttResult(savedAnswerText)
+                                            .followUpQuestion(aiPipelineResponse.getQuestionText())
+                                            .ttsAudioBase64(aiPipelineResponse.getTtsAudioBase64())
+                                            .build();
                                 }).subscribeOn(Schedulers.boundedElastic());
                             })
                             .doOnSuccess(followUpQuestionDTO -> {

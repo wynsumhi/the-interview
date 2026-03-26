@@ -9,23 +9,20 @@ if (!API_URL) {
 
 const nextConfig: NextConfig = {
   async rewrites() {
-    return {
-      // beforeFiles: 파일시스템(App Router API 라우트 포함) 체크 이전에 적용
-      // 기본값인 afterFiles는 App Router가 /api/* 경로를 먼저 가로채므로
-      // /api/v1/** 요청이 원격 서버로 전달되지 않는 문제가 발생함
-      beforeFiles: [
-        {
-          source: "/api/v1/:path*",
-          destination: `${API_URL}/api/v1/:path*`,
-        },
-        {
-          source: "/socket",
-          destination: `${API_URL}/ws-connect`,
-        },
-      ],
-      afterFiles: [],
-      fallback: [],
-    };
+    return [
+      // REST API: /api/v1/* → 프로덕션 서버 /api/v1/*
+      {
+        source: "/api/v1/:path*",
+        destination: `${process.env.API_URL}/api/v1/:path*`,
+      },
+      // WebSocket(SockJS): /api/ws-connect/* → 프로덕션 서버 /api/ws-connect/*
+      // 브라우저가 직접 j14a307.p.ssafy.io 에 연결하지 않도록 Next.js 서버 경유 프록시
+      // (직접 연결 시 CORS 차단됨 — Origin: localhost:3000 불허)
+      {
+        source: "/api/ws-connect/:path*",
+        destination: `${process.env.API_URL}/api/ws-connect/:path*`,
+      },
+    ];
   },
 };
 
