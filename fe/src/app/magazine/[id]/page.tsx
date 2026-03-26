@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useInterviewDetail } from "@/hooks/useInterviewDetail";
 import { deleteInterview, toggleBookmark } from "@/services/interview";
+import { useBookmarkStore } from "@/store/useBookmarkStore";
 import type { InterviewDetailEntry } from "@/types/interview";
 import styles from "./page.module.css";
 
@@ -209,44 +210,28 @@ function DeleteModal({
 export default function MagazinePage() {
   const params = useParams();
   const router = useRouter();
-  const interviewId = Number(params.id);
+  // useParams()는 string | string[]을 반환할 수 있으므로 안전하게 단일 값으로 변환
+  const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const interviewId = rawId ? Number(rawId) : NaN;
   const { data, isLoading, error } = useInterviewDetail(interviewId);
 
   const [showModal, setShowModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // 북마크 상태 맵: answerId → true(북마크됨) / false(해제됨)
-  const [bookmarks, setBookmarks] = useState<Record<number, boolean>>({});
-  // 서버 데이터로 북마크 초기값이 세팅됐는지 추적 (그리드 렌더링 게이트)
-  const [bookmarkReady, setBookmarkReady] = useState(false);
-  // 최초 1회만 서버 값으로 초기화하기 위한 플래그 (백그라운드 리패치 시 덮어쓰기 방지)
-  const bookmarkSeeded = useRef(false);
-
-  useEffect(() => {
-    if (!data?.interview || bookmarkSeeded.current) return;
-    const initial: Record<number, boolean> = {};
-    data.interview.forEach((entry) => {
-      // 백엔드가 shareRange 필드를 추가하면 이 값으로 초기 북마크 상태가 복원됨
-      initial[entry.interviewAnswerId] = entry.shareRange === true;
-    });
-    setBookmarks(initial);
-    bookmarkSeeded.current = true;
-    setBookmarkReady(true);
-  }, [data]);
+  // localStorage에 영구 저장되는 북마크 스토어 (새로고침 후에도 상태 유지)
+  const { bookmarks, setBookmark } = useBookmarkStore();
 
   const handleToggleBookmark = async (interviewAnswerId: number) => {
-    // 클릭 시점의 상태를 캡처해 롤백 기준으로 사용
     const wasBookmarked = bookmarks[interviewAnswerId] === true;
-
     // 낙관적으로 UI 먼저 전환
-    setBookmarks((prev) => ({ ...prev, [interviewAnswerId]: !wasBookmarked }));
-
+    setBookmark(interviewAnswerId, !wasBookmarked);
     try {
-      await toggleBookmark(interviewId, interviewAnswerId, !wasBookmarked);
+      // POST 응답의 interviewShareRange로 최종 상태 확정
+      const confirmed = await toggleBookmark(interviewId, interviewAnswerId, !wasBookmarked);
+      setBookmark(interviewAnswerId, confirmed);
     } catch {
-      // API 실패 시 캡처한 상태로 정확히 복원
-      setBookmarks((prev) => ({ ...prev, [interviewAnswerId]: wasBookmarked }));
+      setBookmark(interviewAnswerId, wasBookmarked);
     }
   };
 
@@ -282,16 +267,19 @@ export default function MagazinePage() {
     const msg = (error as Error).message;
     const is403 = msg === "FORBIDDEN";
     const is404 = msg === "NOT_FOUND";
+    const is502 = msg === "BAD_GATEWAY";
     return (
       <main className={styles.container}>
         <div className={styles.stateBox}>
           <span className={styles.stateCode}>
-            {is403 ? "403" : is404 ? "404" : "ERR"}
+            {is403 ? "403" : is404 ? "404" : is502 ? "502" : "ERR"}
           </span>
           <p className={styles.stateMsg}>
             {is403
               ? "이 인터뷰에 접근할 권한이 없습니다."
-              : is404
+              : is502
+                ? "서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
+                : is404
                 ? "인터뷰를 찾을 수 없습니다."
                 : "불러오는 중 오류가 발생했습니다."}
           </p>
@@ -352,11 +340,8 @@ export default function MagazinePage() {
         />
       )}
 
-      {/* ── 스태거드 2단 그리드 — 북마크 초기값이 세팅된 뒤에만 렌더링 ── */}
-      <div
-        className={styles.grid}
-        style={bookmarkReady ? undefined : { visibility: "hidden" }}
-      >
+      {/* ── 스태거드 2단 그리드 ── */}
+      <div className={styles.grid}>
         {/* 왼쪽 열: 짝수 인덱스 (0, 2, 4 …) */}
         <div className={styles.col}>
           {leftCol.map((entry, i) => (
