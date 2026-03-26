@@ -41,3 +41,8 @@ file:
 fastapi:
   base-path: "http://localhost:8000"
   service-token: ${FASTAPI_SERVICE_TOKEN:}
+
+# shareboard 공유 URL Endpoint
+url:
+  shareboard:
+    endpoint: ${SHARE_INTERVIEW_ENDPOINT}
