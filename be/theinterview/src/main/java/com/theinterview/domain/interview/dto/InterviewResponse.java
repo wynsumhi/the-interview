@@ -276,4 +276,13 @@ public abstract class InterviewResponse {
 
         private Integer unfinishedInterviewId;
     }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class QABookmarkSetResultResponse {
+
+        private Boolean interviewShareRange;
+    }
 }

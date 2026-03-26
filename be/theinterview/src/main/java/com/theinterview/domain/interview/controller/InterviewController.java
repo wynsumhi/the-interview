@@ -13,6 +13,7 @@ import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryD
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItBoardResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewUnfinishedResponse;
+import com.theinterview.domain.interview.dto.InterviewResponse.QABookmarkSetResultResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewResponseDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
 import com.theinterview.domain.interview.facade.InterviewFacade;
@@ -222,14 +223,15 @@ public class InterviewController {
 
     // 인터뷰 북마크 추가/삭제
     @PostMapping("/{interviewId}/share/bookmark")
-    public ApiResponse<Void> setBookmark(
+    public ApiResponse<QABookmarkSetResultResponse> setBookmark(
             @PathVariable(name = "interviewId") Integer interviewId,
             @RequestBody BookmarkSetting request,
             @AuthenticationPrincipal User user
     ) {
         String email = user.getUsername();
-        interviewService.setBookmark(email, interviewId, request);
-        return ApiResponse.OK;
+        QABookmarkSetResultResponse qaBookmarkSetResultResponseDTO = interviewService.setBookmark(
+                email, interviewId, request);
+        return ApiResponse.onSuccess(qaBookmarkSetResultResponseDTO);
     }
 
     // 사용자 인터뷰 오디오 재생
