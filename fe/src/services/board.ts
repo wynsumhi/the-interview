@@ -6,6 +6,7 @@ import type {
   QuestionPostitPageResult,
   CreateQuestionRequest,
   CreateQuestionResult,
+  MyBookmarkItem,
 } from "@/types/board";
 
 // GET /v1/share-board/member/{userUuid} - 공유 보드 기본 정보 조회
@@ -56,6 +57,15 @@ export async function createQuestion(
   const res = await instance.post<ApiResponse<CreateQuestionResult>>(
     `/share-board/member/${userUuid}/questions`,
     body,
+  );
+  return res.data.result;
+}
+
+// GET /api/v1/share-board/me - 현재 로그인 유저의 북마크 목록 조회
+// 각 항목의 sourceId는 interviewAnswerId와 동일하며 shareRange로 공개 여부를 확인
+export async function fetchMyBookmarks(): Promise<MyBookmarkItem[]> {
+  const res = await instance.get<ApiResponse<MyBookmarkItem[]>>(
+    "/share-board/me",
   );
   return res.data.result;
 }
