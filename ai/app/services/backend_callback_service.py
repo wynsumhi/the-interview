@@ -26,11 +26,11 @@ def save_refined_answer_to_backend(
         return False
 
     response = requests.post(
-        f"{settings.BACKEND_INTERNAL_BASE_URL}/api/v1/interview/internal/answers/refined",
+        f"{settings.BACKEND_INTERNAL_BASE_URL}/v1/interview/internal/answers/refined",
         json={
-            "interview_id": interview_id,
-            "question_id": question_id,
-            "refined_answer": refined_answer,
+            "interviewId": interview_id,
+            "questionId": question_id,
+            "refinedAnswer": refined_answer,
         },
         headers={"Authorization": f"Bearer {settings.BACKEND_INTERNAL_TOKEN}"},
         timeout=settings.BACKEND_INTERNAL_TIMEOUT_SECONDS,
