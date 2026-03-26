@@ -60,4 +60,12 @@ public class JwtFilter extends OncePerRequestFilter {
         }
         return null;
     }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+
+        String uri = request.getRequestURI();
+        return uri.startsWith("/v1/interview/internal/")
+                || uri.startsWith("/api/v1/interview/internal/");
+    }
 }
