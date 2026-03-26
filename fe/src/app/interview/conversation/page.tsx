@@ -30,7 +30,7 @@ const BAR_COUNT = 12;
 const DEFAULT_HEIGHTS = Array<number>(BAR_COUNT).fill(4);
 const SILENCE_THRESHOLD = 10;
 const SILENCE_DELAY_MS = 3000;
-const GESTURE_HOLD_MS = 1000;
+const GESTURE_HOLD_MS = 850;
 const GESTURE_RESET_MS = 4000;
 const GESTURE_SCORE_THRESHOLD = 0.75;
 const VICTORY_GESTURE_NAME = "Victory";
@@ -68,7 +68,9 @@ function ConversationContent() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExiting, setIsExiting] = useState(false);
   const [gestureNotice, setGestureNotice] = useState<string | null>(null);
-  const [nextGestureNotice, setNextGestureNotice] = useState<string | null>(null);
+  const [nextGestureNotice, setNextGestureNotice] = useState<string | null>(
+    null,
+  );
 
   const questionRef = useRef<CurrentQuestion | null>(null);
   const statusRef = useRef<InterviewStatus>("CONNECTING");
@@ -148,16 +150,13 @@ function ConversationContent() {
     }, GESTURE_RESET_MS);
   }, [resetGestureState]);
 
-  const getTopGesture = useCallback(
-    (result: GestureRecognizerResult) => {
-      const [firstHand] = result.gestures;
-      const [topGesture] = firstHand ?? [];
-      if (!topGesture) return null;
-      if (topGesture.score < GESTURE_SCORE_THRESHOLD) return null;
-      return topGesture;
-    },
-    [],
-  );
+  const getTopGesture = useCallback((result: GestureRecognizerResult) => {
+    const [firstHand] = result.gestures;
+    const [topGesture] = firstHand ?? [];
+    if (!topGesture) return null;
+    if (topGesture.score < GESTURE_SCORE_THRESHOLD) return null;
+    return topGesture;
+  }, []);
 
   const handleGestureResult = useCallback(
     (result: GestureRecognizerResult, now: number) => {
@@ -175,7 +174,8 @@ function ConversationContent() {
       }
 
       const topGesture = getTopGesture(result);
-      const isPointingUp = topGesture?.categoryName === POINTING_UP_GESTURE_NAME;
+      const isPointingUp =
+        topGesture?.categoryName === POINTING_UP_GESTURE_NAME;
       const isVictory = topGesture?.categoryName === VICTORY_GESTURE_NAME;
 
       if (
@@ -325,7 +325,9 @@ function ConversationContent() {
       cameraStreamRef.current = cameraStream;
 
       const AudioContextClass =
-        window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        window.AudioContext ||
+        (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
       const audioContext = new AudioContextClass();
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
@@ -400,9 +402,12 @@ function ConversationContent() {
       });
       ttsAudioRef.current = audio;
     } else {
-      const timer = setTimeout(() => {
-        if (statusRef.current === "AI_SPEAKING") setStatus("USER_RECORDING");
-      }, text.length * 60 + 1500);
+      const timer = setTimeout(
+        () => {
+          if (statusRef.current === "AI_SPEAKING") setStatus("USER_RECORDING");
+        },
+        text.length * 60 + 1500,
+      );
 
       return () => {
         clearInterval(interval);
@@ -466,7 +471,8 @@ function ConversationContent() {
       });
       setWaveHeights(heights);
 
-      const avg = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+      const avg =
+        dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
       if (avg < SILENCE_THRESHOLD) {
         if (!silenceTimerRef.current) {
           silenceTimerRef.current = setTimeout(() => {
@@ -595,7 +601,11 @@ function ConversationContent() {
 
       {status !== "CONNECTING" && (
         <section className={styles.content}>
-          <button className={styles.exitBtn} onClick={() => void handleExit()} disabled={isExiting}>
+          <button
+            className={styles.exitBtn}
+            onClick={() => void handleExit()}
+            disabled={isExiting}
+          >
             {isExiting ? "종료 중..." : "인터뷰 종료"}
           </button>
           {gestureNotice && (
@@ -608,7 +618,9 @@ function ConversationContent() {
           <div className={styles.questionBox}>
             <h2 className={styles.questionText}>
               {displayText}
-              {status === "AI_SPEAKING" && <span className={styles.cursor}>|</span>}
+              {status === "AI_SPEAKING" && (
+                <span className={styles.cursor}>|</span>
+              )}
             </h2>
           </div>
 
