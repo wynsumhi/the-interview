@@ -45,3 +45,8 @@ fastapi:
 internal:
   api:
     ai-callback-token: ${AI_INTERNAL_TOKEN:}
+
+# shareboard 공유 URL Endpoint
+url:
+  shareboard:
+    endpoint: ${SHARE_INTERVIEW_ENDPOINT}

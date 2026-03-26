@@ -63,7 +63,7 @@ export default function Navbar() {
       <div className={styles.navInner}>
         {/* 로고: 로그인 여부에 따라 목적지 변경 */}
         <Link
-          href={isLoggedIn ? `/board${userUuid}` : "/"}
+          href={isLoggedIn ? `/board/${userUuid}` : "/"}
           className={styles.logo}
         >
           The interview
@@ -73,7 +73,7 @@ export default function Navbar() {
           {isLoggedIn ? (
             <>
               {/* 로그인 시 메뉴 구성 */}
-              <Link href={`/board${userUuid}`} className={styles.navLink}>
+              <Link href={`/board/${userUuid}`} className={styles.navLink}>
                 나의 핀
               </Link>
               <Link href="/explore" className={styles.navLink}>

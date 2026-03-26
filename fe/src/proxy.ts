@@ -21,7 +21,7 @@ const protectedRoutes = [
 ];
 
 // 로그인 상태에서 접근 불가능한 경로 (이미 로그인한 사용자는 필요 없는 페이지)
-const authOnlyRoutes = ["/login", "/signup"];
+const authOnlyRoutes = ["/login", "/signup", "/intro"];
 
 // middleware() → proxy()로 함수 이름 변경 (Next.js 16 컨벤션)
 export function proxy(request: NextRequest) {
