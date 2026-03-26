@@ -37,6 +37,7 @@ import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItBo
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewPostItDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewShareLink;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewUnfinishedResponse;
+import com.theinterview.domain.interview.dto.InterviewResponse.QABookmarkSetResultResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewDetail;
 import com.theinterview.domain.interview.dto.InterviewResponse.SharedInterviewResponseDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.WebSocketConnectResponse;
@@ -1042,7 +1043,8 @@ public class InterviewService {
 
     // 인터뷰 북마크 추가/삭제
     @Transactional
-    public void setBookmark(String userEmail, Integer interviewId, BookmarkSetting request) {
+    public QABookmarkSetResultResponse setBookmark(String userEmail, Integer interviewId,
+            BookmarkSetting request) {
         // 사용자 정보 조회
         Member member = memberRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.MEMBER_NOT_FOUND));
@@ -1084,6 +1086,10 @@ public class InterviewService {
             // 북마크가 공유 상태로 바뀌면 공유 보드용 레이아웃도 함께 보장합니다.
             ensureBookmarkLayout(interviewAnswer);
         }
+
+        return QABookmarkSetResultResponse.builder()
+                .interviewShareRange(interviewAnswer.getShareRange())
+                .build();
     }
 
     private void ensureBookmarkLayout(InterviewAnswer answer) {
