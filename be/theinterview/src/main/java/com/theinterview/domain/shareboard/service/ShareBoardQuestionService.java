@@ -42,7 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
 public class ShareBoardQuestionService {
 
     // 무한 스크롤에서 한 번에 내려줄 포스트잇 개수입니다.
@@ -103,7 +103,8 @@ public class ShareBoardQuestionService {
         );
 
         // 새 질문에는 기본 레이아웃도 동시에 생성합니다.
-        ShareBoardPostitLayout layout = createDefaultLayout(shareBoard, ShareBoardPostitType.QUESTION,
+        ShareBoardPostitLayout layout = createDefaultLayout(shareBoard,
+                ShareBoardPostitType.QUESTION,
                 question.getId());
         return ShareBoardQuestionItemResponse.from(question, requester.getId(), layout);
     }
@@ -203,7 +204,8 @@ public class ShareBoardQuestionService {
         }
 
         // 색상은 고정값이므로 회전, 좌표, z-index만 수정합니다.
-        layout.updatePlacement(toDecimal(request.getRotationDeg()), toDecimal(request.getPositionX()),
+        layout.updatePlacement(toDecimal(request.getRotationDeg()),
+                toDecimal(request.getPositionX()),
                 toDecimal(request.getPositionY()), request.getZIndex());
 
         return UpdateLayoutResponse.from(postitType, sourceId, layout, true);
@@ -278,7 +280,8 @@ public class ShareBoardQuestionService {
                 .build());
 
         // 기존 인터뷰 생성 흐름을 재사용하기 위해 파사드를 호출합니다.
-        WebSocketConnectResponse response = interviewFacade.issueWebSocketId(email).block();
+        WebSocketConnectResponse response = interviewFacade.issueWebSocketId(email, "Jessica")
+                .block();
         if (response == null) {
             throw new GeneralException(ErrorStatus.INTERNAL_SERVER_ERROR);
         }
@@ -304,16 +307,18 @@ public class ShareBoardQuestionService {
         shareBoardPostitLayoutRepository
                 .findByShareBoardIdAndPostitTypeAndSourceId(shareBoard.getId(),
                         ShareBoardPostitType.BOOKMARK, answer.getId())
-                .orElseGet(() -> shareBoardPostitLayoutRepository.save(ShareBoardPostitLayout.builder()
-                        .shareBoard(shareBoard)
-                        .postitType(ShareBoardPostitType.BOOKMARK)
-                        .sourceId(answer.getId())
-                        .colorCode(resolveColor(ShareBoardPostitType.BOOKMARK, answer.getId()))
-                        .rotationDeg(defaultRotation(answer.getId()))
-                        .positionX(defaultPositionX(answer.getId()))
-                        .positionY(defaultPositionY(answer.getId()))
-                        .zIndex(0)
-                        .build()));
+                .orElseGet(
+                        () -> shareBoardPostitLayoutRepository.save(ShareBoardPostitLayout.builder()
+                                .shareBoard(shareBoard)
+                                .postitType(ShareBoardPostitType.BOOKMARK)
+                                .sourceId(answer.getId())
+                                .colorCode(
+                                        resolveColor(ShareBoardPostitType.BOOKMARK, answer.getId()))
+                                .rotationDeg(defaultRotation(answer.getId()))
+                                .positionX(defaultPositionX(answer.getId()))
+                                .positionY(defaultPositionY(answer.getId()))
+                                .zIndex(0)
+                                .build()));
     }
 
     private ShareBoard getShareBoardByUserUuid(String userUuid) {
@@ -388,7 +393,8 @@ public class ShareBoardQuestionService {
             ShareBoardPostitType postitType, Integer sourceId) {
         // 레이아웃이 없으면 원본 데이터 존재 여부를 확인한 뒤 기본 레이아웃을 생성합니다.
         return shareBoardPostitLayoutRepository
-                .findByShareBoardIdAndPostitTypeAndSourceId(shareBoard.getId(), postitType, sourceId)
+                .findByShareBoardIdAndPostitTypeAndSourceId(shareBoard.getId(), postitType,
+                        sourceId)
                 .orElseGet(() -> {
                     if (postitType == ShareBoardPostitType.QUESTION) {
                         getActiveQuestion(sourceId);

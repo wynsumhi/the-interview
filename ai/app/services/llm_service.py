@@ -10,6 +10,7 @@ def create_message(
     messages: list[dict],
     system: str | None = None,
     max_tokens: int = 1024,
+    label: str = "generic",
 ) -> str:
     """LLM 호출 시간과 생성된 응답 텍스트를 서비스 로그로 남긴다.
 
@@ -22,7 +23,8 @@ def create_message(
     elapsed = time.perf_counter() - started
 
     logger.info(
-        "[LLM] completed in %.3fs max_tokens=%s text=%s",
+        "[LLM:%s] completed in %.3fs max_tokens=%s text=%s",
+        label,
         elapsed,
         max_tokens,
         llm_text,

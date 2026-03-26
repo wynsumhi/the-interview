@@ -17,6 +17,8 @@ import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse.InterviewStateDb.FusedScores;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerEmotionResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerTextResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioMessageRequest;
 import com.theinterview.domain.interview.dto.InterviewRequest.BookmarkSetting;
@@ -103,8 +105,11 @@ public class InterviewService {
 
     // 사용자의 첫 질문 요청이 시작되면 인터뷰 객체와 첫번째 질문을 만들어 반환함
     @Transactional
-    public WebSocketConnectResponse saveInterviewAndQuestion(Member member,
-            AiStartTtsResponse aiStartTtsResponse)
+    public WebSocketConnectResponse saveInterviewAndQuestion(
+            Member member,
+            AiStartTtsResponse aiStartTtsResponse,
+            String voice
+    )
             throws JsonProcessingException {
 
         // interview 객체 생성
@@ -131,6 +136,7 @@ public class InterviewService {
                 .nickname(member.getNickname())
                 .previousQuestion(question.getQuestionText())
                 .isFirstFinished(member.getIsFirstFinished())
+                .voice(voice)
                 .build();
 
         String redisKey = "interviewId:" + interview.getId() + "questionId:" + question.getId()
@@ -174,6 +180,10 @@ public class InterviewService {
         // 파일 저장 후 저장한 경로를 반환
         // 파일 저장 유틸 메서드 호출
         String savedFilePath = saveAnswerFile(audioBytes, interview.getId());
+        AiPipelineReadyDto previousReadyDto = getReadyDto(
+                request.getInterviewId(),
+                request.getQuestionId()
+        );
 
         return AiPipelineReadyDto.builder()
                 .savedFilePath(savedFilePath)
@@ -181,6 +191,7 @@ public class InterviewService {
                 .nickname(member.getNickname())
                 .previousQuestion(question.getQuestionText())
                 .isFirstFinished(member.getIsFirstFinished())
+                .voice(previousReadyDto.getVoice())
                 .build();
     }
 
@@ -372,6 +383,33 @@ public class InterviewService {
                 .member(member)
                 .turns(turns)
                 .build();
+    }
+
+    // 사용자의 질문/답변 쌍을 하나의 문자열로 조합하여 반환하는 메서드
+    @Transactional(readOnly = true)
+    public String makeAnswerQuestionCouple(Integer interviewId) {
+
+        Interview interview = domainFindUtils.getInterviewById(interviewId);
+
+        List<InterviewQuestion> interviewQuestions = interview.getInterviewQuestions();
+
+        String context = "";
+
+        int count = 1;
+
+        for (InterviewQuestion interviewQuestion : interviewQuestions) {
+
+            if (interviewQuestion.getInterviewAnswer() == null) {
+                continue;
+            }
+
+            context =
+                    context + "Q" + count + ": " + interviewQuestion.getQuestionText() + "\n" + "A"
+                            + count + ": " + interviewQuestion.getInterviewAnswer().getAnswerText()
+                            + "\n";
+            count += 1;
+        }
+        return context;
     }
 
     // 인터뷰 종료 시 facade에서 호출되는 메서드
@@ -634,6 +672,17 @@ public class InterviewService {
     // Facade 레이어에서 필요한 정보를 DTO에 담아 반환하는 헬퍼 메서드
     @Transactional(readOnly = true)
     public AiPipelineReadyDto getReadyDto(Integer interviewId, Integer questionId) {
+
+        String redisKey =
+                "interviewId:" + interviewId + "questionId:" + questionId + "aiPipelineReadyDto";
+        String dtoJson = redisService.getValues(redisKey);
+        if (dtoJson != null && !dtoJson.isBlank()) {
+            try {
+                return objectMapper.readValue(dtoJson, AiPipelineReadyDto.class);
+            } catch (JsonProcessingException e) {
+                log.warn("AiPipelineReadyDto 역직렬화에 실패해 DB fallback을 사용합니다.", e);
+            }
+        }
 
         Interview interview = domainFindUtils.getInterviewById(interviewId);
         InterviewQuestion question = domainFindUtils.getInterviewQuestionById(questionId);
@@ -919,5 +968,20 @@ public class InterviewService {
 
         answer.updateKeyword(keyword);
         log.info("키워드 저장 성공. 키워드: {}", keyword);
+    }
+
+    // 종료 직전 마지막 답변의 감정 상태, 정제 텍스트를 저장하는 메서드
+    @Transactional
+    public void saveEmotionTts(LastAnswerTextResponse lastAnswerTextResponse,
+            LastAnswerEmotionResponse lastAnswerEmotionResponse, InterviewExitRequest request) {
+
+        // 변경 할 DB 조회
+        InterviewQuestion question = domainFindUtils.getInterviewQuestionById(
+                request.getQuestionId());
+
+        InterviewAnswer interviewAnswer = question.getInterviewAnswer();
+
+        interviewAnswer.updateTextEmotion(lastAnswerTextResponse.getRefinedAnswer(),
+                lastAnswerEmotionResponse.getInterviewStateDb());
     }
 }

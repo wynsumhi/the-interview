@@ -62,7 +62,7 @@ public class InterviewController {
         String email = user.getUsername();
         // 파서드 레이어 호출
         return ApiResponse.onSuccess(
-                interviewFacade.issueWebSocketId(email)
+                interviewFacade.issueWebSocketId(email, request.getVoice())
                         .block()); // 여기에서 톰캣 스레드가 멈춤(마치 기존의 async 처럼 동작함)
     }
 
@@ -83,6 +83,8 @@ public class InterviewController {
             @AuthenticationPrincipal User user
     ) throws IOException {
 
+        String email = user.getUsername();
+
         // 락 체크 및 예외 처리(이미 저장중인 인터뷰 있는지 확인)
         if (redisService.hasKey("interviewId:" + request.getInterviewId() + "lock")) {
             throw new GeneralException(ErrorStatus.QUESTION_NOT_SAVED);
@@ -95,6 +97,19 @@ public class InterviewController {
                 "true", Duration.ofSeconds(20));
         redisService.setValues("interviewId:" + request.getInterviewId() + "isSaving", "inProgress",
                 Duration.ofSeconds(30));
+
+        // 오디오 파일을 받지 못한 경우(사용자가 녹음이 시작되기 전에 종료한 경우)
+        if (request.getAnswerAudio() == null || request.getAnswerAudio().length == 0) {
+
+            // redis에 락 처리
+            redisService.setValues("interviewId:" + request.getInterviewId() + "lock", "lock",
+                    Duration.ofSeconds(20));
+            log.info("요청에 오디오 파일 없음. 오디오 파일 없는 종료 로직 시작");
+            interviewFacade.exitInterviewNoAudioFacade(request, email,
+                    "interviewId:" + request.getInterviewId());
+            redisService.deleteValues("interviewId:" + request.getInterviewId() + "lock");
+            // Finished 처리 및 rag 호출
+        }
 
         // 서버 디렉토리에 음성 파일 저장
         String savedPath = interviewService.saveAnswerFile(request.getAnswerAudio(),
