@@ -88,6 +88,7 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 @Slf4j
 public class InterviewService {
+    private static final Duration INTERVIEW_VOICE_TTL = Duration.ofHours(6);
 
     private final MemberRepository memberRepository;
     private final InterviewRepository interviewRepository;
@@ -177,6 +178,7 @@ public class InterviewService {
 
         redisService.setValues(redisKey, objectMapper.writeValueAsString(dto),
                 Duration.ofMinutes(3));
+        cacheInterviewVoice(interview.getId(), voice);
 
         return WebSocketConnectResponse.builder()
                 .interviewId(interview.getId())
@@ -845,7 +847,28 @@ public class InterviewService {
                 .previousQuestion(question.getQuestionText())
                 .nickname(member.getNickname())
                 .sequence(question.getSequence() + 1)
+                .voice(getCachedInterviewVoice(interviewId))
                 .build();
+    }
+
+    public void cacheInterviewVoice(Integer interviewId, String voice) {
+        if (voice == null || voice.isBlank()) {
+            return;
+        }
+
+        redisService.setValues(
+                "interviewId:" + interviewId + "voice",
+                voice,
+                INTERVIEW_VOICE_TTL
+        );
+    }
+
+    private String getCachedInterviewVoice(Integer interviewId) {
+        String voice = redisService.getValues("interviewId:" + interviewId + "voice");
+        if (voice == null || voice.isBlank()) {
+            return null;
+        }
+        return voice;
     }
 
     @Transactional
