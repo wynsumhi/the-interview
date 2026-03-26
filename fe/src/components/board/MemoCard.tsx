@@ -25,6 +25,12 @@ interface MemoProps {
   qnaItems?: QnaPreview[];
   /** true이면 호버 시 Q&A 전환 없이 타이틀만 항상 표시 */
   disableHover?: boolean;
+  /** 카드 하단에 표시할 액션 버튼 클릭 핸들러 */
+  onAction?: () => void;
+  /** 액션 버튼 레이블 */
+  actionLabel?: string;
+  /** true이면 카드 전체 투명도를 낮춰 화면에서 덜 두드러지게 표시 */
+  dimmed?: boolean;
 }
 
 /** "Q. 한국어 텍스트" → { label: "Q.", text: "한국어 텍스트" } */
@@ -62,6 +68,9 @@ export default function MemoCard({
   positionY,
   qnaItems = [],
   disableHover = false,
+  onAction,
+  actionLabel,
+  dimmed = false,
 }: MemoProps) {
   const [hovered, setHovered] = useState(false);
   const featured = qnaItems[0] ?? null;
@@ -122,6 +131,13 @@ export default function MemoCard({
 
         {/* ── 날짜 푸터 (항상 표시) ── */}
         <p className={styles.footer}>{date}</p>
+
+        {/* ── 액션 버튼 (선택사항: 인터뷰 시작 등) ── */}
+        {onAction && (
+          <button className={styles.actionBtn} onClick={onAction}>
+            {actionLabel}
+          </button>
+        )}
       </div>
     </motion.div>
   );
