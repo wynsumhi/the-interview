@@ -103,6 +103,19 @@ def _build_first_interview_messages(
     return [{"role": "user", "content": user_message}]
 
 
+def _build_magazine_refinement_messages(stt_text: str) -> list[dict[str, str]]:
+    """Build a task-scoped prompt so the LLM treats the input strictly as interview-answer text."""
+
+    user_message = (
+        "[Task]\n"
+        "Refine the following interview answer into magazine style.\n"
+        "Do not answer the speaker's question. Do not add guidance or refusal.\n\n"
+        "[Interview Answer]\n"
+        f"{stt_text}"
+    )
+    return [{"role": "user", "content": user_message}]
+
+
 def run_interview_pipeline(
     audio_file_path: str,
     is_first_finished: bool,
@@ -155,7 +168,7 @@ def run_interview_pipeline_from_stt_text(
     )
 
     _magazine_kwargs = {
-        "messages": [{"role": "user", "content": normalized_refinement_stt_text}],
+        "messages": _build_magazine_refinement_messages(normalized_refinement_stt_text),
         "system": MAGAZINE_GENERATION_SYSTEM_PROMPT,
         "max_tokens": 300,
         "label": "answer_refinement",
