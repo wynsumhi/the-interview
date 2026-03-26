@@ -31,6 +31,8 @@ interface MemoProps {
   actionLabel?: string;
   /** true이면 카드 전체 투명도를 낮춰 화면에서 덜 두드러지게 표시 */
   dimmed?: boolean;
+  /** 카드 클릭 시 호출할 핸들러 (상세 페이지 이동 등) */
+  onCardClick?: () => void;
 }
 
 /** "Q. 한국어 텍스트" → { label: "Q.", text: "한국어 텍스트" } */
@@ -71,6 +73,7 @@ export default function MemoCard({
   onAction,
   actionLabel,
   dimmed = false,
+  onCardClick,
 }: MemoProps) {
   const [hovered, setHovered] = useState(false);
   const featured = qnaItems[0] ?? null;
@@ -86,10 +89,12 @@ export default function MemoCard({
       onHoverStart={disableHover ? undefined : () => setHovered(true)}
       onHoverEnd={disableHover ? undefined : () => setHovered(false)}
       transition={{ type: "spring", stiffness: 240, damping: 24 }}
+      onClick={onCardClick}
       style={{
         backgroundColor: colorCode,
         width: 260,
         height: 340,
+        cursor: onCardClick ? "pointer" : "default",
       }}
     >
       <div className={styles.inner}>
@@ -134,7 +139,10 @@ export default function MemoCard({
 
         {/* ── 액션 버튼 (선택사항: 인터뷰 시작 등) ── */}
         {onAction && (
-          <button className={styles.actionBtn} onClick={onAction}>
+          <button
+            className={styles.actionBtn}
+            onClick={(e) => { e.stopPropagation(); onAction(); }}
+          >
             {actionLabel}
           </button>
         )}
