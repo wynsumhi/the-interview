@@ -227,6 +227,8 @@ public class InterviewFacade {
                                                     + nextQuestionId;
                                     redisService.setValues(newRedisKey + "aiPipelineReadyDto", dto,
                                             Duration.ofMinutes(5));
+                                    interviewService.cacheInterviewVoice(interviewId,
+                                            aiPipelineReadyDto.getVoice());
                                     // 저장 완료 lock 상태 해제
                                     redisService.deleteValues(
                                             "interviewId:" + interviewId + "lock");
