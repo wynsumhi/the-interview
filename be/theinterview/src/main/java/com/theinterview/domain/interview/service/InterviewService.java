@@ -11,11 +11,13 @@ import com.theinterview.domain.interview.dto.FacadeInnerDto.AnswerTts;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiNextOpeningRequest;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiPipelineReadyDto;
 import com.theinterview.domain.interview.dto.FastApiRequest.AiTitleRequest;
+import com.theinterview.domain.interview.dto.FastApiRequest.KeywordRequest;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiNextOpeningResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse.InterviewStateDb.FusedScores;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiStartTtsResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiTitleResponse;
+import com.theinterview.domain.interview.dto.FastApiResponse.KeywordResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerEmotionResponse;
 import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerTextResponse;
 import com.theinterview.domain.interview.dto.InterviewRequest.AudioChunkRequest;
@@ -887,6 +889,22 @@ public class InterviewService {
         InterviewAnswer interviewAnswer = interviewAnswerRepository.findById(
                         request.getInterviewAnswerID())
                 .orElseThrow(() -> new GeneralException(ErrorStatus.ANSWER_NOT_FOUND));
+
+        // 만약 현재 북마크 하려는 Q&A의 keyword가 null이라면 keyword를 생성
+        if (interviewAnswer.getAnswerKeyword() == null) {
+
+            InterviewQuestion interviewQuestion = interviewAnswer.getInterviewQuestion();
+
+            KeywordResponse keywordResponse = aiUtils.callFastApiKeyword(KeywordRequest.builder()
+                    .question(interviewQuestion.getQuestionText())
+                    .answer(interviewAnswer.getAnswerText())
+                    .build()
+            ).block();
+
+            if (keywordResponse != null) {
+                interviewAnswer.updateKeyword(keywordResponse.getKeyword());
+            }
+        }
 
         // Request로 오는 값이 true라면 shareRange 수정 / false라면 shareRange 수정
         // 답변의 북마크 공유 여부를 갱신합니다.
