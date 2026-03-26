@@ -25,6 +25,7 @@ import com.theinterview.domain.interview.dto.InterviewRequest.InterviewExitReque
 import com.theinterview.domain.interview.dto.InterviewRequest.InterviewShareRange;
 import com.theinterview.domain.interview.dto.InterviewResponse.FollowUpQuestionDTO;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewExploreDetail;
+import com.theinterview.domain.interview.dto.InterviewResponse.InterviewExploreFused;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewExploreResponse;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistory;
 import com.theinterview.domain.interview.dto.InterviewResponse.InterviewHistoryDTO;
@@ -52,6 +53,7 @@ import com.theinterview.domain.shareboard.repository.ShareBoardRepository;
 import com.theinterview.global.config.redis.RedisService;
 import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
+import com.theinterview.global.util.AvgDecimal;
 import com.theinterview.global.util.DomainFindUtils;
 import com.theinterview.global.util.FileDeleteUtils;
 import java.io.File;
@@ -64,6 +66,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -89,6 +92,7 @@ public class InterviewService {
     private final InterviewAnswerRepository interviewAnswerRepository;
     private final QuestionCandidateRepository questionCandidateRepository;
 
+    private final AvgDecimal toAvgDecimal;
     private final AiUtils aiUtils;
     private final FileDeleteUtils fileDeleteUtils;
     private final DomainFindUtils domainFindUtils;
@@ -828,7 +832,7 @@ public class InterviewService {
 
     // 인터뷰 탐색하기
     public InterviewExploreResponse getInterviewExplore(Integer page) {
-        // 인터뷰의 상태가 FINISHED인 정보만 5개씩 가져오며 업데이트 날짜를 기준으로 가져옴
+        // 인터뷰의 상태가 FINISHED인 정보만 12개씩 가져오며 업데이트 날짜를 기준으로 가져옴
         Pageable pageable = PageRequest.of(page, 12, Sort.by("updatedAt").descending());
         Slice<Interview> interviews = interviewRepository.findAllByStatusAndShareRange(
                 InterviewStatus.FINISHED, true, pageable);
@@ -843,6 +847,40 @@ public class InterviewService {
                         return null;
                     }
 
+                    // 질문에 해당하는 답변 목록 추출
+                    // N + 1 문제
+                    List<InterviewAnswer> answers = questions.stream()
+                            .map(InterviewQuestion::getInterviewAnswer)
+                            .filter(answer -> answer != null)
+                            .toList();
+
+                    // 감정 수치 평균 계산
+                    // 각 감정 점수 평균 계산
+                    OptionalDouble calmAvg = answers.stream()
+                            .filter(a -> a.getCalmScore() != null)
+                            .mapToDouble(a -> a.getCalmScore().doubleValue())
+                            .average();
+
+                    OptionalDouble tenseAvg = answers.stream()
+                            .filter(a -> a.getTenseScore() != null)
+                            .mapToDouble(a -> a.getTenseScore().doubleValue())
+                            .average();
+
+                    OptionalDouble anxiousAvg = answers.stream()
+                            .filter(a -> a.getAnxiousScore() != null)
+                            .mapToDouble(a -> a.getAnxiousScore().doubleValue())
+                            .average();
+
+                    OptionalDouble lowAvg = answers.stream()
+                            .filter(a -> a.getLowScore() != null)
+                            .mapToDouble(a -> a.getLowScore().doubleValue())
+                            .average();
+
+                    OptionalDouble engagedAvg = answers.stream()
+                            .filter(a -> a.getEngagedScore() != null)
+                            .mapToDouble(a -> a.getEngagedScore().doubleValue())
+                            .average();
+
                     // 첫 질문에 해당하는 답변을 대표 답변으로 지정
                     String representAnswer = questions.get(0).getInterviewAnswer().getAnswerText();
                     Integer answerCount = questions.size();
@@ -853,11 +891,17 @@ public class InterviewService {
                             .interviewDate(interview.getCreatedAt().toLocalDate())
                             .interviewTitle(interview.getTitle())
                             .answerText(representAnswer)
-                            // TODO : 이미지화 시키기 위한, 감정 지표에 대한 [] 내용 추후 수정필요
-                            .fusedScores("임의 데이터")
+                            .fusedScores(InterviewExploreFused.builder()
+                                    .calm_score(toAvgDecimal.toAvgDecimal(calmAvg))
+                                    .tense_score(toAvgDecimal.toAvgDecimal(tenseAvg))
+                                    .anxious_score(toAvgDecimal.toAvgDecimal(anxiousAvg))
+                                    .low_score(toAvgDecimal.toAvgDecimal(lowAvg))
+                                    .engaged_score(toAvgDecimal.toAvgDecimal(engagedAvg))
+                                    .build())
                             .shareUuid(interview.getShareLink())
                             .build();
                 })
+                .filter(detail -> detail != null)
                 .toList();
 
         return InterviewExploreResponse.builder()

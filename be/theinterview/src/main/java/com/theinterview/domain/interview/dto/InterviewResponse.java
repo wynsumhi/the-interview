@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.theinterview.domain.interview.dto.FastApiResponse.AiPipelineResponse;
 import com.theinterview.domain.interview.entity.InterviewAnswer;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -264,8 +265,21 @@ public abstract class InterviewResponse {
         private LocalDate interviewDate;
         private String interviewTitle;
         private String answerText;
-        private String fusedScores;
         private String shareUuid;
+        private InterviewExploreFused fusedScores;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class InterviewExploreFused {
+
+        private BigDecimal calm_score;
+        private BigDecimal tense_score;
+        private BigDecimal anxious_score;
+        private BigDecimal low_score;
+        private BigDecimal engaged_score;
     }
 
     @Getter
