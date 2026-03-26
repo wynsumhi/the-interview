@@ -91,3 +91,26 @@ export interface QuestionPostitPageResult {
   /** 다음 페이지 존재 여부 (true면 page + 1로 추가 요청 가능) */
   hasNext: boolean;
 }
+
+/** POST /v1/share-board/member/{userUuid}/questions 요청 바디 */
+export interface CreateQuestionRequest {
+  /** 작성할 질문 내용 */
+  content: string;
+}
+
+/** POST /v1/share-board/member/{userUuid}/questions 응답의 result 필드 */
+export interface CreateQuestionResult {
+  postitType: string;
+  sourceId: number;
+  questionId: number;
+  shareBoardId: number;
+  author: QuestionAuthor;
+  content: string;
+  status: string;
+  statusLabel: string;
+  startedInterviewId: number | null;
+  createdAt: string;
+  updatedAt: string;
+  permissions: QuestionPostitPermissions;
+  layout: BookmarkPostitLayout;
+}
