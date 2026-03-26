@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useStompInterview } from "@/hooks/useStompInterview";
 import { createInterview, exitInterview } from "@/services/interview";
 import type { FollowUpQuestionDTO } from "@/services/interview";
+import { startQuestionInterview } from "@/services/board";
 import styles from "./page.module.css";
 
 // 인터뷰 진행 상태 머신
@@ -45,6 +46,7 @@ function ConversationContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const mode = searchParams.get("mode") ?? "AUTO";
+  const questionIdParam = searchParams.get("questionId");
 
   const [status, setStatus] = useState<InterviewStatus>("CONNECTING");
   const [displayText, setDisplayText] = useState("");
@@ -87,8 +89,19 @@ function ConversationContent() {
 
   const initInterview = async (isCancelled: () => boolean) => {
     try {
+      // questionId 파라미터가 있으면 질문 기반 인터뷰 시작 API 호출
+      // 없으면 기존 인터뷰 생성 API 호출
+      const interviewDataPromise = questionIdParam
+        ? startQuestionInterview(Number(questionIdParam)).then((r) => ({
+            interviewId: r.interview.interviewId,
+            questionId: r.interview.questionId,
+            interviewTitle: r.interview.interviewTitle,
+            ttsAudioBase64: r.interview.ttsAudioBase64,
+          }))
+        : createInterview(mode === "AUTO");
+
       const [data, stream, { apiUrl }] = await Promise.all([
-        createInterview(mode === "AUTO"),
+        interviewDataPromise,
         navigator.mediaDevices.getUserMedia({ audio: true }),
         fetch("/api/ws-url").then((r) => r.json()),
       ]);
