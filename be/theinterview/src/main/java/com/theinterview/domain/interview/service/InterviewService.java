@@ -88,6 +88,7 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 @Slf4j
 public class InterviewService {
+
     private static final Duration INTERVIEW_VOICE_TTL = Duration.ofHours(6);
 
     private final MemberRepository memberRepository;
@@ -546,7 +547,7 @@ public class InterviewService {
     }
 
     // 사용자의 질문/답변 쌍을 하나의 문자열로 조합하여 반환하는 메서드
-    @Transactional(readOnly = true)
+    @Transactional
     public String makeAnswerQuestionCouple(Integer interviewId) {
 
         Interview interview = domainFindUtils.getInterviewById(interviewId);
@@ -559,7 +560,12 @@ public class InterviewService {
 
         for (InterviewQuestion interviewQuestion : interviewQuestions) {
 
-            if (interviewQuestion.getInterviewAnswer() == null) {
+            // 답변이 없는 질문은 삭제 처리함
+            if (interviewQuestion.getInterviewAnswer() == null
+                    || interviewQuestion.getInterviewAnswer().getAnswerText().isEmpty()) {
+
+                log.info("서치, 답변 없는 질문 삭제 {}", interviewQuestion.getId());
+                interviewQuestionRepository.delete(interviewQuestion);
                 continue;
             }
 
