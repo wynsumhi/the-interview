@@ -564,7 +564,7 @@ public class InterviewService {
             if (interviewQuestion.getInterviewAnswer() == null
                     || interviewQuestion.getInterviewAnswer().getAnswerText().isEmpty()) {
 
-                log.info("서치, 답변 없는 질문 삭제 {}", interviewQuestion.getId());
+                log.info("답변 없는 질문 삭제 {}", interviewQuestion.getId());
                 interviewQuestionRepository.delete(interviewQuestion);
                 continue;
             }
