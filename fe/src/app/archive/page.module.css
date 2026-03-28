@@ -152,6 +152,7 @@
 .folderBody {
   flex: 1;
   min-height: 0;
+  position: relative; /* EmotionVisual(절대 배치)의 기준 컨테이너 */
   border-radius: 0 0 4px 4px; /* 상단 모서리 제거 — folderTab 하단과 완전히 밀착 */
   box-shadow: 0 -15px 30px rgba(0, 0, 0, 0.08);
 }

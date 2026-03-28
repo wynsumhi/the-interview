@@ -5,8 +5,9 @@ import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useInterviewHistory } from "@/hooks/useInterviewHistory";
 import styles from "./page.module.css";
 import Link from "next/link";
+import EmotionVisual from "@/components/archive/EmotionVisual";
 
-const VISIBLE = 5;    // 슬라이딩 윈도우 크기
+const VISIBLE = 5; // 슬라이딩 윈도우 크기
 const TAB_HEIGHT = 42; // 비활성 탭 고정 높이(px)
 const COLORS = [
   styles.sage,
@@ -29,7 +30,7 @@ const COLOR_VARS = [
 const slideVariants: Variants = {
   enter: (dir: number) => ({
     opacity: 0,
-    y: dir > 0 ? -10 : 10,  // 앞으로: 위에서 아래로, 뒤로: 아래서 위로
+    y: dir > 0 ? -10 : 10, // 앞으로: 위에서 아래로, 뒤로: 아래서 위로
   }),
   center: {
     opacity: 1,
@@ -134,11 +135,19 @@ export default function ArchivePage() {
 
       // 윈도우 끝(activeIndex + VISIBLE)이 로드된 데이터 끝에 가까워지면 프리페치
       console.log(
-        "[navigate] next =", next,
-        "/ interviews.length =", interviews.length,
-        "/ hasNextPage =", hasNextPage,
-        "/ isFetchingNextPage =", isFetchingNextPage,
-        "/ 트리거 여부 =", delta > 0 && next + VISIBLE >= interviews.length && hasNextPage && !isFetchingNextPage,
+        "[navigate] next =",
+        next,
+        "/ interviews.length =",
+        interviews.length,
+        "/ hasNextPage =",
+        hasNextPage,
+        "/ isFetchingNextPage =",
+        isFetchingNextPage,
+        "/ 트리거 여부 =",
+        delta > 0 &&
+          next + VISIBLE >= interviews.length &&
+          hasNextPage &&
+          !isFetchingNextPage,
       );
       if (
         delta > 0 &&
@@ -225,7 +234,6 @@ export default function ArchivePage() {
            *   slideVariants로 폴더 전체가 한 단위로 슬라이드
            */}
           <div className={styles.folderArea}>
-
             {/* 플레이스홀더: 고정 슬롯, top 인라인으로 위치 고정 */}
             {placeholders.map(({ key }, i) => (
               <div
@@ -243,32 +251,37 @@ export default function ArchivePage() {
                 const precedingBg =
                   i === 0
                     ? "transparent"
-                    : COLOR_VARS[inactiveItems[i - 1].globalIdx % COLOR_VARS.length];
+                    : COLOR_VARS[
+                        inactiveItems[i - 1].globalIdx % COLOR_VARS.length
+                      ];
                 return (
-                <motion.div
-                  key={item.interviewId}
-                  style={{ top: (placeholders.length + i) * TAB_HEIGHT, background: precedingBg }}
-                  className={`${styles.tabItem} ${COLORS[globalIdx % COLORS.length]}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.6 }}
-                  exit={{ opacity: 0 }}
-                  transition={SLIDE_TRANSITION}
-                  onClick={() => {
-                    if (!isAnimating.current) {
-                      setDirection(globalIdx > activeIndex ? 1 : -1);
-                      setActiveIndex(globalIdx);
-                    }
-                  }}
-                >
-                  <div className={styles.folderTab}>
-                    <span className={styles.code}>
-                      CODE_{String(globalIdx + 1).padStart(3, "0")} //
-                    </span>
-                    <span className={styles.tabTitle}>
-                      {item.interviewTitle.split(":")[0]}
-                    </span>
-                  </div>
-                </motion.div>
+                  <motion.div
+                    key={item.interviewId}
+                    style={{
+                      top: (placeholders.length + i) * TAB_HEIGHT,
+                      background: precedingBg,
+                    }}
+                    className={`${styles.tabItem} ${COLORS[globalIdx % COLORS.length]}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.6 }}
+                    exit={{ opacity: 0 }}
+                    transition={SLIDE_TRANSITION}
+                    onClick={() => {
+                      if (!isAnimating.current) {
+                        setDirection(globalIdx > activeIndex ? 1 : -1);
+                        setActiveIndex(globalIdx);
+                      }
+                    }}
+                  >
+                    <div className={styles.folderTab}>
+                      <span className={styles.code}>
+                        CODE_{String(globalIdx + 1).padStart(3, "0")} //
+                      </span>
+                      <span className={styles.tabTitle}>
+                        {item.interviewTitle.split(":")[0]}
+                      </span>
+                    </div>
+                  </motion.div>
                 );
               })}
             </AnimatePresence>
@@ -293,10 +306,9 @@ export default function ArchivePage() {
                   style={{
                     // 활성 폴더 컨테이너 배경 = 다음 폴더(index+1)의 색상
                     // folderTab의 둥근 모서리와 여백 뒤에 이 색이 채워져 자연스러운 스태킹 효과 생성
-                    background:
-                      interviews[activeIndex + 1]
-                        ? COLOR_VARS[(activeIndex + 1) % COLOR_VARS.length]
-                        : "transparent",
+                    background: interviews[activeIndex + 1]
+                      ? COLOR_VARS[(activeIndex + 1) % COLOR_VARS.length]
+                      : "transparent",
                   }}
                   custom={direction}
                   variants={slideVariants}
@@ -313,13 +325,19 @@ export default function ArchivePage() {
                     </span>
                   </div>
                   <div className={styles.folderBody}>
+                    {/* 감정 시각화: 5개 점수를 비례 밴드로 배경에 표시 */}
+                    {activeItem.fusedScores && (
+                      <EmotionVisual scores={activeItem.fusedScores} />
+                    )}
                     <Link
                       href={`/magazine/${activeItem.interviewId}`}
                       className={styles.bodyLink}
                     >
                       <div className={styles.bodyInner}>
                         <span className={styles.verticalDate}>
-                          {new Date(activeItem.interviewDate).toLocaleDateString("ko-KR")}
+                          {new Date(
+                            activeItem.interviewDate,
+                          ).toLocaleDateString("ko-KR")}
                         </span>
                         <h2 className={styles.cardTitle}>
                           {activeItem.interviewTitle}
@@ -344,7 +362,6 @@ export default function ArchivePage() {
                 </motion.div>
               )}
             </AnimatePresence>
-
           </div>
         </section>
       </div>

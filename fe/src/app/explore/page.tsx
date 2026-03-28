@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useExploreInterviews } from "@/hooks/useExploreInterviews";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import styles from "./page.module.css";
+import EmotionVisual from "@/components/archive/EmotionVisual";
 
 export default function ExplorePage() {
   const {
@@ -47,7 +48,14 @@ export default function ExplorePage() {
           return (
             <article key={item.interviewId} className={styles.magazineCard}>
               <Link href={`/magazine/${item.interviewId}`}>
-                <div className={`${styles.cover} ${styles[item.fusedEmotion]}`}>
+                <div
+                  className={`${styles.cover} ${styles[item.fusedEmotion]}`}
+                >
+                  {/* fusedEmotion 단색이 항상 기본 배경으로 유지됨
+                      sentimentScores가 있으면 스펙트럼을 위에 완전히 덮어 씌움 */}
+                  {item.fusedScores && (
+                    <EmotionVisual scores={item.fusedScores} opacity={1} />
+                  )}
                   <span className={styles.vol}>VOL.{item.interviewId}</span>
                 </div>
 

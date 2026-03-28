@@ -20,6 +20,19 @@ export interface InterviewDetailItem {
 }
 
 // ─────────────────────────────────────────────
+// 감정 점수 공통 타입 (Explore · Archive 공유)
+// ─────────────────────────────────────────────
+
+/** API 응답의 fusedScores 객체 — 필드명은 서버 snake_case 그대로 */
+export interface FusedScores {
+  calm_score: number; // 평온 — #B7D4BB
+  tense_score: number; // 긴장 — #F3C5C5
+  anxious_score: number; // 불안 — #FFF3A6
+  low_score: number; // 우울 — #BCCEF6
+  engaged_score: number; // 집중 — #FBCDB6
+}
+
+// ─────────────────────────────────────────────
 // Explore 목록 API (GET /api/v1/interview/explore?page=N)
 // ─────────────────────────────────────────────
 
@@ -28,7 +41,8 @@ export interface ExploreInterviewItem {
   interviewId: number;
   interviewTitle: string;
   interviewDate: string; // "2026-03-15" 형식
-  fusedEmotion: EmotionType; // 대표 감정 (커버 색상 및 아이콘에 사용)
+  fusedEmotion: EmotionType; // 대표 감정 (커버 단색 fallback)
+  fusedScores?: FusedScores; // 5개 감정 점수 — API 필드명과 동일
 }
 
 /** GET /api/v1/interview/explore 응답의 result 필드 */
@@ -42,21 +56,12 @@ export interface ExplorePage {
 // 인터뷰 히스토리 목록 API (GET /api/v1/interview?page=N)
 // ─────────────────────────────────────────────
 
-/** 5개 감정 점수 (각 0.00 ~ 1.00) */
-export interface SentimentScores {
-  calm: number; // 평온 — #B7D4BB
-  tense: number; // 긴장 — #F3C5C5
-  anxious: number; // 불안 — #FFF3A6
-  low: number; // 우울 — #BCCEF6
-  engaged: number; // 집중 — #FBCDB6
-}
-
 /** 목록의 단일 인터뷰 항목 */
 export interface InterviewHistoryItem {
   interviewDate: string; // "2026-03-15" 형식의 날짜 문자열
   interviewId: number; // 인터뷰 고유 ID (상세 페이지 링크에 사용)
   interviewTitle: string; // AI가 생성한 인터뷰 제목
-  sentimentScores?: SentimentScores; // 감정 점수 (없으면 시각화 미표시)
+  fusedScores?: FusedScores; // 5개 감정 점수 (없으면 시각화 미표시)
 }
 
 /** GET /api/v1/interview 응답의 result 필드 */
