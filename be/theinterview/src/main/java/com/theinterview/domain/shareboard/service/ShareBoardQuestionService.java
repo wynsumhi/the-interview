@@ -29,6 +29,7 @@ import com.theinterview.global.response.exception.GeneralException;
 import com.theinterview.global.response.status.ErrorStatus;
 import com.theinterview.global.util.DomainFindUtils;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -441,8 +442,8 @@ public class ShareBoardQuestionService {
     }
 
     private BigDecimal defaultRotation(Integer sourceId) {
-        // 기본 회전값은 -3으로 시작합니다.
-        return BigDecimal.valueOf(-3);
+        // 기본 회전값은 -10 ~ 10 사이의 정수 랜덤값으로 시작합니다.
+        return toDecimal((int) (Math.random() * 21) - 10).setScale(2, RoundingMode.HALF_UP);
     }
 
     private BigDecimal defaultPositionX(Integer sourceId) {
