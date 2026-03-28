@@ -176,8 +176,10 @@ function ConversationContent() {
         interviewData.interviewId,
         token,
         (dto: FollowUpQuestionDTO) => {
-          // 인터뷰 저장 완료 시 서버가 messageType: "SAVE_COMPLETE"를 전송 — /archive로 이동
+          // 인터뷰 저장 완료 시 서버가 messageType: "SAVE_COMPLETE"를 전송 — 정리 후 /archive로 이동
           if (dto.messageType === "SAVE_COMPLETE") {
+            cleanup();
+            queryClient.invalidateQueries({ queryKey: ["interviewHistory"] });
             router.push("/archive");
             return;
           }
@@ -471,7 +473,7 @@ function ConversationContent() {
   };
 
   // 인터뷰 종료 버튼 핸들러
-  // 1) 녹음 중이면 전체 오디오를 /exitV2로 전송 → 2) POST /interview/exit → 3) cleanup → 4) /archive
+  // 1) 녹음 중이면 전체 오디오를 /exitV2로 전송 → 2) SAVE_COMPLETE 수신 대기 → 3) cleanup + /archive
   const handleExit = async () => {
     if (isExiting) return; // 중복 클릭 방지
     setIsExiting(true);
@@ -526,14 +528,8 @@ function ConversationContent() {
       }
     }
 
-    // WebSocket을 끊어 백엔드로부터의 메시지 수신 차단
-    disconnect();
-
-    // exitInterviewV2는 fullRecorder.onstop에서 이미 호출됨
-    cleanup();
-    // 인터뷰 목록 캐시를 무효화해 /archive에서 새 항목이 즉시 표시되도록 함
-    await queryClient.invalidateQueries({ queryKey: ["interviewHistory"] });
-    router.push("/archive");
+    // exitInterviewV2 전송 완료 — SAVE_COMPLETE 수신 시 onMessage 핸들러에서 cleanup + 이동
+    // WebSocket은 서버가 저장을 완료할 때까지 유지해야 SAVE_COMPLETE를 받을 수 있음
   };
 
   const stopVad = () => {
