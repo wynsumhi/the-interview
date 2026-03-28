@@ -529,7 +529,12 @@ function ConversationContent() {
     }
 
     // exitInterviewV2 전송 완료 — SAVE_COMPLETE 수신 시 onMessage 핸들러에서 cleanup + 이동
-    // WebSocket은 서버가 저장을 완료할 때까지 유지해야 SAVE_COMPLETE를 받을 수 있음
+    // 백엔드가 SAVE_COMPLETE를 보내지 않는 경우를 대비해 15초 후 강제 이동
+    setTimeout(() => {
+      cleanup();
+      queryClient.invalidateQueries({ queryKey: ["interviewHistory"] });
+      router.push("/archive");
+    }, 15000);
   };
 
   const stopVad = () => {
