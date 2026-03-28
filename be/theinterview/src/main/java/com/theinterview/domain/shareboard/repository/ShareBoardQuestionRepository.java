@@ -3,8 +3,8 @@ package com.theinterview.domain.shareboard.repository;
 import com.theinterview.domain.shareboard.entity.ShareBoardQuestion;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -64,4 +64,7 @@ public interface ShareBoardQuestionRepository extends JpaRepository<ShareBoardQu
     List<ShareBoardQuestion> findAllDetailByIdIn(@Param("questionIds") List<Integer> questionIds);
 
     void deleteAllByShareBoardId(Integer shareBoardId);
+
+    // 시작한 인터뷰 정보에 해당하는 ShareBoardQuestion 조회
+    Optional<ShareBoardQuestion> findByStartedInterviewId(Integer interviewId);
 }
