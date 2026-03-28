@@ -176,6 +176,11 @@ function ConversationContent() {
         interviewData.interviewId,
         token,
         (dto: FollowUpQuestionDTO) => {
+          // 인터뷰 저장 완료 시 서버가 messageType: "SAVE_COMPLETE"를 전송 — /archive로 이동
+          if (dto.messageType === "SAVE_COMPLETE") {
+            router.push("/archive");
+            return;
+          }
           // 온보딩 5문항 완료 시 서버가 isExit: true를 전송 — 즉시 종료 처리
           if (dto.isExit) {
             cleanup();
