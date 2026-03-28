@@ -26,6 +26,8 @@ export interface FollowUpQuestionDTO {
   isFirstFinished?: boolean;
   // true이면 온보딩 5문항이 모두 완료됨 — 인터뷰 종료 신호
   isExit?: boolean;
+  // 서버가 인터뷰 저장 완료 후 전송하는 메시지 타입 — "SAVE_COMPLETE"이면 /archive로 이동
+  messageType?: string;
 }
 
 // 인터뷰 생성 + 첫 질문 생성
