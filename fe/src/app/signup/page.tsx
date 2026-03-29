@@ -130,7 +130,7 @@ export default function SignupPage() {
     <main className={styles.container}>
       <div className={styles.authBox}>
         <Link href="/" className={styles.logo}>
-          방구석 인터뷰
+          the interview
         </Link>
 
         <h2 className={styles.title}>Create Account</h2>

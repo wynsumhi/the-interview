@@ -20,9 +20,9 @@ export default function IntroSection() {
               <span className={styles.eyebrowText}>Vol.01 — 나를 발견하는 인터뷰</span>
             </div>
 
-            <h1 className={styles.h1}>방구석</h1>
+            <h1 className={styles.h1}>the</h1>
             <div className={styles.h1Row}>
-              <h1 className={styles.h1}>인터뷰</h1>
+              <h1 className={styles.h1}>interview</h1>
               <span className={styles.h1Accent}>Interview.</span>
             </div>
 

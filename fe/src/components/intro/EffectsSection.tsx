@@ -27,7 +27,7 @@ export default function EffectsSection() {
       <div className={styles.orb} />
 
       <div className={styles.inner}>
-        <span className={styles.headerLabel}>방구석 인터뷰의 효능</span>
+        <span className={styles.headerLabel}>the interview의 효능</span>
         <h2 className={styles.h2}>인터뷰가 주는 것들</h2>
 
         <div className={styles.grid}>
