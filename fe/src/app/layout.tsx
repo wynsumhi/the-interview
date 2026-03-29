@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Caveat } from "next/font/google";
+import { Playfair_Display } from "next/font/google";
 import "./globals.css";
 import NavbarWrapper from "@/components/common/NavbarWrapper";
 import QueryProvider from "@/components/common/QueryProvider";
@@ -9,13 +9,6 @@ const playfair = Playfair_Display({
   subsets: ["latin"],
   weight: ["400", "700", "900"],
   style: ["normal", "italic"],
-  display: "swap",
-});
-
-const caveat = Caveat({
-  variable: "--font-caveat",
-  subsets: ["latin"],
-  weight: ["400", "700"],
   display: "swap",
 });
 
@@ -32,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body
-        className={`${playfair.variable} ${caveat.variable} antialiased`}
+        className={`${playfair.variable} antialiased`}
       >
         <QueryProvider>
           <NavbarWrapper />
