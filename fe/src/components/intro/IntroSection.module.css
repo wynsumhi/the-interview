@@ -78,6 +78,7 @@
 }
 
 .h1 {
+  font-family: var(--font-playfair);
   font-size: 96px;
   font-weight: 900;
   line-height: 0.87;
