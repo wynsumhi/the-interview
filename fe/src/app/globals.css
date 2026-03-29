@@ -10,8 +10,16 @@
 }
 
 @font-face {
-  font-family: "julietta";
-  src: url("./fonts/julietta.ttf") format("truetype");
+  font-family: "AlexBrush";
+  src: url("./fonts/AlexBrush.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "GyeonggiYouthBatang";
+  src: url("./fonts/Batang.woff") format("woff");
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -45,7 +53,8 @@
     "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-golden-plains: "Golden Plains", cursive;
   --font-montserrat: "Montserrat", sans-serif;
-  --font-julietta: "julietta";
+  --font-alex-brush: "AlexBrush";
+  --font-batang: "GyeonggiYouthBatang";
 
   --max-w: 1280px;
   --px: 64px;
@@ -92,8 +101,11 @@ button {
 .font-golden-plains {
   font-family: var(--font-golden-plains);
 }
-.font-julietta {
-  font-family: var(--font-julietta);
+.font-alex-brush {
+  font-family: var(--font-alex-brush);
+}
+.font-batang {
+  font-family: var(--font-batang);
 }
 
 /* ─── Keyframes (전역 참조용) ─── */

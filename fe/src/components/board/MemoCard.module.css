@@ -52,9 +52,9 @@
   justify-content: center;
 }
 
-/* ── 메인 타이틀: Julietta, 절대 중앙 ── */
+/* ── 메인 타이틀: AlexBrush, 절대 중앙 ── */
 .title {
-  font-family: var(--font-julietta);
+  font-family: var(--font-alex-brush);
   font-size: 2.8rem;
   font-weight: normal;
   line-height: 1.1;
@@ -113,9 +113,9 @@
   display: block;
 }
 
-/* ── 답변 한국어 본문: Julietta (focal point) ── */
+/* ── 답변 한국어 본문: 경기청년바탕 (focal point) ── */
 .answer .entryText {
-  font-family: var(--font-julietta);
+  font-family: var(--font-batang);
   font-size: 1rem;
   font-weight: normal;
   line-height: 1.3;
