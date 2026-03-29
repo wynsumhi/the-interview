@@ -176,8 +176,8 @@ function ConversationContent() {
         interviewData.interviewId,
         token,
         (dto: FollowUpQuestionDTO) => {
-          // 인터뷰 저장 완료 시 서버가 messageType: "SAVE_COMPLETE"를 전송 — 정리 후 /myhistory로 이동
-          if (dto.messageType === "SAVE_COMPLETE") {
+          // 인터뷰 저장 완료 시 서버가 type: "SAVE_COMPLETE"를 전송 — 정리 후 /myhistory로 이동
+          if (dto.type === "SAVE_COMPLETE") {
             cleanup();
             queryClient.invalidateQueries({ queryKey: ["interviewHistory"] });
             router.push("/myhistory");
