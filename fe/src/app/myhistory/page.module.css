@@ -1,273 +1,95 @@
 .container {
-  height: 100vh;
-  overflow: hidden; /* 바깥 페이지 스크롤 완전 차단 */
-  background-color: var(--bg);
-  display: flex;
-  flex-direction: column;
-}
-
-.contentWrapper {
-  flex: 1;
-  min-height: 0; /* flex 자식이 100vh를 초과하지 않도록 */
-  display: flex;
-  gap: 80px;
   max-width: var(--max-w);
   width: 100%;
   margin: 0 auto;
-  padding: 120px var(--px) 40px;
-  align-items: stretch;
+  padding: 120px var(--px) 80px;
 }
 
-/* ── 왼쪽 섹션 ── */
-.leftSection {
-  flex: 0 0 240px;
-  align-self: flex-start;
-  position: sticky;
-  top: 120px;
-  height: fit-content;
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 48px;
+  border-bottom: 1px solid var(--fg);
+  padding-bottom: 16px;
 }
 
-.mainTitle {
+.title {
   font-family: var(--font-playfair);
-  font-size: 64px;
+  font-size: 40px;
   font-weight: 900;
   line-height: 1;
-  margin-bottom: 48px;
   letter-spacing: -0.02em;
 }
 
-.targetName {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 10px;
+.count {
+  font-size: 13px;
+  color: var(--muted);
 }
 
-.desc {
+.status {
   font-size: 14px;
-  line-height: 1.7;
   color: var(--muted);
-  margin-bottom: 28px;
+  padding: 24px 0;
+}
+
+.empty {
+  font-size: 14px;
+  color: var(--muted);
+  padding: 40px 0;
 }
 
 .startLink {
-  font-size: 14px;
+  color: var(--fg);
   font-weight: 600;
   text-decoration: underline;
-  text-underline-offset: 4px;
-  color: var(--fg);
-  transition: color 0.2s;
+  text-underline-offset: 3px;
 }
 
-.startLink:hover {
-  color: var(--blush);
+/* 목록 */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-/* 현재 폴더 위치 카운터 */
-.navCounter {
-  margin-top: 40px;
-  font-family: var(--font-playfair);
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1;
+.item {
+  border-bottom: 1px solid color-mix(in srgb, var(--fg) 10%, transparent);
 }
 
-.navCounter span {
-  font-size: 16px;
-  font-weight: 400;
-  opacity: 0.4;
-}
-
-.statusText {
-  margin-top: 12px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-/* ── 오른쪽 섹션 ── */
-.rightSection {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden; /* 커스텀 휠 네비게이션, 내부 스크롤 없음 */
-  display: flex;
-  flex-direction: column;
-}
-
-/* ── 폴더 영역: 절대 배치 컨테이너, 요소 간 레이아웃 간섭 없음 ── */
-.folderArea {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-}
-
-/* ── 비활성 탭: 절대 배치, top은 인라인 스타일로 주입 ── */
-.tabItem {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 42px;
-  overflow: hidden;
-  cursor: pointer;
-}
-
-.tabItem:hover {
-  opacity: 0.85;
-}
-
-/* ── 활성 폴더: 절대 배치, top = (VISIBLE-1)*TAB_HEIGHT = 168px ── */
-.activeFolder {
-  position: absolute;
-  top: 168px; /* (VISIBLE-1) * TAB_HEIGHT = 4 * 42 */
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-/* ── 폴더 탭 ── */
-.folderTab {
-  width: fit-content;
-  height: 42px; /* TAB_HEIGHT와 동일 — 비활성 탭과 활성 탭 높이 동기화 */
-  box-sizing: border-box;
-  padding: 0 32px;
-  border-radius: 12px 24px 0 0;
-  font-size: 12px;
-  font-weight: 700;
-  /* margin-left: 20px; */
-  display: flex;
+.row {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
   align-items: center;
-  gap: 6px;
-}
-
-.code {
-  opacity: 0.6;
-}
-
-.tabTitle {
-  letter-spacing: 0.05em;
-}
-
-/* ── 폴더 바디: 탭 아래 나머지 공간 전체를 채움 ── */
-.folderBody {
-  flex: 1;
-  min-height: 0;
-  position: relative; /* EmotionVisual(절대 배치)의 기준 컨테이너 */
-  border-radius: 0 0 4px 4px; /* 상단 모서리 제거 — folderTab 하단과 완전히 밀착 */
-  box-shadow: 0 -15px 30px rgba(0, 0, 0, 0.08);
-}
-
-/* 바디를 Link로 감쌀 때 전체 영역을 클릭 가능하게 */
-.bodyLink {
-  display: block;
-  height: 100%;
+  gap: 20px;
+  padding: 18px 8px;
   text-decoration: none;
   color: inherit;
+  transition: background 0.15s;
 }
 
-.bodyInner {
-  height: 100%;
-  padding: 40px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.row:hover {
+  background: color-mix(in srgb, var(--fg) 4%, transparent);
 }
 
-/* ── 비활성 탭 내부 folderTab: 원래 탭 모양 복원 ── */
-.tabItem .folderTab {
-  width: fit-content;
-  /* margin-left: 20px; */
-  border-radius: 12px 24px 0 0;
-}
-
-/* ── 색상 테마: tabItem 컨테이너 자체도 칠해 빈틈 제거 ── */
-.sage.tabItem,
-.sage .folderTab,
-.sage .folderBody {
-  background: var(--sage);
-  color: var(--fg);
-}
-
-.lavender.tabItem,
-.lavender .folderTab,
-.lavender .folderBody {
-  background: var(--lavender);
-  color: var(--fg);
-}
-
-.blush.tabItem,
-.blush .folderTab,
-.blush .folderBody {
-  background: var(--blush);
-  color: var(--fg);
-}
-
-.charcoal.tabItem,
-.charcoal .folderTab,
-.charcoal .folderBody {
-  background: var(--charcoal);
-  color: var(--bg);
-}
-
-.warm.tabItem,
-.warm .folderTab,
-.warm .folderBody {
-  background: var(--warm);
-  color: var(--fg);
-}
-
-/* ── 빈 슬롯: 완전 투명 ── */
-.emptyFolder.tabItem,
-.emptyFolder .folderTab,
-.emptyFolder .folderBody {
-  background: transparent;
-}
-
-/* ── 텍스트 디테일 ── */
-.cardTitle {
-  font-size: clamp(20px, 2.4vw, 32px);
-  font-weight: 900;
-  text-align: center;
-  max-width: 60%;
-  word-break: keep-all;
-}
-
-.verticalDate {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  font-size: 13px;
+.index {
+  font-size: 12px;
   font-weight: 600;
-  opacity: 0.5;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
-/* ── 반응형 ── */
-@media (max-width: 1024px) {
-  .container {
-    height: auto;
-    overflow: visible;
-  }
+.interviewTitle {
+  font-size: 15px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-  .contentWrapper {
-    flex-direction: column;
-    flex: none;
-    min-height: 0;
-    gap: 48px;
-    padding-bottom: 60px;
-  }
-
-  .leftSection {
-    position: relative;
-    top: 0;
-    flex: none;
-    width: 100%;
-  }
-
-  /* 모바일: flex column이므로 height는 tabStack(motion)과 body(flex:1)가 결정 */
-  .rightSection {
-    height: 500px; /* 최소 높이 보장 */
-  }
-
-  .bodyInner {
-    padding: 24px;
-  }
+.date {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
