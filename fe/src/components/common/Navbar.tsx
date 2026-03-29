@@ -6,12 +6,15 @@ import userIcon from "@/assets/icons/user.svg";
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { useUserStore } from "@/store/useUserStore";
+import { useNotificationStore } from "@/store/useNotificationStore";
 import { logout as logoutApi } from "@/services/auth"; // 로그아웃 API 호출 함수
+import { fetchNotifications } from "@/services/notification";
 import styles from "./Navbar.module.css";
 
 export default function Navbar() {
   // 스토어에서 유저 정보와 로그인 상태, 로그아웃 액션 가져오기
   const { userUuid, isLoggedIn, clearLoginInfo } = useUserStore();
+  const { count: notificationCount, setCount } = useNotificationStore();
 
   // 드롭다운 열림/닫힘 상태
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -37,6 +40,14 @@ export default function Navbar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // 로그인 상태일 때 알림 수 조회
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    fetchNotifications()
+      .then((list) => setCount(list.length))
+      .catch(() => {});
+  }, [isLoggedIn, setCount]);
 
   // 로그아웃 처리 함수
   const handleLogout = async () => {
@@ -102,6 +113,9 @@ export default function Navbar() {
                     height={32}
                     className={styles.profileAvatar}
                   />
+                  {notificationCount > 0 && (
+                    <span className={styles.badge}>{notificationCount}</span>
+                  )}
                 </button>
 
                 {/* isDropdownOpen이 true일 때만 드롭다운 렌더링 */}

@@ -108,6 +108,74 @@
   cursor: pointer;
 }
 
+.notificationList {
+  display: flex;
+  flex-direction: column;
+}
+
+.notificationItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--fg) 10%, transparent);
+}
+
+.notificationItem:first-child {
+  border-top: 1px solid color-mix(in srgb, var(--fg) 10%, transparent);
+}
+
+.notificationBody {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  padding: 20px 8px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.notificationBody:hover {
+  background: color-mix(in srgb, var(--fg) 4%, transparent);
+}
+
+.notificationDeleteBtn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.15s;
+}
+
+.notificationDeleteBtn:hover {
+  color: #ff4d4f;
+}
+
+.notificationMsg {
+  font-size: 14px;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.notificationDate {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.emptyState {
+  font-size: 14px;
+  color: var(--muted);
+  padding: 40px 0;
+}
+
 .bookmarkCard {
   display: flex;
   justify-content: space-between;
