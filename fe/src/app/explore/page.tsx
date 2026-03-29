@@ -47,7 +47,7 @@ export default function ExplorePage() {
           console.log("[ExplorePage] item →", item);
           return (
             <article key={item.interviewId} className={styles.magazineCard}>
-              <Link href={`/magazine/${item.interviewId}`}>
+              <Link href={`/magazine/share/${item.shareUuid}`}>
                 <div
                   className={`${styles.cover} ${styles[item.fusedEmotion]}`}
                 >
