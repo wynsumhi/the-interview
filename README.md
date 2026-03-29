@@ -184,14 +184,62 @@ S14P21A307/
 │   │           └── java/com/theinterview/       # 단위 테스트
 │   └── websocket-test/                          # WebSocket 수동 테스트용 클라이언트
 │
+├── fe/
+│   ├── .next/                       # Next.js 빌드 결과물
+│   ├── node_modules/                # 설치된 패키지
+│   ├── public/
+│   │   └── voice-samples/           # 음성 샘플 파일
+│   ├── src/
+│   │   ├── app/                     # App Router 기반 페이지
+│   │   │   ├── api/
+│   │   │   │   └── ws-url/route.ts  # WebSocket URL 제공 API
+│   │   │   ├── archive/             # 아카이브 페이지
+│   │   │   ├── board/
+│   │   │   │   └── [userUuid]/      # 공유 게시판 상세 페이지
+│   │   │   ├── emotion/             # 감정 분석 페이지
+│   │   │   ├── explore/             # 공개 인터뷰 탐색 페이지
+│   │   │   ├── fonts/               # 서비스 폰트 파일
+│   │   │   ├── interview/
+│   │   │   │   ├── setup/           # 인터뷰 설정 페이지
+│   │   │   │   └── conversation/    # 인터뷰 진행 페이지
+│   │   │   ├── login/               # 로그인 페이지
+│   │   │   ├── magazine/
+│   │   │   │   └── [id]/            # 매거진 상세 페이지
+│   │   │   ├── myhistory/           # 인터뷰 기록 페이지
+│   │   │   ├── mypage/              # 마이페이지
+│   │   │   ├── signup/              # 회원가입 페이지
+│   │   │   ├── favicon.ico
+│   │   │   ├── globals.css
+│   │   │   ├── layout.tsx
+│   │   │   ├── page.tsx             # 메인 페이지
+│   │   │   └── page.module.css
+│   │   ├── assets/
+│   │   │   └── icons/               # SVG 아이콘
+│   │   ├── components/
+│   │   │   ├── archive/             # 아카이브 UI 컴포넌트
+│   │   │   ├── board/               # 게시판 UI 컴포넌트
+│   │   │   ├── common/              # 공통 UI 컴포넌트
+│   │   │   ├── interview/           # 인터뷰 UI 컴포넌트
+│   │   │   └── intro/               # 랜딩 페이지 섹션 컴포넌트
+│   │   ├── constants/               # 상수 및 목데이터
+│   │   ├── hooks/                   # 커스텀 React Hooks
+│   │   ├── lib/                     # Axios 설정 등 라이브러리 래퍼
+│   │   ├── services/                # API 요청 및 도메인 서비스
+│   │   ├── store/                   # Zustand 전역 상태
+│   │   ├── types/                   # TypeScript 타입 정의
+│   │   └── proxy.ts                 # 개발 환경 프록시 설정
+│   ├── Dockerfile
+│   └── package.json
+│
 ├── infra/                           # 인프라 구성
 │   ├── app/                         # Application 계층 Compose (BE, FE)
 │   ├── database/                    # Database 계층 Compose (PostgreSQL, Redis)
 │   ├── management/                  # Management 계층 Compose (Nginx, Jenkins, Bridge)
 │   │   └── nginx/                   # Nginx 설정 (리버스 프록시, SSL/TLS)
-│   ├── monitoring/                  # Monitoring 계층 Compose (Prometheus, Grafana, Loki, Promtail)
+│   ├── monitoring/                  # Monitoring 계층 Compose
+│   │                                 (Prometheus, Grafana, Loki, Promtail)
 │   ├── network/                     # Docker 커스텀 네트워크 생성 스크립트
-│   └── webhook-service/             # GitLab→Mattermost 웹훅 브릿지 서버 (Spring Boot)
+│   └── webhook-service/             # GitLab→MM 웹훅 브릿지 서버(Spring Boot)
 │       └── src/
 │           └── main/
 │               ├── java/com/theinterview/webhook/
