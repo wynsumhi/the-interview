@@ -730,8 +730,8 @@ public class InterviewService {
 
     // 인터뷰 히스토리 조회
     public InterviewHistoryDTO getInterviewHistoryList(Integer memberId, Integer page) {
-        // 인터뷰의 상태가 FINISHED인 정보만 5개씩 가져옴
-        Pageable pageable = PageRequest.of(page, 5);
+        // 인터뷰의 상태가 FINISHED인 정보만 15개씩 가져옴
+        Pageable pageable = PageRequest.of(page, 15, Sort.by("createdAt").descending());
         Slice<Interview> interviews = interviewRepository.findAllByMemberIdAndStatus(memberId,
                 InterviewStatus.FINISHED, pageable);
 
