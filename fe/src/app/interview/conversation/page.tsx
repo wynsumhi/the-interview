@@ -65,6 +65,8 @@ function ConversationContent() {
   const [waveHeights, setWaveHeights] = useState<number[]>(DEFAULT_HEIGHTS);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isExiting, setIsExiting] = useState(false);
+  // ref: onMessage 클로저에서 최신 isExiting 값을 읽기 위해 state와 동기화
+  const isExitingRef = useRef(false);
   // 서버가 isFirstFinished: true를 보내면 현재 질문이 온보딩 인터뷰의 마지막 질문
   const [isLastQuestion, setIsLastQuestion] = useState(false);
   // ref: fullRecorder.onstop 클로저에서 항상 최신 값을 읽기 위해 state와 동기화
@@ -92,6 +94,8 @@ function ConversationContent() {
   const finalDestRef = useRef<"next" | "exit">("next");
   // exitInterviewV2 중복 호출 방지 — onstop에서 호출된 경우 AUTO_EXITING effect에서 재호출하지 않음
   const exitApiCalledRef = useRef(false);
+  // SAVE_COMPLETE 대기 중 — true이면 cleanup()의 disconnect 호출을 차단
+  const waitingForSaveRef = useRef(false);
   // ────────────────────────────────────────────────────────────────────────
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -178,13 +182,15 @@ function ConversationContent() {
         (dto: FollowUpQuestionDTO) => {
           // 인터뷰 저장 완료 시 서버가 messageType: "SAVE_COMPLETE"를 전송 — 정리 후 /archive로 이동
           if (dto.messageType === "SAVE_COMPLETE") {
+            waitingForSaveRef.current = false;
             cleanup();
             queryClient.invalidateQueries({ queryKey: ["interviewHistory"] });
             router.push("/archive");
             return;
           }
           // 온보딩 5문항 완료 시 서버가 isExit: true를 전송 — 즉시 종료 처리
-          if (dto.isExit) {
+          // 수동 종료 진행 중(isExitingRef)이면 무시 — SAVE_COMPLETE에서 처리
+          if (dto.isExit && !isExitingRef.current) {
             cleanup();
             router.push("/archive");
             return;
@@ -233,8 +239,10 @@ function ConversationContent() {
 
     // 나레이션 종료 후 다음 상태 결정
     // isFirstFinished: true → 마지막 나레이션이므로 자동 종료, 아니면 사용자 녹음으로 전환
+    // 수동 종료 진행 중(isExitingRef)이면 상태 전환 차단 — AUTO_EXITING·USER_RECORDING으로 가면 cleanup이 실행됨
     const onNarrationEnd = () => {
       if (statusRef.current !== "AI_SPEAKING") return;
+      if (isExitingRef.current) return;
       setStatus(isLastQuestionRef.current ? "AUTO_EXITING" : "USER_RECORDING");
     };
 
@@ -271,6 +279,8 @@ function ConversationContent() {
   // exitInterviewV2가 아직 호출되지 않은 경우 여기서 빈 오디오로 호출해 서버 종료 처리를 완료함
   useEffect(() => {
     if (status !== "AUTO_EXITING") return;
+    // 수동 종료 버튼이 이미 눌린 경우 — handleExit가 SAVE_COMPLETE를 기다리고 있으므로 여기서 처리하지 않음
+    if (isExitingRef.current) return;
     const doExit = async () => {
       if (!exitApiCalledRef.current) {
         const question = questionRef.current;
@@ -477,6 +487,7 @@ function ConversationContent() {
   const handleExit = async () => {
     if (isExiting) return; // 중복 클릭 방지
     setIsExiting(true);
+    isExitingRef.current = true;
 
     ttsAudioRef.current?.pause();
 
@@ -506,19 +517,43 @@ function ConversationContent() {
         recorder.stop();
       });
     } else {
-      // 녹음 중이 아닌 경우 (AI_SPEAKING 등): onstop 핸들러 제거 후 exitV2 직접 호출
+      // 녹음 중이 아닌 경우 (AI_SPEAKING 등): onstop 핸들러 제거 후 exitV2 전송
       // onstop을 그대로 두면 sendNext + setStatus("WAITING_AI")가 재실행될 수 있음
-      if (chunkRecorderRef.current) {
-        chunkRecorderRef.current.ondataavailable = null;
-      }
-      if (fullRecorderRef.current) {
-        fullRecorderRef.current.onstop = null;
-      }
+      if (chunkRecorderRef.current) chunkRecorderRef.current.ondataavailable = null;
+      if (fullRecorderRef.current) fullRecorderRef.current.onstop = null;
 
-      // 음성 입력 없이 종료한 경우에도 서버에 인터뷰 종료를 알려야 데이터가 저장됨
-      // answerAudio: "" / totalChunk: "0" → 서버가 오디오 없이 인터뷰를 정상 종료 처리
       const question = questionRef.current;
-      if (question) {
+      if (question && streamRef.current) {
+        // 빈 오디오 전송 시 백엔드 처리 오류 방지: 2초 짧은 녹음 후 exitV2 전송
+        chunkIndexRef.current = 0;
+        fullChunksRef.current = [];
+        await new Promise<void>((resolve) => {
+          const recorder = new MediaRecorder(streamRef.current!, {
+            mimeType: RECORDER_MIME,
+          });
+          recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) fullChunksRef.current.push(e.data);
+          };
+          recorder.onstop = async () => {
+            const blob = new Blob(fullChunksRef.current, { type: RECORDER_MIME });
+            const answerAudio = await blobToBase64(blob);
+            await exitInterviewV2({
+              interviewId: question.interviewId,
+              questionId: question.questionId,
+              answerAudio,
+              totalChunk: "0", // 청크 STT 없이 종료 — 서버는 감정 분석용으로만 사용
+            });
+            resolve();
+          };
+          recorder.start();
+          fullRecorderRef.current = recorder;
+          // 2초 후 강제 중단 → onstop에서 exitV2 전송
+          setTimeout(() => {
+            if (recorder.state === "recording") recorder.stop();
+          }, 2000);
+        });
+      } else if (question) {
+        // 마이크 스트림을 사용할 수 없는 경우에만 빈 오디오로 전송
         await exitInterviewV2({
           interviewId: question.interviewId,
           questionId: question.questionId,
@@ -528,9 +563,12 @@ function ConversationContent() {
       }
     }
 
-    // exitInterviewV2 전송 완료 — SAVE_COMPLETE 수신 시 onMessage 핸들러에서 cleanup + 이동
+    // exitInterviewV2 전송 완료 — SAVE_COMPLETE 수신 대기 시작
+    // waitingForSaveRef: 이 시점부터 cleanup()의 disconnect를 차단
+    waitingForSaveRef.current = true;
     // 백엔드가 SAVE_COMPLETE를 보내지 않는 경우를 대비해 15초 후 강제 이동
     setTimeout(() => {
+      waitingForSaveRef.current = false;
       cleanup();
       queryClient.invalidateQueries({ queryKey: ["interviewHistory"] });
       router.push("/archive");
@@ -551,6 +589,8 @@ function ConversationContent() {
 
   const cleanup = () => {
     stopVad();
+    // SAVE_COMPLETE 수신 전에 어떤 경로로든 cleanup이 호출되면 disconnect만 차단
+    if (waitingForSaveRef.current) return;
     chunkRecorderRef.current?.stop();
     chunkRecorderRef.current = null;
     fullRecorderRef.current?.stop();
