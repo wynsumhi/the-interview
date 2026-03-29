@@ -115,27 +115,46 @@
 
 .notificationItem {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  padding: 20px 8px;
+  gap: 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--fg) 10%, transparent);
-  background: none;
-  border-top: none;
-  border-left: none;
-  border-right: none;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s;
-  width: 100%;
 }
 
 .notificationItem:first-child {
   border-top: 1px solid color-mix(in srgb, var(--fg) 10%, transparent);
 }
 
-.notificationItem:hover {
+.notificationBody {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  padding: 20px 8px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.notificationBody:hover {
   background: color-mix(in srgb, var(--fg) 4%, transparent);
+}
+
+.notificationDeleteBtn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.15s;
+}
+
+.notificationDeleteBtn:hover {
+  color: #ff4d4f;
 }
 
 .notificationMsg {

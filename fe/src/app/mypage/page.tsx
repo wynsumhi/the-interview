@@ -5,7 +5,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { logout } from "@/services/auth";
 import { getMe, updateMe, deleteMe } from "@/services/member";
-import { fetchNotifications, type NotificationItem } from "@/services/notification";
+import {
+  fetchNotifications,
+  deleteNotification,
+  type NotificationItem,
+} from "@/services/notification";
 import styles from "./page.module.css";
 
 export default function MyPage() {
@@ -19,12 +23,25 @@ export default function MyPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
+  const handleDeleteNotification = async (notificationId: number) => {
+    try {
+      await deleteNotification(notificationId);
+      setNotifications((prev) =>
+        prev.filter((item) => item.notificationId !== notificationId),
+      );
+    } catch {
+      // 삭제 실패 시 무시
+    }
+  };
+
   useEffect(() => {
     getMe().then((data) => {
       setEmail(data.email);
       setNickname(data.nickname);
     });
-    fetchNotifications().then(setNotifications).catch(() => {});
+    fetchNotifications()
+      .then(setNotifications)
+      .catch(() => {});
   }, []);
 
   // 회원 정보 변경 저장 처리 함수
@@ -88,7 +105,7 @@ export default function MyPage() {
           className={`${styles.tabItem} ${activeTab === "notifications" ? styles.active : ""}`}
           onClick={() => setActiveTab("notifications")}
         >
-          알림
+          활동 알림
         </button>
         <button
           className={`${styles.tabItem} ${activeTab === "profile" ? styles.active : ""}`}
@@ -105,20 +122,28 @@ export default function MyPage() {
             <p className={styles.emptyState}>새로운 알림이 없습니다.</p>
           ) : (
             notifications.map((n) => (
-              <button
-                key={n.notificationId}
-                className={styles.notificationItem}
-                onClick={() => router.push(`/magazine/${n.shareLink}`)}
-              >
-                <span className={styles.notificationMsg}>{n.message}</span>
-                <span className={styles.notificationDate}>
-                  {new Date(n.createdAt).toLocaleDateString("ko-KR", {
-                    year: "numeric",
-                    month: "2-digit",
-                    day: "2-digit",
-                  })}
-                </span>
-              </button>
+              <div key={n.notificationId} className={styles.notificationItem}>
+                <button
+                  className={styles.notificationBody}
+                  onClick={() => router.push(`/magazine/${n.shareLink}`)}
+                >
+                  <span className={styles.notificationMsg}>{n.message}</span>
+                  <span className={styles.notificationDate}>
+                    {new Date(n.createdAt).toLocaleDateString("ko-KR", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                    })}
+                  </span>
+                </button>
+                <button
+                  className={styles.notificationDeleteBtn}
+                  onClick={() => handleDeleteNotification(n.notificationId)}
+                  aria-label="알림 삭제"
+                >
+                  ✕
+                </button>
+              </div>
             ))
           )}
         </section>

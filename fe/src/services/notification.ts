@@ -17,3 +17,8 @@ export async function fetchNotifications(): Promise<NotificationItem[]> {
   );
   return res.data.result.notifications;
 }
+
+// DELETE /api/v1/notification/{notificationId} - 알림 삭제
+export async function deleteNotification(notificationId: number): Promise<void> {
+  await instance.delete(`/notification/${notificationId}`);
+}
