@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useInterviewDetail } from "@/hooks/useInterviewDetail";
+import { usePublicInterviewDetail } from "@/hooks/usePublicInterviewDetail";
 import { deleteInterview, toggleBookmark } from "@/services/interview";
 import { useBookmarkStore } from "@/store/useBookmarkStore";
 import type { InterviewDetailEntry } from "@/types/interview";
@@ -212,8 +213,13 @@ export default function MagazinePage() {
   const router = useRouter();
   // useParams()는 string | string[]을 반환할 수 있으므로 안전하게 단일 값으로 변환
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
-  const interviewId = rawId ? Number(rawId) : NaN;
-  const { data, isLoading, error } = useInterviewDetail(interviewId);
+  // UUID 형식(하이픈 포함)이면 공개 탐색용, 숫자면 소유자 조회용
+  const isUuid = rawId ? /^[0-9a-f-]{36}$/i.test(rawId) : false;
+  const interviewId = !isUuid && rawId ? Number(rawId) : NaN;
+
+  const ownerQuery = useInterviewDetail(interviewId);
+  const publicQuery = usePublicInterviewDetail(isUuid ? (rawId ?? "") : "");
+  const { data, isLoading, error } = isUuid ? publicQuery : ownerQuery;
 
   const [showModal, setShowModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -228,7 +234,8 @@ export default function MagazinePage() {
     setBookmark(interviewAnswerId, !wasBookmarked);
     try {
       // POST 응답의 interviewShareRange로 최종 상태 확정
-      const confirmed = await toggleBookmark(interviewId, interviewAnswerId, !wasBookmarked);
+      // UUID 경로에서는 data.interviewId를 사용 (interviewId 변수가 NaN일 수 있음)
+      const confirmed = await toggleBookmark(data?.interviewId ?? interviewId, interviewAnswerId, !wasBookmarked);
       setBookmark(interviewAnswerId, confirmed);
     } catch {
       setBookmark(interviewAnswerId, wasBookmarked);
@@ -239,7 +246,7 @@ export default function MagazinePage() {
     setIsDeleting(true);
     setDeleteError(null);
     try {
-      await deleteInterview(interviewId);
+      await deleteInterview(data?.interviewId ?? interviewId);
       router.push("/archive");
     } catch (err) {
       const is400 = (err as Error).message === "BAD_REQUEST";
