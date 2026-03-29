@@ -64,6 +64,14 @@
   word-break: keep-all;
 }
 
+/* ── 타이틀 AlexBrush 변형 (My Q&A Memo용) ── */
+.titleCursive {
+  font-family: var(--font-alex-brush);
+  font-size: 2.4rem;
+  font-weight: normal;
+  line-height: 1.15;
+}
+
 /* ── 큐레이션 Q&A 래퍼 ── */
 .qaWrap {
   width: 100%;
@@ -105,8 +113,8 @@
 /* ── 질문·답변 한국어 본문: 경기청년바탕 ── */
 .entryText {
   font-family: var(--font-batang);
-  font-size: 0.9rem;
-  font-weight: 400;
+  font-size: 1rem;
+  font-weight: 700;
   line-height: 1.7;
   word-break: keep-all;
   display: block;

@@ -178,6 +178,7 @@ export default function BoardPage({
               <MemoCard
                 key={props.id}
                 {...props}
+                cursiveTitle
                 onCardClick={() => router.push(`/magazine/${item.interviewId}`)}
               />
             );
