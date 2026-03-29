@@ -87,7 +87,10 @@ public class InterviewController {
             @AuthenticationPrincipal User user
     ) throws IOException {
 
+        long controllerStart = System.currentTimeMillis();
         String email = user.getUsername();
+        log.info("[EXIT_TIMING] exitV2 요청 수신 — interviewId: {}, totalChunk: {}",
+                request.getInterviewId(), request.getTotalChunk());
 
         // 락 체크 및 예외 처리(이미 저장중인 인터뷰 있는지 확인)
         if (redisService.hasKey("interviewId:" + request.getInterviewId() + "lock")) {
@@ -108,7 +111,8 @@ public class InterviewController {
             // redis에 락 처리
             redisService.setValues("interviewId:" + request.getInterviewId() + "lock", "lock",
                     Duration.ofSeconds(20));
-            log.info("요청에 오디오 파일 없음. 오디오 파일 없는 종료 로직 시작");
+            log.info("[EXIT_TIMING] 오디오 없음 분기 — interviewId: {}, 컨트롤러 소요: {}ms",
+                    request.getInterviewId(), System.currentTimeMillis() - controllerStart);
             interviewFacade.exitInterviewNoAudioFacade(request, email,
                     "interviewId:" + request.getInterviewId());
             redisService.deleteValues("interviewId:" + request.getInterviewId() + "lock");
@@ -119,6 +123,8 @@ public class InterviewController {
         // 서버 디렉토리에 음성 파일 저장
         String savedPath = interviewService.saveAnswerFile(request.getAnswerAudio(),
                 request.getInterviewId());
+        log.info("[EXIT_TIMING] 오디오 파일 디스크 저장 완료 — interviewId: {}, 소요: {}ms",
+                request.getInterviewId(), System.currentTimeMillis() - controllerStart);
 
         // redis 저장 코드 호출
         interviewService.saveRequiredFlagInRedis(savedPath, redisKey, request.getTotalChunk());
@@ -127,11 +133,15 @@ public class InterviewController {
         // totalChunk == 이미 STT 완료된 청크 수이면 즉시 파이프라인 실행
         // (STT가 아직 진행 중이면 마지막 청크 STT 완료 시 receiveChunkAudio에서 트리거됨)
         int totalChunks = Integer.parseInt(request.getTotalChunk());
-        if (totalChunks == redisService.savedChunkCount(redisKey + "chunks")) {
+        long savedChunkCount = redisService.savedChunkCount(redisKey + "chunks");
+        log.info("[EXIT_TIMING] 청크 카운트 확인 — interviewId: {}, totalChunks: {}, savedChunkCount: {}, 소요: {}ms",
+                request.getInterviewId(), totalChunks, savedChunkCount, System.currentTimeMillis() - controllerStart);
+
+        if (totalChunks == savedChunkCount) {
             String triggerKey = redisKey + "triggered";
             if (redisService.setIfAbsent(triggerKey, "1", Duration.ofMinutes(5))) {
-                log.info("exitV2 경로에서 파이프라인 직접 트리거 — interviewId: {}, totalChunks: {}",
-                        request.getInterviewId(), totalChunks);
+                log.info("[EXIT_TIMING] exitV2 경로에서 파이프라인 직접 트리거 — interviewId: {}, 컨트롤러 소요: {}ms",
+                        request.getInterviewId(), System.currentTimeMillis() - controllerStart);
                 interviewFacade.exitInterviewFacade(email,
                                 InterviewExitRequest.builder()
                                         .interviewId(request.getInterviewId())
@@ -140,7 +150,7 @@ public class InterviewController {
                         .subscribe(
                                 null,
                                 error -> {
-                                    log.error("종료 파이프라인 에러 발생 (exitV2 경로) interviewId: {}, 원인: {}",
+                                    log.error("[EXIT_TIMING] 종료 파이프라인 에러 발생 (exitV2 경로) interviewId: {}, 원인: {}",
                                             request.getInterviewId(), error.getMessage());
                                     redisService.deleteValues(redisKey + "triggered");
                                     redisService.deleteValues(redisKey + "chunks");
@@ -149,11 +159,14 @@ public class InterviewController {
                                 },
                                 () -> {
                                     redisService.deleteValues(redisKey + "triggered");
-                                    log.info("종료 파이프라인 완료 (exitV2 경로) — interviewId: {}",
+                                    log.info("[EXIT_TIMING] 종료 파이프라인 완료 (exitV2 경로) — interviewId: {}",
                                             request.getInterviewId());
                                 }
                         );
             }
+        } else {
+            log.info("[EXIT_TIMING] STT 완료 대기 중 — exitV2 컨트롤러 반환, interviewId: {}, 컨트롤러 총 소요: {}ms",
+                    request.getInterviewId(), System.currentTimeMillis() - controllerStart);
         }
 
         return ApiResponse.OK;
