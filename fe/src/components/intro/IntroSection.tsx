@@ -5,7 +5,7 @@ const WAVE_HEIGHTS = [
   28, 46, 70, 108, 58, 130, 76, 94, 52, 118, 70, 88, 40, 112, 58, 76, 34, 94,
   52, 70,
 ];
-const WAVE_COLORS = ["#c9a99a", "#9b91d4"];
+const WAVE_COLORS = ["#9b91d4", "#c9a99a", "#b0b0b0"];
 
 export default function IntroSection() {
   return (
@@ -72,7 +72,7 @@ export default function IntroSection() {
                         height: `${h}px`,
                         background: WAVE_COLORS[i % 3],
                         animationDelay: `${i * 0.075}s`,
-                        opacity: 0.6 + (i % 3) * 0.13,
+                        opacity: 0.55 + (i % 5) * 0.09,
                       }}
                     />
                   ))}
