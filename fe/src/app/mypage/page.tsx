@@ -3,15 +3,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { MOCK_ARCHIVE_LIST } from "@/constants/mockData";
 import { logout } from "@/services/auth";
 import { getMe, updateMe, deleteMe } from "@/services/member";
 import styles from "./page.module.css";
 
 export default function MyPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"profile" | "bookmarks">(
-    "profile",
+  const [activeTab, setActiveTab] = useState<"notifications" | "profile">(
+    "notifications",
   );
   const [email, setEmail] = useState("");
   const [nickname, setNickname] = useState("");
@@ -83,21 +82,28 @@ export default function MyPage() {
       {/* 탭 내비게이션 */}
       <nav className={styles.tabNav}>
         <button
+          className={`${styles.tabItem} ${activeTab === "notifications" ? styles.active : ""}`}
+          onClick={() => setActiveTab("notifications")}
+        >
+          알림
+        </button>
+        <button
           className={`${styles.tabItem} ${activeTab === "profile" ? styles.active : ""}`}
           onClick={() => setActiveTab("profile")}
         >
           내 정보 수정
         </button>
-        <button
-          className={`${styles.tabItem} ${activeTab === "bookmarks" ? styles.active : ""}`}
-          onClick={() => setActiveTab("bookmarks")}
-        >
-          북마크 보관함
-        </button>
       </nav>
 
-      {activeTab === "profile" ? (
-        /* 1. 내 정보 수정 섹션 (이메일 확인, 닉네임/비번 변경, 탈퇴) */
+      {activeTab === "notifications" ? (
+        /* 1. 알림 섹션 */
+        <section className={styles.section}>
+          <div className={styles.emptyState}>
+            <p>새로운 알림이 없습니다.</p>
+          </div>
+        </section>
+      ) : (
+        /* 2. 내 정보 수정 섹션 (이메일 확인, 닉네임/비번 변경, 탈퇴) */
         <section className={styles.section}>
           <div className={styles.inputGroup}>
             <label>이메일 (아이디)</label>
@@ -142,31 +148,6 @@ export default function MyPage() {
               변경사항 저장
             </button>
           </div>
-        </section>
-      ) : (
-        /* 2. 북마크 목록 섹션 (조회 및 삭제) */
-        // TODO: 실제 API 연동 후 MOCK_ARCHIVE_LIST 제거
-        <section className={styles.bookmarkList}>
-          {MOCK_ARCHIVE_LIST.length > 0 ? (
-            MOCK_ARCHIVE_LIST.map((item) => (
-              <div key={item.interview_id} className={styles.bookmarkCard}>
-                <div className={styles.bInfo}>
-                  <span className={styles.bDate}>
-                    {new Date(item.created_at).toLocaleDateString()}
-                  </span>
-                  <h3 className={styles.bTitle}>{item.title}</h3>
-                </div>
-                <div className={styles.cardActions}>
-                  <button className={styles.viewBtn}>조회</button>
-                  <button className={styles.deleteBtn}>삭제</button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className={styles.emptyState}>
-              <p>북마크된 인터뷰가 없습니다.</p>
-            </div>
-          )}
         </section>
       )}
     </main>
