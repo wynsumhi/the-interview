@@ -302,6 +302,10 @@ public class InterviewFacade {
     // 인터뷰 종료 시 호출 될 파서드
     public Mono<Void> exitInterviewFacade(String email, InterviewExitRequest request) {
 
+        long start = System.currentTimeMillis();
+        log.info("[EXIT_TIMING] exitInterviewFacade 시작 — interviewId: {}, questionId: {}",
+                request.getInterviewId(), request.getQuestionId());
+
         // redis에 있을 마지막 답변 조회 및 저장 경로 조회
         String redisKey =
                 "interviewId:" + request.getInterviewId() + "questionId:" + request.getQuestionId();
@@ -316,11 +320,15 @@ public class InterviewFacade {
         // 1. 디스크에서 음성 원본 파일을 받아옴
         return Mono.fromCallable(() -> Files.readAllBytes(Paths.get(savedPath)))
                 .subscribeOn(Schedulers.boundedElastic())
+                .doOnSuccess(bytes -> log.info("[EXIT_TIMING] [1/5] 오디오 파일 로드 완료 — interviewId: {}, 소요: {}ms",
+                        request.getInterviewId(), System.currentTimeMillis() - start))
                 .flatMap(bytes -> Mono.fromCallable(() -> {
                             // 2. 마지막 답변을 저장함
                             InterviewQuestion question = interviewService.saveAnswer(
                                     request.getQuestionId(), answerText, savedPath);
                             questionRef.set(question);
+                            log.info("[EXIT_TIMING] [2/5] 마지막 답변 DB 저장 완료 — interviewId: {}, 소요: {}ms",
+                                    request.getInterviewId(), System.currentTimeMillis() - start);
                             return bytes;
                         }).subscribeOn(Schedulers.boundedElastic())
                 )
@@ -329,7 +337,8 @@ public class InterviewFacade {
                         Mono.zip(
                                 aiUtils.lastAnswerStt(answerText),
                                 aiUtils.lastAnswerEmotion(answerText, bytes)
-                        )
+                        ).doOnSuccess(t -> log.info("[EXIT_TIMING] [3/5] STT 정제 + 감정 분석 병렬 완료 — interviewId: {}, 소요: {}ms",
+                                request.getInterviewId(), System.currentTimeMillis() - start))
                 )
                 .flatMap(tuple -> Mono.fromCallable(() -> {
                             // 4. 감정, 정제 텍스트 저장
@@ -339,8 +348,11 @@ public class InterviewFacade {
                                     request
                             );
                             // 5. DB에 마지막 답변 저장 및 필요 도메인 조회 및 다음 질문 생성을 위한 준비(질문 답변 쌍 조합 및 답변 없는 질문 삭제)
-                            return interviewService.findDomainMakeQnACouple(email,
+                            var result = interviewService.findDomainMakeQnACouple(email,
                                     request.getInterviewId());
+                            log.info("[EXIT_TIMING] [4/5] 감정/TTS 저장 + QnA 컨텍스트 조합 완료 — interviewId: {}, 소요: {}ms",
+                                    request.getInterviewId(), System.currentTimeMillis() - start);
+                            return result;
                         }).subscribeOn(Schedulers.boundedElastic())
                 )
                 .flatMap(answerTts -> {
@@ -363,6 +375,8 @@ public class InterviewFacade {
                                     .build());
 
                     return Mono.zip(aiNextOpeningResponseMono, aiTitleResponseMono)
+                            .doOnSuccess(t -> log.info("[EXIT_TIMING] [5/5] 제목 + 오프닝 AI 병렬 완료 — interviewId: {}, 소요: {}ms",
+                                    request.getInterviewId(), System.currentTimeMillis() - start))
                             .flatMap(aiResponse -> Mono.fromRunnable(() -> {
                                         // 저장 로직
                                         AiNextOpeningResponse openingQuestionResponse = aiResponse.getT1();
@@ -385,6 +399,8 @@ public class InterviewFacade {
                                         messagingTemplate.convertAndSend(
                                                 "/topic/interview/tmp/" + request.getInterviewId(),
                                                 (Object) Map.of("type", "SAVE_COMPLETE"));
+                                        log.info("[EXIT_TIMING] DB 저장 + SAVE_COMPLETE 전송 완료 — interviewId: {}, 소요: {}ms",
+                                                request.getInterviewId(), System.currentTimeMillis() - start);
                                     }).subscribeOn(Schedulers.boundedElastic())
                             ).retry(3)
                             // 파이프라인 완료 후 RAG 적재
@@ -411,6 +427,8 @@ public class InterviewFacade {
                                                     error.getMessage())
                                     ));  // 별도 subscribe로 체인과 분리
                 })
+                .doFinally(signal -> log.info("[EXIT_TIMING] exitInterviewFacade 종료 (signal={}) — interviewId: {}, 총 소요시간: {}ms",
+                        signal, request.getInterviewId(), System.currentTimeMillis() - start))
                 .then(); // Mono<Void> 반영
     }
 
@@ -418,10 +436,15 @@ public class InterviewFacade {
     public void exitInterviewNoAudioFacade(TotalChunkRequest request, String email,
             String redisKey) {
 
+        long start = System.currentTimeMillis();
+        log.info("[EXIT_TIMING] exitInterviewNoAudioFacade 시작 — interviewId: {}",
+                request.getInterviewId());
+
         // 1. 해당 대화의 모든 질문, 답변 쌍 조회
         String context = interviewService.makeAnswerQuestionCouple(request.getInterviewId());
-
         Member member = domainFindUtils.getMemberByEmail(email);
+        log.info("[EXIT_TIMING] [1/2] QnA 컨텍스트 + 멤버 조회 완료 — interviewId: {}, 소요: {}ms",
+                request.getInterviewId(), System.currentTimeMillis() - start);
 
         // 2. 다음 첫 질문 및 제목 생성
         Mono.zip(
@@ -434,7 +457,9 @@ public class InterviewFacade {
                         .builder()
                         .interviewContext(context)
                         .build())
-        ).flatMap(tuple -> {
+        ).doOnSuccess(t -> log.info("[EXIT_TIMING] [2/2] 제목 + 오프닝 AI 병렬 완료 — interviewId: {}, 소요: {}ms",
+                        request.getInterviewId(), System.currentTimeMillis() - start))
+        .flatMap(tuple -> {
             // 첫 질문 및 제목 생성된 값을 받음
             AiNextOpeningResponse aiNextOpeningResponse = tuple.getT1();
             AiTitleResponse aiTitleResponse = tuple.getT2();
@@ -451,8 +476,12 @@ public class InterviewFacade {
                         messagingTemplate.convertAndSend(
                                 "/topic/interview/tmp/" + request.getInterviewId(),
                                 (Object) Map.of("type", "SAVE_COMPLETE"));
+                        log.info("[EXIT_TIMING] DB 저장 + SAVE_COMPLETE 전송 완료 — interviewId: {}, 소요: {}ms",
+                                request.getInterviewId(), System.currentTimeMillis() - start);
                     }).subscribeOn(Schedulers.boundedElastic());
-        }).subscribe(
+        }).doFinally(signal -> log.info("[EXIT_TIMING] exitInterviewNoAudioFacade 종료 (signal={}) — interviewId: {}, 총 소요시간: {}ms",
+                signal, request.getInterviewId(), System.currentTimeMillis() - start))
+        .subscribe(
                 null,
                 error -> log.error("종료 파이프라인 실패: {}", error.getMessage())
         );
