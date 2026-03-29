@@ -123,6 +123,39 @@ public class InterviewController {
         // redis 저장 코드 호출
         interviewService.saveRequiredFlagInRedis(savedPath, redisKey, request.getTotalChunk());
 
+        // exitV2 경로에서는 /next WebSocket이 호출되지 않으므로 여기서 직접 트리거 조건 체크
+        // totalChunk == 이미 STT 완료된 청크 수이면 즉시 파이프라인 실행
+        // (STT가 아직 진행 중이면 마지막 청크 STT 완료 시 receiveChunkAudio에서 트리거됨)
+        int totalChunks = Integer.parseInt(request.getTotalChunk());
+        if (totalChunks == redisService.savedChunkCount(redisKey + "chunks")) {
+            String triggerKey = redisKey + "triggered";
+            if (redisService.setIfAbsent(triggerKey, "1", Duration.ofMinutes(5))) {
+                log.info("exitV2 경로에서 파이프라인 직접 트리거 — interviewId: {}, totalChunks: {}",
+                        request.getInterviewId(), totalChunks);
+                interviewFacade.exitInterviewFacade(email,
+                                InterviewExitRequest.builder()
+                                        .interviewId(request.getInterviewId())
+                                        .questionId(request.getQuestionId())
+                                        .build())
+                        .subscribe(
+                                null,
+                                error -> {
+                                    log.error("종료 파이프라인 에러 발생 (exitV2 경로) interviewId: {}, 원인: {}",
+                                            request.getInterviewId(), error.getMessage());
+                                    redisService.deleteValues(redisKey + "triggered");
+                                    redisService.deleteValues(redisKey + "chunks");
+                                    redisService.deleteValues(redisKey + "totalChunks");
+                                    redisService.deleteValues(redisKey + "savedPath");
+                                },
+                                () -> {
+                                    redisService.deleteValues(redisKey + "triggered");
+                                    log.info("종료 파이프라인 완료 (exitV2 경로) — interviewId: {}",
+                                            request.getInterviewId());
+                                }
+                        );
+            }
+        }
+
         return ApiResponse.OK;
     }
 
