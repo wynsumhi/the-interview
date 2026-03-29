@@ -15,6 +15,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -75,6 +76,13 @@ public class Interview {
         this.title = title;
         this.status = status;
         this.shareRange = shareRange;
+    }
+
+    @PrePersist
+    private void setShareLink() {
+        if (Boolean.TRUE.equals(this.shareRange) && this.shareLink == null) {
+            this.shareLink = java.util.UUID.randomUUID().toString();
+        }
     }
 
     /**
