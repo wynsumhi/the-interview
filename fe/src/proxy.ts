@@ -18,6 +18,7 @@ const protectedRoutes = [
   "/emotion",
   "/explore",
   "/interview",
+  "/myhistory",
 ];
 
 // 로그인 상태에서 접근 불가능한 경로 (이미 로그인한 사용자는 필요 없는 페이지)

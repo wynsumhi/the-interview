@@ -76,6 +76,9 @@ export default function Navbar() {
               <Link href={`/board/${userUuid}`} className={styles.navLink}>
                 나의 핀
               </Link>
+              <Link href="/myhistory" className={styles.navLink}>
+                나의 기록
+              </Link>
               <Link href="/explore" className={styles.navLink}>
                 탐색하기
               </Link>

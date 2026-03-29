@@ -176,17 +176,17 @@ function ConversationContent() {
         interviewData.interviewId,
         token,
         (dto: FollowUpQuestionDTO) => {
-          // 인터뷰 저장 완료 시 서버가 messageType: "SAVE_COMPLETE"를 전송 — 정리 후 /archive로 이동
+          // 인터뷰 저장 완료 시 서버가 messageType: "SAVE_COMPLETE"를 전송 — 정리 후 /myhistory로 이동
           if (dto.messageType === "SAVE_COMPLETE") {
             cleanup();
             queryClient.invalidateQueries({ queryKey: ["interviewHistory"] });
-            router.push("/archive");
+            router.push("/myhistory");
             return;
           }
           // 온보딩 5문항 완료 시 서버가 isExit: true를 전송 — 즉시 종료 처리
           if (dto.isExit) {
             cleanup();
-            router.push("/archive");
+            router.push("/myhistory");
             return;
           }
           const isLast = dto.isFirstFinished ?? false;
@@ -285,7 +285,7 @@ function ConversationContent() {
       }
       await queryClient.invalidateQueries({ queryKey: ["interviewHistory"] });
       cleanup();
-      router.push("/archive");
+      router.push("/myhistory");
     };
     doExit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -473,7 +473,7 @@ function ConversationContent() {
   };
 
   // 인터뷰 종료 버튼 핸들러
-  // 1) 녹음 중이면 전체 오디오를 /exitV2로 전송 → 2) SAVE_COMPLETE 수신 대기 → 3) cleanup + /archive
+  // 1) 녹음 중이면 전체 오디오를 /exitV2로 전송 → 2) SAVE_COMPLETE 수신 대기 → 3) cleanup + /myhistory
   const handleExit = async () => {
     if (isExiting) return; // 중복 클릭 방지
     setIsExiting(true);
@@ -533,7 +533,7 @@ function ConversationContent() {
     setTimeout(() => {
       cleanup();
       queryClient.invalidateQueries({ queryKey: ["interviewHistory"] });
-      router.push("/archive");
+      router.push("/myhistory");
     }, 15000);
   };
 
