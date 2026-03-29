@@ -10,6 +10,7 @@ import {
   deleteNotification,
   type NotificationItem,
 } from "@/services/notification";
+import { useNotificationStore } from "@/store/useNotificationStore";
 import styles from "./page.module.css";
 
 export default function MyPage() {
@@ -22,6 +23,7 @@ export default function MyPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const { setCount, decrement } = useNotificationStore();
 
   const handleDeleteNotification = async (notificationId: number) => {
     try {
@@ -29,6 +31,7 @@ export default function MyPage() {
       setNotifications((prev) =>
         prev.filter((item) => item.notificationId !== notificationId),
       );
+      decrement();
     } catch {
       // 삭제 실패 시 무시
     }
@@ -40,7 +43,10 @@ export default function MyPage() {
       setNickname(data.nickname);
     });
     fetchNotifications()
-      .then(setNotifications)
+      .then((list) => {
+        setNotifications(list);
+        setCount(list.length);
+      })
       .catch(() => {});
   }, []);
 
