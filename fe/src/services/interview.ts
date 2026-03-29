@@ -73,6 +73,27 @@ export async function fetchInterviewHistory(
   return res.data.result;
 }
 
+// GET /api/v1/interview/share/{shareUuid} - 공개 인터뷰 상세 조회 (Explore에서 사용)
+// 인증 불필요 — 소유권과 무관하게 공개된 인터뷰를 조회
+export async function fetchPublicInterviewDetail(
+  shareUuid: string,
+): Promise<InterviewDetailItem> {
+  try {
+    const res = await instance.get<ApiResponse<InterviewDetailItem>>(
+      `/interview/share/${shareUuid}`,
+    );
+    return res.data.result;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      if (status === 403) throw new Error("FORBIDDEN");
+      if (status === 404) throw new Error("NOT_FOUND");
+      if (status === 502) throw new Error("BAD_GATEWAY");
+    }
+    throw error;
+  }
+}
+
 // GET /api/v1/interview/{interviewId} - 인터뷰 상세 조회
 // 403: 권한 없음 / 404: 존재하지 않는 인터뷰
 export async function fetchInterviewDetail(
