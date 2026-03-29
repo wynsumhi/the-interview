@@ -31,6 +31,8 @@ interface MemoProps {
   actionLabel?: string;
   /** true이면 카드 전체 투명도를 낮춰 화면에서 덜 두드러지게 표시 */
   dimmed?: boolean;
+  /** true이면 타이틀에 AlexBrush 폰트 적용 (My Q&A Memo용) */
+  cursiveTitle?: boolean;
   /** true이면 편집 아이콘 버튼을 표시 */
   canEdit?: boolean;
   /** 편집 내용 저장 시 호출 (최대 300자) */
@@ -85,6 +87,7 @@ export default function MemoCard({
   onAction,
   actionLabel,
   dimmed = false,
+  cursiveTitle = false,
   canEdit = false,
   onSaveEdit,
   isSaving = false,
@@ -194,7 +197,7 @@ export default function MemoCard({
             <AnimatePresence mode="wait" initial={false}>
               {!hovered ? (
                 /* 기본: Julietta 타이틀 */
-                <motion.h2 key="title" className={styles.title} {...fade}>
+                <motion.h2 key="title" className={`${styles.title} ${cursiveTitle ? styles.titleCursive : ""}`} {...fade}>
                   {title}
                 </motion.h2>
               ) : featured ? (
