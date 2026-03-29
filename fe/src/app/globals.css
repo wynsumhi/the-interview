@@ -2,14 +2,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap");
 
 @font-face {
-  font-family: "Golden Plains";
-  src: url("./fonts/Golden_Plains_Demo.ttf") format("truetype");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
   font-family: "AlexBrush";
   src: url("./fonts/AlexBrush.ttf") format("truetype");
   font-weight: normal;
@@ -59,7 +51,6 @@
 
   --font-sans:
     "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-golden-plains: "Golden Plains", cursive;
   --font-montserrat: "Montserrat", sans-serif;
   --font-alex-brush: "AlexBrush";
   --font-batang: "GyeonggiYouthBatang";
@@ -105,9 +96,6 @@ button {
 }
 .font-gaegu {
   font-family: var(--font-gaegu);
-}
-.font-golden-plains {
-  font-family: var(--font-golden-plains);
 }
 .font-alex-brush {
   font-family: var(--font-alex-brush);
