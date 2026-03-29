@@ -48,10 +48,12 @@ import com.theinterview.domain.interview.entity.QuestionCandidate;
 import com.theinterview.domain.interview.enums.InterviewStatus;
 import com.theinterview.domain.member.Member;
 import com.theinterview.domain.member.repository.MemberRepository;
+import com.theinterview.domain.notification.service.NotificationService;
 import com.theinterview.domain.shareboard.entity.ShareBoard;
 import com.theinterview.domain.shareboard.entity.ShareBoardPostitLayout;
 import com.theinterview.domain.shareboard.enums.ShareBoardPostitType;
 import com.theinterview.domain.shareboard.repository.ShareBoardPostitLayoutRepository;
+import com.theinterview.domain.shareboard.repository.ShareBoardQuestionRepository;
 import com.theinterview.domain.shareboard.repository.ShareBoardRepository;
 import com.theinterview.global.config.redis.RedisService;
 import com.theinterview.global.response.exception.GeneralException;
@@ -103,7 +105,9 @@ public class InterviewService {
     private final DomainFindUtils domainFindUtils;
     private final RedisService redisService;
     private final ShareBoardRepository shareBoardRepository;
+    private final ShareBoardQuestionRepository shareBoardQuestionRepository;
     private final ShareBoardPostitLayoutRepository shareBoardPostitLayoutRepository;
+    private final NotificationService notificationService;
 
     @Value("${file.audio.base-path}")
     private String answerAudioPath;
@@ -588,6 +592,22 @@ public class InterviewService {
         Interview interview = domainFindUtils.getInterviewById(interviewId);
 
         Member member = interview.getMember();
+
+        shareBoardQuestionRepository.findByStartedInterviewId(interviewId)
+                .ifPresent(question -> {
+                    // 인터뷰 수행자
+                    Member boardOwner = interview.getMember();
+                    // 질문 작성자
+                    Member questionAuthor = question.getAuthor();
+
+                    // shareRange true 자동 설정
+                    interview.setShareRange(true);
+
+                    // 알림 생성
+                    notificationService.createNotification(
+                            questionAuthor, boardOwner, interview, question
+                    );
+                });
 
         questionCandidateRepository.save(QuestionCandidate.builder()
                 .member(member)
