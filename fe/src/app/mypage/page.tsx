@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { logout } from "@/services/auth";
 import { getMe, updateMe, deleteMe } from "@/services/member";
+import { fetchNotifications, type NotificationItem } from "@/services/notification";
 import styles from "./page.module.css";
 
 export default function MyPage() {
@@ -16,12 +17,14 @@ export default function MyPage() {
   const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   useEffect(() => {
     getMe().then((data) => {
       setEmail(data.email);
       setNickname(data.nickname);
     });
+    fetchNotifications().then(setNotifications).catch(() => {});
   }, []);
 
   // 회원 정보 변경 저장 처리 함수
@@ -75,7 +78,7 @@ export default function MyPage() {
       <header className={styles.header}>
         <h1 className={styles.title}>MY PAGE</h1>
         <p className={styles.subtitle}>
-          계정 설정 및 보관된 대화를 관리합니다.
+          확인 가능 알람 및 계정 설정을 관리합니다.
         </p>
       </header>
 
@@ -97,10 +100,27 @@ export default function MyPage() {
 
       {activeTab === "notifications" ? (
         /* 1. 알림 섹션 */
-        <section className={styles.section}>
-          <div className={styles.emptyState}>
-            <p>새로운 알림이 없습니다.</p>
-          </div>
+        <section className={styles.notificationList}>
+          {notifications.length === 0 ? (
+            <p className={styles.emptyState}>새로운 알림이 없습니다.</p>
+          ) : (
+            notifications.map((n) => (
+              <button
+                key={n.notificationId}
+                className={styles.notificationItem}
+                onClick={() => router.push(`/magazine/${n.shareLink}`)}
+              >
+                <span className={styles.notificationMsg}>{n.message}</span>
+                <span className={styles.notificationDate}>
+                  {new Date(n.createdAt).toLocaleDateString("ko-KR", {
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                  })}
+                </span>
+              </button>
+            ))
+          )}
         </section>
       ) : (
         /* 2. 내 정보 수정 섹션 (이메일 확인, 닉네임/비번 변경, 탈퇴) */

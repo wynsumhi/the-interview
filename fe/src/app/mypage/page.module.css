@@ -108,6 +108,55 @@
   cursor: pointer;
 }
 
+.notificationList {
+  display: flex;
+  flex-direction: column;
+}
+
+.notificationItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--fg) 10%, transparent);
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+  width: 100%;
+}
+
+.notificationItem:first-child {
+  border-top: 1px solid color-mix(in srgb, var(--fg) 10%, transparent);
+}
+
+.notificationItem:hover {
+  background: color-mix(in srgb, var(--fg) 4%, transparent);
+}
+
+.notificationMsg {
+  font-size: 14px;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.notificationDate {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.emptyState {
+  font-size: 14px;
+  color: var(--muted);
+  padding: 40px 0;
+}
+
 .bookmarkCard {
   display: flex;
   justify-content: space-between;
