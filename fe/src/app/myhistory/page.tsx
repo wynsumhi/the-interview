@@ -1,0 +1,370 @@
+"use client";
+
+import { useState, useCallback, useRef, useEffect } from "react";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
+import { useInterviewHistory } from "@/hooks/useInterviewHistory";
+import styles from "./page.module.css";
+import Link from "next/link";
+import EmotionVisual from "@/components/archive/EmotionVisual";
+
+const VISIBLE = 5; // 슬라이딩 윈도우 크기
+const TAB_HEIGHT = 42; // 비활성 탭 고정 높이(px)
+const COLORS = [
+  styles.sage,
+  styles.lavender,
+  styles.blush,
+  styles.charcoal,
+  styles.warm,
+];
+// 색상 스태킹용 배경: 비활성 탭의 opacity(0.6)와 동일한 투명도를 배경색에도 적용
+// color-mix로 CSS 변수를 직접 읽어 60% 불투명도 버전을 생성 (하드코딩 없이 변수 변경에 자동 대응)
+const COLOR_VARS = [
+  "color-mix(in srgb, var(--sage) 60%, transparent)",
+  "color-mix(in srgb, var(--lavender) 60%, transparent)",
+  "color-mix(in srgb, var(--blush) 60%, transparent)",
+  "color-mix(in srgb, var(--charcoal) 60%, transparent)",
+  "color-mix(in srgb, var(--warm) 60%, transparent)",
+];
+
+// 활성 탭과 바디가 공유하는 방향성 슬라이드 variants
+const slideVariants: Variants = {
+  enter: (dir: number) => ({
+    opacity: 0,
+    y: dir > 0 ? -10 : 10, // 앞으로: 위에서 아래로, 뒤로: 아래서 위로
+  }),
+  center: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.45,
+      ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number],
+    },
+  },
+  exit: {
+    opacity: 0,
+    transition: { duration: 0.25, ease: "easeIn" },
+  },
+};
+
+// 탭·높이 변화에 공통으로 적용할 트랜지션
+const SLIDE_TRANSITION = {
+  duration: 0.4,
+  ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number],
+};
+
+export default function MyHistoryPage() {
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
+    useInterviewHistory();
+
+  const interviews = data?.pages.flatMap((p) => p.interviews) ?? [];
+  console.log(
+    "[MyHistoryPage] interviews 누적 →",
+    interviews.length,
+    "개 / pages 수 =",
+    data?.pages.length ?? 0,
+    "/ hasNextPage =",
+    hasNextPage,
+  );
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const isAnimating = useRef(false);
+
+  // activeIndex 변화 추적
+  useEffect(() => {
+    console.log(
+      "[MyHistoryPage] activeIndex =",
+      activeIndex,
+      "/ interviews.length =",
+      interviews.length,
+      "/ fetchNextPage 트리거 조건 =",
+      activeIndex + VISIBLE >= interviews.length && hasNextPage,
+    );
+  }, [activeIndex, interviews.length, hasNextPage]);
+  const didPrefetch = useRef(false);
+
+  // 데이터 범위 보정
+  useEffect(() => {
+    if (interviews.length > 0 && activeIndex >= interviews.length) {
+      setActiveIndex(interviews.length - 1);
+    }
+  }, [interviews.length, activeIndex]);
+
+  // 첫 페이지 로드 직후 다음 페이지 선제 프리페치
+  useEffect(() => {
+    if (
+      !didPrefetch.current &&
+      interviews.length > 0 &&
+      hasNextPage &&
+      !isFetchingNextPage
+    ) {
+      didPrefetch.current = true;
+      fetchNextPage();
+    }
+  }, [interviews.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // 슬라이딩 윈도우: activeIndex가 항상 첫 번째 (맨 아래 활성 폴더)
+  // 나머지 VISIBLE-1개는 위에 쌓이는 다음 항목들
+  const windowStart = activeIndex;
+  const visibleItems = interviews.slice(windowStart, windowStart + VISIBLE);
+
+  // 비활성 탭 목록 (activeIndex 제외, 내림차순: 5→4→3→2)
+  const inactiveItems = visibleItems
+    .map((item, wi) => ({ item, windowIdx: wi, globalIdx: windowStart + wi }))
+    .filter(({ globalIdx }) => globalIdx !== activeIndex)
+    .reverse();
+
+  // 항상 VISIBLE-1개를 유지하도록 부족한 슬롯을 플레이스홀더로 채움
+  const placeholderCount = Math.max(0, VISIBLE - 1 - inactiveItems.length);
+  const placeholders = Array.from({ length: placeholderCount }, (_, i) => ({
+    key: `placeholder-${i}`,
+  }));
+
+  const navigate = useCallback(
+    (delta: number) => {
+      if (isAnimating.current) return;
+      const next = activeIndex + delta;
+      if (next < 0 || next >= interviews.length) return;
+
+      isAnimating.current = true;
+      setDirection(delta > 0 ? 1 : -1);
+      setActiveIndex(next);
+      setTimeout(() => {
+        isAnimating.current = false;
+      }, 500);
+
+      // 윈도우 끝(activeIndex + VISIBLE)이 로드된 데이터 끝에 가까워지면 프리페치
+      console.log(
+        "[navigate] next =",
+        next,
+        "/ interviews.length =",
+        interviews.length,
+        "/ hasNextPage =",
+        hasNextPage,
+        "/ isFetchingNextPage =",
+        isFetchingNextPage,
+        "/ 트리거 여부 =",
+        delta > 0 &&
+          next + VISIBLE >= interviews.length &&
+          hasNextPage &&
+          !isFetchingNextPage,
+      );
+      if (
+        delta > 0 &&
+        next + VISIBLE >= interviews.length &&
+        hasNextPage &&
+        !isFetchingNextPage
+      ) {
+        console.log("[navigate] fetchNextPage() 호출");
+        fetchNextPage();
+      }
+    },
+    [
+      activeIndex,
+      interviews.length,
+      hasNextPage,
+      isFetchingNextPage,
+      fetchNextPage,
+    ],
+  );
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      if (e.deltaY > 0) {
+        navigate(1);
+      } else if (e.deltaY < 0) {
+        navigate(-1);
+      }
+    },
+    [navigate],
+  );
+
+  const activeItem = interviews[activeIndex];
+
+  return (
+    <main className={styles.container}>
+      <div className={styles.contentWrapper}>
+        {/* 왼쪽 섹션 */}
+        <section className={styles.leftSection}>
+          <h1 className={styles.mainTitle}>ARCHIVE</h1>
+          <div className={styles.guideBox}>
+            <p className={styles.targetName}>interview</p>
+            <p className={styles.desc}>
+              나와 나눈 대화의 조각들을 <br />
+              이곳에서 다시 들여다보세요.
+            </p>
+            <Link href="/interview/setup" className={styles.startLink}>
+              인터뷰 시작하기 <span>→</span>
+            </Link>
+          </div>
+          {interviews.length > 0 && (
+            <p className={styles.navCounter}>
+              {String(activeIndex + 1).padStart(2, "0")}
+              <span> / {String(interviews.length).padStart(2, "0")}</span>
+            </p>
+          )}
+          {isFetchingNextPage && (
+            <p className={styles.statusText}>불러오는 중...</p>
+          )}
+        </section>
+
+        {/* 오른쪽 섹션: 커스텀 휠 네비게이션 */}
+        <section className={styles.rightSection} onWheel={handleWheel}>
+          {/*
+           * folderArea: position:relative 컨테이너
+           *
+           * [비활성 탭 레이어]  z-index 1~VISIBLE-1
+           *   tabItem이 absolute로 쌓임 (top: (len-1-wi)*TAB_HEIGHT)
+           *
+           * [활성 폴더 레이어]  z-index VISIBLE+1
+           *   단일 motion.div (inset:0, pointer-events:none)
+           *   folderTab  : 상단 자연 배치 (배경색)
+           *   folderBody : absolute, top=bodyTop (배경색)
+           *   사이 투명 영역으로 비활성 탭이 비쳐 보임
+           *   slideVariants 하나로 탭+바디가 함께 움직임
+           */}
+          {/*
+           * folderArea: flex-column 컨테이너
+           *
+           * [비활성 탭]  flex-shrink:0, 위에서부터 쌓임 (oldest → newest inactive)
+           *   layout prop으로 탭 추가/제거 시 위치 변화를 부드럽게 처리
+           *
+           * [활성 폴더]  flex:1, 맨 아래 배치
+           *   folderTab + folderBody가 직접 연결된 단일 motion.div
+           *   slideVariants로 폴더 전체가 한 단위로 슬라이드
+           */}
+          <div className={styles.folderArea}>
+            {/* 플레이스홀더: 고정 슬롯, top 인라인으로 위치 고정 */}
+            {placeholders.map(({ key }, i) => (
+              <div
+                key={key}
+                style={{ top: i * TAB_HEIGHT, height: TAB_HEIGHT }}
+                className={`${styles.tabItem} ${styles.emptyFolder}`}
+              />
+            ))}
+
+            {/* 비활성 탭: 각자 고정 top 좌표, opacity만 전환 */}
+            <AnimatePresence>
+              {inactiveItems.map(({ item, globalIdx }, i) => {
+                // 이 탭 스트립의 배경 = 바로 위 폴더의 색상 (색상 스태킹 효과)
+                // i===0 이면 위에 플레이스홀더(회색)가 있을 수 있으므로 그 색을 사용
+                const precedingBg =
+                  i === 0
+                    ? "transparent"
+                    : COLOR_VARS[
+                        inactiveItems[i - 1].globalIdx % COLOR_VARS.length
+                      ];
+                return (
+                  <motion.div
+                    key={item.interviewId}
+                    style={{
+                      top: (placeholders.length + i) * TAB_HEIGHT,
+                      background: precedingBg,
+                    }}
+                    className={`${styles.tabItem} ${COLORS[globalIdx % COLORS.length]}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.6 }}
+                    exit={{ opacity: 0 }}
+                    transition={SLIDE_TRANSITION}
+                    onClick={() => {
+                      if (!isAnimating.current) {
+                        setDirection(globalIdx > activeIndex ? 1 : -1);
+                        setActiveIndex(globalIdx);
+                      }
+                    }}
+                  >
+                    <div className={styles.folderTab}>
+                      <span className={styles.code}>
+                        CODE_{String(globalIdx + 1).padStart(3, "0")} //
+                      </span>
+                      <span className={styles.tabTitle}>
+                        {item.interviewTitle.split(":")[0]}
+                      </span>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+
+            {/* 활성 폴더: top/bottom 고정, y+opacity만 애니메이션 */}
+            <AnimatePresence custom={direction} initial={false}>
+              {isLoading ? (
+                <motion.div
+                  key="loading"
+                  className={`${styles.activeFolder} ${styles.emptyFolder}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div className={styles.folderTab} />
+                  <div className={styles.folderBody} />
+                </motion.div>
+              ) : activeItem ? (
+                <motion.div
+                  key={activeItem.interviewId}
+                  className={`${styles.activeFolder} ${COLORS[activeIndex % COLORS.length]}`}
+                  style={{
+                    // 활성 폴더 컨테이너 배경 = 다음 폴더(index+1)의 색상
+                    // folderTab의 둥근 모서리와 여백 뒤에 이 색이 채워져 자연스러운 스태킹 효과 생성
+                    background: interviews[activeIndex + 1]
+                      ? COLOR_VARS[(activeIndex + 1) % COLOR_VARS.length]
+                      : "transparent",
+                  }}
+                  custom={direction}
+                  variants={slideVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                >
+                  <div className={styles.folderTab}>
+                    <span className={styles.code}>
+                      CODE_{String(activeIndex + 1).padStart(3, "0")} //
+                    </span>
+                    <span className={styles.tabTitle}>
+                      {activeItem.interviewTitle.split(":")[0]}
+                    </span>
+                  </div>
+                  <div className={styles.folderBody}>
+                    {/* 감정 시각화: 5개 점수를 비례 밴드로 배경에 표시 */}
+                    {activeItem.fusedScores && (
+                      <EmotionVisual scores={activeItem.fusedScores} />
+                    )}
+                    <Link
+                      href={`/magazine/${activeItem.interviewId}`}
+                      className={styles.bodyLink}
+                    >
+                      <div className={styles.bodyInner}>
+                        <span className={styles.verticalDate}>
+                          {new Date(
+                            activeItem.interviewDate,
+                          ).toLocaleDateString("ko-KR")}
+                        </span>
+                        <h2 className={styles.cardTitle}>
+                          {activeItem.interviewTitle}
+                        </h2>
+                        <span className={styles.verticalDate}>
+                          {String(activeIndex + 1).padStart(2, "0")}
+                        </span>
+                      </div>
+                    </Link>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={`empty-${activeIndex}`}
+                  className={`${styles.activeFolder} ${styles.emptyFolder}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div className={styles.folderTab} />
+                  <div className={styles.folderBody} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
