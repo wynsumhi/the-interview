@@ -1,0 +1,49 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/the_interview
+    username: root
+    password: ssafy1234!
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ssafy1234!
+  jpa:
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+logging:
+  level:
+    root: INFO
+    com.theinterview: DEBUG
+
+jwt:
+  secret: ${JWTSECRET}
+  # 토큰 만료 시간 (초 단위) 개발 편의 상 모두 14일로 설정
+  access-token-validity-in-seconds: 1209600
+  refresh-token-validity-in-seconds: 1209600
+
+# 사용자 답변 음성 파일 저장 경로(배포)
+file:
+  audio:
+    base-path: "C:/Users/SSAFY/Desktop" # 윈도우 - 바탕화면에 저장
+    # base-path: "/Users/사용자명/Desktop" # Mac 예시
+
+# fastAPI 호출 경로
+fastapi:
+  base-path: "http://localhost:8000"
+  service-token: ${FASTAPI_SERVICE_TOKEN:}
+
+internal:
+  api:
+    ai-callback-token: ${AI_INTERNAL_TOKEN:}
+
+# shareboard 공유 URL Endpoint
+url:
+  shareboard:
+    endpoint: ${SHARE_INTERVIEW_ENDPOINT}

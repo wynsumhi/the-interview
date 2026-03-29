@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>AI 인터뷰 테스트 파이프라인</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .box { border: 1px solid #ccc; padding: 15px; margin-top: 15px; border-radius: 8px; background-color: #f9f9f9; }
+        .badge { background-color: #007bff; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; }
+        .btn-danger { background-color: #dc3545; color: white; font-weight: bold; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+        .btn-danger:disabled { background-color: #e4a1a8; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <h2>🌱 AI 대화 테스트 클라이언트 (동시성 테스트용)</h2>
+    
+    <div class="box">
+        <input type="text" id="token" placeholder="JWT Access Token (필요 시)" style="width: 300px;"><br><br>
+        <button id="startSessionBtn" onclick="initRecordSession()">1. 인터뷰 시작 (초기 TTS 수신)</button>
+        <button id="endSessionBtn" class="btn-danger" onclick="endInterview()" disabled>🛑 인터뷰 강제 종료 (409 테스트)</button>
+        <span id="status" style="margin-left: 10px; color: red;">대기 중...</span>
+        <div id="roomInfo" style="margin-top: 10px; font-weight: bold; color: blue;"></div>
+    </div>
+    
+    <div class="box" id="questionArea" style="display: none; background-color: #eef2f5;">
+        <h3>🤔 현재 질문 <span id="qIdBadge" class="badge"></span></h3>
+        <p id="currentQuestionText" style="font-size: 18px; font-weight: bold;"></p>
+        <p>🔊 <strong>AI 음성 (TTS):</strong></p>
+        <audio id="audioPlayback" controls style="margin-top: 10px;"></audio>
+    </div>
+
+    <div class="box">
+        <button id="startBtn" onclick="startRecording()" disabled>🔴 답변 녹음 시작</button>
+        <button id="stopBtn" onclick="stopRecording()" disabled>⏹️ 녹음 중지</button>
+        <button id="nextBtn" onclick="sendAudioToServer()" disabled>➡️ 답변 제출 (AI 서버 전송)</button>
+    </div>
+
+    <div class="box" id="resultArea" style="display: none;">
+        <h3>✨ 방금 서버에서 온 STT 결과</h3>
+        <p>🗣️ <strong>내 답변:</strong> <span id="sttResult"></span></p>
+    </div>
+
+    <script>
+        let stompClient = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        
+        let currentInterviewId = null;
+        let currentQuestionId = null; 
+
+        // [Phase 1] HTTP POST 방 생성 및 초기 데이터 수신
+        async function initRecordSession() {
+            const token = document.getElementById('token').value;
+            
+            try {
+                document.getElementById('status').innerText = "인터뷰 생성 중...";
+                
+                // 백엔드 명세에 맞춰 URI 확인 (예시: /api/v1/interview)
+                const response = await fetch('http://localhost:8080/api/v1/interview', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ isPrevAffected: false }) 
+                });
+
+                if (!response.ok) throw new Error("HTTP 요청 실패");
+
+                const rawData = await response.json();
+                console.log("📦 서버 초기 응답:", rawData); 
+
+                const payload = rawData.result || rawData.data || rawData;
+
+                currentInterviewId = payload.interviewId;
+                currentQuestionId = payload.questionId;
+                
+                // 화면 업데이트
+                document.getElementById('roomInfo').innerText = `✅ 인터뷰 번호: ${currentInterviewId}번 (질문 ID: ${currentQuestionId}) 준비 완료!`;
+                
+                // 1. 첫 질문 렌더링
+                updateQuestionUI(currentQuestionId, payload.interviewTitle);
+
+                // 2. ⭐️ 초기 TTS 음성 삽입 및 플레이 준비
+                if (payload.ttsAudioBase64) {
+                    const audio = document.getElementById('audioPlayback');
+                    audio.src = "data:audio/webm;base64," + payload.ttsAudioBase64;
+                    // 자동 재생을 원하면 아래 주석 해제 (단, 브라우저 정책상 사용자 상호작용 필요할 수 있음)
+                    // audio.play(); 
+                }
+
+                // 3. 종료 버튼 활성화 (언제든 찌를 수 있도록)
+                document.getElementById('endSessionBtn').disabled = false;
+
+                // 웹소켓 연결
+                connectWebSocket(token, currentInterviewId);
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('status').innerText = "생성 실패 (콘솔 확인)";
+            }
+        }
+
+        // [Phase 2] 웹소켓 연결 및 구독
+        function connectWebSocket(token, interviewId) {
+            document.getElementById('status').innerText = "웹소켓 연결 중...";
+            const socket = new SockJS('http://localhost:8080/api/ws-connect'); 
+            stompClient = Stomp.over(socket);
+
+            stompClient.connect({'Authorization': 'Bearer ' + token}, function (frame) {
+                document.getElementById('status').innerText = "✅ 통신 파이프라인 연결됨!";
+                document.getElementById('status').style.color = "green";
+                document.getElementById('startBtn').disabled = false;
+                
+                // 구독 시작
+                stompClient.subscribe('/topic/interview/room/' + interviewId, function (response) {
+                    const responseDto = JSON.parse(response.body);
+                    handleAiResponse(responseDto);
+                });
+            });
+        }
+
+        // --- 녹음 로직 ---
+        async function startRecording() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.start();
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('nextBtn').disabled = true;
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('nextBtn').disabled = false; 
+        }
+
+        // [Phase 3] 서버로 오디오 전송 (AI 분석 시작점)
+        function sendAudioToServer() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const reader = new FileReader();
+            
+            reader.readAsDataURL(audioBlob); 
+            reader.onloadend = function() {
+                const base64Audio = reader.result.split(',')[1]; 
+                
+                const payload = {
+                    interviewId: currentInterviewId, 
+                    questionId: currentQuestionId, 
+                    audioData: base64Audio,
+                    isFinal: false
+                };
+
+                stompClient.send("/app/interview/audio", {}, JSON.stringify(payload));
+                
+                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('startBtn').disabled = true;
+
+                // ⭐️ AI 통신 중임을 표시. 이 때 사용자가 '인터뷰 강제 종료' 버튼을 누르면 409가 떠야 함!
+                document.getElementById('status').innerText = "⏳ AI 꼬리질문 생성 중 (락 걸림!)... 지금 '종료' 버튼을 눌러보세요!";
+                document.getElementById('status').style.color = "orange";
+            };
+        }
+
+        // [Phase 4] AI 응답 수신
+        function handleAiResponse(data) {
+            document.getElementById('status').innerText = "✅ 꼬리질문 도착! 다음 답변을 준비하세요.";
+            document.getElementById('status').style.color = "green";
+            
+            // STT 렌더링
+            document.getElementById('resultArea').style.display = 'block';
+            document.getElementById('sttResult').innerText = data.sttResult;
+            
+            // 글로벌 상태 업데이트 (다음 질문 ID)
+            currentQuestionId = data.questionId; 
+            updateQuestionUI(currentQuestionId, data.followUpQuestion);
+
+            // ⭐️ 다음 꼬리질문 TTS 음성 업데이트
+            if (data.ttsAudioBase64) {
+                const audio = document.getElementById('audioPlayback');
+                audio.src = "data:audio/webm;base64," + data.ttsAudioBase64;
+                audio.play(); // 꼬리질문은 도착하자마자 자동 재생
+            }
+            
+            document.getElementById('startBtn').disabled = false; 
+        }
+
+        // [Phase 5] ⭐️ 인터뷰 종료 (HTTP POST) 및 락(409) 검증
+        async function endInterview() {
+            if (!currentInterviewId) return;
+            const token = document.getElementById('token').value;
+
+            try {
+                // 💡 수정된 엔드포인트 적용
+                const response = await fetch('http://localhost:8080/api/v1/interview/exit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    // 💡 InterviewExitRequest 바디 규격에 맞게 두 ID 모두 전송
+                    body: JSON.stringify({ 
+                        interviewId: currentInterviewId,
+                        questionId: currentQuestionId
+                    }) 
+                });
+
+                // 🛡️ 백엔드에서 락(EVALUATING 상태)에 걸려 409를 뱉은 경우
+                if (response.status === 409) {
+                    alert("🚨 [409 Conflict 에러] \n현재 AI가 이전 답변을 처리(저장) 중입니다! \nDB 정합성을 위해 종료가 방어되었습니다.");
+                    return; // 연결을 끊지 않고 그대로 둠
+                }
+
+                if (!response.ok) throw new Error(`HTTP 에러: ${response.status}`);
+
+                alert("✅ 인터뷰가 성공적으로 종료되었습니다. (DB 반영 완료)");
+
+                // (이하 기존 연결 해제 및 UI 초기화 로직 동일)
+
+                // 정상 종료되었으므로 웹소켓 연결 해제
+                if (stompClient !== null) {
+                    stompClient.disconnect(function() {
+                        console.log("Disconnected STOMP");
+                    });
+                }
+
+                // UI 초기화 (버튼들 다 잠그기)
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = true;
+                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('endSessionBtn').disabled = true;
+                document.getElementById('status').innerText = "인터뷰가 완전히 종료되었습니다.";
+                document.getElementById('status').style.color = "black";
+
+            } catch (error) {
+                console.error("종료 요청 실패:", error);
+                alert("종료 처리 중 오류 발생 (콘솔 확인)");
+            }
+        }
+
+        // UI 헬퍼 함수
+        function updateQuestionUI(qId, text) {
+            document.getElementById('questionArea').style.display = 'block';
+            document.getElementById('qIdBadge').innerText = `Q.ID: ${qId}`;
+            document.getElementById('currentQuestionText').innerText = text;
+        }
+    </script>
+</body>
+</html>

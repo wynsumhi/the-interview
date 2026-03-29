@@ -1,0 +1,398 @@
+/* ── 컨테이너 ── */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 140px var(--px) 160px;
+  background: var(--bg);
+}
+
+/* ── 헤더 ── */
+.header {
+  border-bottom: 1px solid var(--fg);
+  padding-bottom: 48px;
+  margin-bottom: 100px;
+}
+
+.headerMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.idStamp {
+  font-family: var(--font-playfair);
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+.title {
+  font-family: var(--font-playfair);
+  font-size: clamp(40px, 6vw, 76px);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin-bottom: 36px;
+  word-break: keep-all;
+}
+
+.headerFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.date {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.count {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.deleteBtn {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.4;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+}
+
+.deleteBtn:hover {
+  opacity: 1;
+  color: var(--charcoal);
+}
+
+/* ── 삭제 확인 모달 ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  background: var(--bg);
+  padding: 48px 52px;
+  max-width: 420px;
+  width: calc(100% - 48px);
+  border-top: 2px solid var(--fg);
+}
+
+.modalTitle {
+  font-family: var(--font-playfair);
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.modalDesc {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+.modalError {
+  font-size: 13px;
+  color: #c0392b;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: rgba(192, 57, 43, 0.07);
+  border-left: 2px solid #c0392b;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancelBtn {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 10px 24px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.cancelBtn:hover:not(:disabled) {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+.confirmBtn {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 10px 24px;
+  background: var(--charcoal);
+  color: var(--bg);
+  border: 1px solid var(--charcoal);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.confirmBtn:hover:not(:disabled) {
+  opacity: 0.75;
+}
+
+.cancelBtn:disabled,
+.confirmBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── 스태거드 2단 그리드 ── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 80px;
+  align-items: start;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 오른쪽 열을 아래로 밀어 교차 리듬 생성 */
+.colOffset {
+  padding-top: 160px;
+}
+
+/* ── Q&A 모듈 ── */
+.module {
+  margin-bottom: 120px;
+}
+
+.moduleInner {
+  /* 모듈 내부 레이아웃 */
+}
+
+/* 시퀀스 번호 + 룰 */
+.moduleHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.seqLabel {
+  font-family: var(--font-playfair);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.rule {
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.15;
+}
+
+/* ── 북마크 핀 버튼 ── */
+.pinBtn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--muted);
+  opacity: 0.3;
+  transition: opacity 0.15s, color 0.15s;
+  line-height: 0;
+}
+
+.pinBtn:hover {
+  opacity: 0.7;
+}
+
+.pinActive {
+  color: var(--blush);
+  opacity: 1;
+}
+
+/* 질문: 세리프, 대형 */
+.question {
+  font-family: var(--font-playfair);
+  font-size: clamp(20px, 2.2vw, 28px);
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1.45;
+  margin: 0 0 28px 0;
+  word-break: keep-all;
+}
+
+/* 답변 블록 */
+.answerBlock {
+  padding-left: 0;
+  border-left: 2px solid var(--blush);
+  padding-left: 20px;
+}
+
+/* 답변 텍스트: 산세리프 */
+.answerText {
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.9;
+  color: var(--muted);
+  word-break: keep-all;
+  margin: 0;
+}
+
+.answerEmpty {
+  font-size: 13px;
+  color: var(--muted);
+  opacity: 0.4;
+  font-style: italic;
+}
+
+/* ── 최소형 오디오 플레이어 ── */
+.player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--blush) 12%, transparent);
+  border-radius: 6px;
+}
+
+.playBtn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--fg);
+  color: var(--bg);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
+}
+
+.playBtn:hover {
+  opacity: 0.7;
+}
+
+.trackWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.track {
+  width: 100%;
+  height: 2px;
+  accent-color: var(--fg);
+  cursor: pointer;
+}
+
+.timestamp {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  min-width: 68px;
+  text-align: right;
+}
+
+/* ── 상태 화면 (로딩 / 에러) ── */
+.stateBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+  text-align: center;
+}
+
+.stateCode {
+  font-family: var(--font-playfair);
+  font-size: 96px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--blush);
+  opacity: 0.35;
+}
+
+.stateMsg {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.backLink {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* ── 반응형 ── */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .colOffset {
+    padding-top: 0;
+  }
+
+  .module {
+    margin-bottom: 72px;
+  }
+}

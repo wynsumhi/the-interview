@@ -1,0 +1,9 @@
+/* 부모(position:relative)를 꽉 채우는 절대 배치 컨테이너
+   background는 컴포넌트에서 linear-gradient 인라인 스타일로 주입
+   opacity도 컴포넌트 prop으로 제어 */
+.wrapper {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}

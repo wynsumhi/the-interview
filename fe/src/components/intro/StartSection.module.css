@@ -1,0 +1,96 @@
+.section {
+  position: relative;
+  overflow: hidden;
+  padding: 160px 0;
+}
+
+.bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(-45deg, #e8d5f5, #f5c6d0, #ffd4a3, #c5e8e0);
+  background-size: 300% 300%;
+  animation: gradient-shift 9s ease infinite;
+}
+
+.grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.15;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 0 var(--px);
+  text-align: center;
+}
+
+.eyebrow {
+  font-family: var(--font-caveat);
+  font-size: 22px;
+  color: rgba(28, 28, 28, 0.55);
+  display: block;
+  margin-bottom: 24px;
+}
+
+.h2 {
+  font-size: 80px;
+  font-weight: 900;
+  color: var(--fg);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.h2Handwriting {
+  font-family: var(--font-gaegu);
+  font-size: 80px;
+  color: var(--fg);
+  line-height: 1.15;
+  margin-bottom: 64px;
+}
+
+.btn {
+  display: inline-block;
+  background: var(--fg);
+  color: #faf9f6;
+  padding: 20px 56px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  transition: background 0.3s, color 0.3s;
+}
+.btn:hover {
+  background: white;
+  color: var(--fg);
+}
+
+.sub {
+  margin-top: 32px;
+  font-size: 13px;
+  color: rgba(28, 28, 28, 0.45);
+}
+
+.subLink {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.2s;
+}
+.subLink:hover { color: rgba(28, 28, 28, 0.8); }
+
+/* ─── Responsive ─── */
+@media (max-width: 1024px) {
+  .section { padding: 120px 0; }
+  .inner { padding: 0 var(--px-mobile); }
+  .h2, .h2Handwriting { font-size: 56px; }
+}
+
+@media (max-width: 640px) {
+  .h2, .h2Handwriting { font-size: 40px; }
+}

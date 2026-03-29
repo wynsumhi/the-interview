@@ -1,0 +1,139 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg);
+  padding: 20px;
+}
+
+.authBox {
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.logo {
+  font-family: var(--font-playfair);
+  font-style: italic;
+  font-size: 24px;
+  color: var(--fg);
+  display: block;
+  margin-bottom: 40px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 32px;
+  letter-spacing: -0.02em;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  text-align: left;
+}
+
+.inputGroup label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--charcoal);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.input {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 15px;
+}
+
+.validation {
+  font-size: 11px;
+  color: var(--blush);
+  margin-top: 4px;
+  display: block;
+}
+
+.submitBtn {
+  background: var(--fg);
+  color: white;
+  padding: 16px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+/* API 요청 중 버튼 비활성화 스타일 */
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.divider {
+  margin: 32px 0;
+  position: relative;
+  border-bottom: 1px solid var(--border);
+}
+
+.divider span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg);
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.socialGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.socialBtn {
+  padding: 12px;
+  border: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: white;
+}
+
+.kakao {
+  background: #fee500;
+  border: none;
+}
+.naver {
+  background: #03c75a;
+  color: white;
+  border: none;
+}
+
+.switchAuth {
+  margin-top: 40px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.switchAuth a {
+  color: var(--fg);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+/* 로그인 실패 시 에러 메시지 스타일 */
+.error {
+  font-size: 12px;
+  color: #e53e3e;
+  margin-top: 8px;
+  display: block;
+  text-align: center;
+}

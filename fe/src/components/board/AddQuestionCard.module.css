@@ -1,0 +1,158 @@
+/* ── 카드: MemoCard와 동일한 260 × 340 고정 크기 ── */
+.card {
+  width: 260px;
+  height: 340px;
+  padding: 10px;
+  box-sizing: border-box;
+  display: flex;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+/* ── 이중 라인 내부 컨테이너: 점선 테두리로 추가 카드임을 시각적으로 구분 ── */
+.inner {
+  width: 100%;
+  height: 100%;
+  border: 1.5px dashed rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 14px 16px 12px;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── 카테고리 레이블: MemoCard와 동일한 스타일 ── */
+.category {
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 6px;
+}
+
+/* ── 카테고리 아래 구분선 ── */
+.divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 0;
+}
+
+/* ── 콘텐츠 슬롯: MemoCard .slot과 동일한 절대 좌표 ── */
+.slot {
+  position: absolute;
+  top: 42px;
+  left: 16px;
+  right: 16px;
+  bottom: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* ── 타이틀 + "+" 버튼을 세로로 쌓는 래퍼 ── */
+.promptGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ── 기본 상태 안내 문구 ── */
+.promptTitle {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.65;
+  padding-top: 30px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+  word-break: keep-all;
+}
+
+/* ── "+" 추가 버튼: promptTitle 아래 배치, 카드 영역 클릭으로 진입하므로 cursor는 상속 ── */
+.addButton {
+  font-size: 2.4rem;
+  font-weight: 200;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.35);
+  background: none;
+  border: none;
+  cursor: inherit;
+  transition: color 0.2s;
+  padding: 0;
+}
+
+.addButton:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ── 질문 입력 textarea ── */
+.textarea {
+  width: 100%;
+  height: 100%;
+  background: none;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 400;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.8);
+  caret-color: rgba(255, 255, 255, 0.7);
+}
+
+.textarea::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* ── 취소/등록 버튼 영역: 카드 하단 고정 ── */
+.actions {
+  position: absolute;
+  bottom: 12px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cancelBtn,
+.submitBtn {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s;
+}
+
+.cancelBtn {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.cancelBtn:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.submitBtn {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.submitBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.submitBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

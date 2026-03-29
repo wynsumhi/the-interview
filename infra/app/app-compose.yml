@@ -1,0 +1,78 @@
+services:
+  backend:
+    build:
+      context: ../../be/theinterview
+      dockerfile: Dockerfile
+    image: theinterview-backend:latest
+    container_name: backend
+    restart: on-failure
+    env_file:
+      - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - JAVA_OPTS=-Xms1024m -Xmx2048m
+      - TZ=Asia/Seoul
+    networks:
+      - theinterview-net
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    volumes:
+      - /home/ubuntu/theInterview/history:/app/data/theInterview/history
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: ../../fe
+      args:
+        - API_URL=https://j14a307.p.ssafy.io
+      dockerfile: Dockerfile
+    environment:
+      - API_URL=https://j14a307.p.ssafy.io
+      - TZ=Asia/Seoul
+    image: theinterview-frontend:latest
+    container_name: frontend
+    restart: on-failure
+    networks:
+      - theinterview-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+#  fastapi:
+#    build:
+#      context: ../../ai
+#      dockerfile: Dockerfile
+#    image: theinterview-fastapi:latest
+#    container_name: fastapi
+#    restart: on-failure
+#    env_file:
+#      - .env
+#    environment:
+#      - TZ=Asia/Seoul
+#    networks:
+#      - theinterview-net
+#    deploy:
+#      resources:
+#        limits:
+#          memory: 3G
+#    logging:
+#      driver: "json-file"
+#      options:
+#        max-size: "10m"
+#        max-file: "3"
+
+networks:
+  theinterview-net:
+    external: true

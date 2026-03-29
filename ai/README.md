@@ -1,0 +1,96 @@
+# AI Server for The Interview
+
+The Interview는 AI가 질문하고 사용자가 음성으로 답하는 인터뷰 기반 자기 탐색 서비스입니다.
+
+이 `ai/` 디렉토리는 음성 입력부터 응답 생성까지의 AI 파이프라인과 관련 API 서버를 담당합니다.
+
+## Scope
+
+This repository section is responsible for:
+
+- Speech-to-Text (STT)
+- Voice Emotion Analysis
+- Guardrail / Sensitive Information Masking
+- LLM-based question and response generation
+- Text-to-Speech (TTS)
+- Interview pipeline orchestration
+- AI-related API endpoints
+
+## Directory Structure
+
+ai/
+├── app/
+│   ├── api/
+│   ├── core/
+│   ├── models/
+│   ├── pipeline/
+│   ├── prompts/
+│   └── services/
+├── tests/
+├── requirements.txt
+└── .env.example
+
+## Pipeline Overview
+
+speech -> STT -> emotion -> guardrail -> LLM -> TTS
+
+## Run
+
+python -m venv .venv
+
+pip install -r requirements.txt
+
+uvicorn app.main:app --reload
+
+## Auth
+
+Protected endpoints support `Authorization: Bearer <token>`.
+
+- Public: `/`, `/api/v1/ai/health`
+- Protected: `/api/v1/ai/interview/*`, `/api/v1/ai/stt`, `/api/v1/ai/interview/rag/*`
+
+Environment variables:
+
+- `AUTH_ENABLED`
+- `AUTH_TOKENS`
+
+`AUTH_TOKENS` format:
+
+```text
+token-a|ai:invoke,stt:invoke;token-b|rag:write;admin-token|*
+```
+
+If `AUTH_ENABLED` is omitted, auth is enabled automatically when `AUTH_TOKENS` is set.
+
+## Python Code Convention
+
+### Install
+
+python -m venv .venv
+
+.venv\Scripts\activate
+
+pip install -r requirements-dev.txt
+
+### Run Ruff Manually
+
+ruff check app tests
+
+ruff format app tests
+
+### Use pre-commit
+
+pre-commit install
+
+pre-commit run --all-files
+
+Ruff is configured with practical defaults for FastAPI-oriented server code:
+- import sorting and cleanup
+- basic error/style checks
+- lightweight bug-prone pattern checks
+
+The current rules avoid overly strict gates so initial development is not blocked.
+
+## Test
+
+pytest

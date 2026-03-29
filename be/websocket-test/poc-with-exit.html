@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>PoC: AI 인터뷰 비동기 파이프라인 (통합 테스트)</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700&display=swap');
+
+        :root {
+            --bg: #0d0d0d;
+            --surface: #161616;
+            --border: #2a2a2a;
+            --accent: #00ff88;
+            --accent-dim: rgba(0, 255, 136, 0.1);
+            --text: #e8e8e8;
+            --text-dim: #666;
+            --danger: #ff4d4d;
+            --warn: #ffb84d;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'Syne', sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; padding: 32px; }
+
+        h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.05em; color: var(--accent); margin-bottom: 32px; display: flex; align-items: center; gap: 10px; }
+        h1::before { content: ''; display: inline-block; width: 8px; height: 8px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 12px var(--accent); }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1100px; }
+
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+
+        .card-title { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+        .card-title .step { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 1px 7px; font-size: 10px; }
+
+        input[type="text"], input[type="number"] { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: var(--mono); font-size: 13px; margin-bottom: 12px; outline: none; transition: border-color 0.2s; }
+        input:focus { border-color: var(--accent); }
+
+        .btn { padding: 10px 20px; font-family: var(--sans); font-weight: 700; font-size: 13px; letter-spacing: 0.05em; cursor: pointer; border-radius: 8px; border: none; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: var(--accent); color: #000; }
+        .btn-primary:hover:not(:disabled) { box-shadow: 0 0 20px rgba(0,255,136,0.4); transform: translateY(-1px); }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-danger:hover:not(:disabled) { box-shadow: 0 0 20px rgba(255,77,77,0.4); }
+        .btn-secondary { background: #2a2a2a; color: var(--text); border: 1px solid var(--border); }
+        .btn-exit { background: #ff6b00; color: #fff; }
+        .btn-exit:hover:not(:disabled) { box-shadow: 0 0 20px rgba(255,107,0,0.4); }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        .badge { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 20px; margin-top: 12px; }
+        .badge-waiting { background: rgba(255,184,77,0.1); color: var(--warn); border: 1px solid rgba(255,184,77,0.3); }
+        .badge-ok { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(0,255,136,0.3); }
+        .badge::before { content: '●'; font-size: 8px; }
+
+        .info-row { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-top: 10px; padding: 8px 12px; background: var(--accent-dim); border-radius: 6px; display: none; }
+
+        .log-area { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; height: 220px; overflow-y: auto; font-family: var(--mono); font-size: 12px; line-height: 1.8; color: #888; }
+        .log-area .log-time { color: var(--text-dim); }
+        .log-area .log-info { color: #888; }
+        .log-area .log-success { color: var(--accent); }
+        .log-area .log-warn { color: var(--warn); }
+        .log-area .log-error { color: var(--danger); }
+
+        .response-card { grid-column: 1 / -1; border-color: rgba(0,255,136,0.2); }
+        .response-empty { display: flex; align-items: center; justify-content: center; height: 120px; color: var(--text-dim); font-size: 13px; border: 1px dashed var(--border); border-radius: 8px; }
+        .response-content { display: none; }
+
+        /* 종료 응답 카드 */
+        .exit-card { grid-column: 1 / -1; border-color: rgba(255,107,0,0.3); display: none; }
+        .exit-title-text { font-size: 22px; font-weight: 700; color: var(--accent); padding: 16px; background: var(--bg); border-radius: 8px; border-left: 3px solid #ff6b00; }
+
+        .question-text { font-size: 18px; font-weight: 700; line-height: 1.6; color: var(--text); padding: 20px; background: var(--bg); border-radius: 8px; border-left: 3px solid var(--accent); margin-bottom: 16px; }
+
+        .response-meta { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+        .meta-chip { font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); color: var(--text-dim); }
+        .meta-chip span { color: var(--accent); }
+
+        .audio-section { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+        .audio-label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px; }
+        .audio-player-custom { display: flex; align-items: center; gap: 12px; }
+
+        .play-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #000; transition: all 0.2s; flex-shrink: 0; }
+        .play-btn:hover { box-shadow: 0 0 16px rgba(0,255,136,0.5); transform: scale(1.05); }
+        .play-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .progress-wrap { flex: 1; height: 4px; background: var(--border); border-radius: 4px; overflow: hidden; cursor: pointer; }
+        .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.1s linear; border-radius: 4px; }
+        .audio-time { font-family: var(--mono); font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+
+        .log-card { grid-column: 1 / -1; }
+
+        .recording-indicator { display: none; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; color: var(--danger); margin-top: 12px; }
+        .recording-indicator.active { display: flex; }
+        .rec-dot { width: 8px; height: 8px; background: var(--danger); border-radius: 50%; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        /* STT 에러 토스트 */
+        .error-toast { display: none; position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); background: rgba(255,77,77,0.15); border: 1px solid var(--danger); border-radius: 10px; padding: 14px 24px; font-family: var(--mono); font-size: 13px; color: var(--danger); z-index: 998; white-space: nowrap; }
+        .error-toast.active { display: block; }
+
+        /* 인터뷰 종료 모달 */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 999; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; }
+        .modal-box { background: var(--surface); border: 1px solid rgba(0,255,136,0.3); border-radius: 16px; padding: 40px 48px; text-align: center; max-width: 420px; width: 90%; box-shadow: 0 0 40px rgba(0,255,136,0.15); }
+        .modal-icon { font-size: 48px; margin-bottom: 20px; }
+        .modal-title { font-size: 22px; font-weight: 700; color: var(--accent); margin-bottom: 12px; }
+        .modal-desc { font-family: var(--mono); font-size: 13px; color: var(--text-dim); line-height: 1.7; }
+    </style>
+</head>
+<body>
+
+<h1>AI 인터뷰 비동기 파이프라인 — 통합 테스트</h1>
+
+<div class="grid">
+
+    <div class="card">
+        <div class="card-title"><span class="step">STEP 1</span> 인터뷰 방 생성 (HTTP)</div>
+        <input type="text" id="token" placeholder="JWT Access Token">
+        <button class="btn btn-primary" id="initBtn" onclick="initRecordSession()">방 생성 및 소켓 연결</button>
+        <div><span id="roomStatus" class="badge badge-waiting">대기중</span></div>
+        <div id="roomInfo" class="info-row"></div>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><span class="step">STEP 2</span> 녹음 및 청크 전송</div>
+        <input type="number" id="chunkMs" value="3000" placeholder="청크 단위 (ms)">
+        <div class="btn-row">
+            <button class="btn btn-danger" id="recordBtn" onclick="startRecording()" disabled>🔴 녹음 시작</button>
+            <button class="btn btn-secondary" id="stopBtn" onclick="stopRecording()" disabled>⏹ 다음 질문</button>
+            <!-- 추가된 종료 버튼 -->
+            <button class="btn btn-exit" id="exitBtn" onclick="exitInterview()" disabled>🚪 인터뷰 종료</button>
+        </div>
+        <div class="recording-indicator" id="recIndicator">
+            <div class="rec-dot"></div>
+            <span id="recLabel">녹음 중...</span>
+        </div>
+    </div>
+
+    <div class="card response-card">
+        <div class="card-title"><span class="step">RESPONSE</span> AI 꼬리질문 응답</div>
+        <div class="response-empty" id="responseEmpty">아직 응답이 없습니다. 녹음 후 다음 질문을 눌러주세요.</div>
+        <div class="response-content" id="responseContent">
+            <div class="response-meta" id="responseMeta"></div>
+            <div class="question-text" id="questionText"></div>
+            <div class="audio-section">
+                <div class="audio-label">TTS 음성 재생</div>
+                <div class="audio-player-custom">
+                    <button class="play-btn" id="playBtn" onclick="togglePlay()" disabled>▶</button>
+                    <div class="progress-wrap" onclick="seekAudio(event)">
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
+                    <span class="audio-time" id="audioTime">0:00 / 0:00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 추가된 종료 응답 카드 -->
+    <div class="card exit-card" id="exitCard">
+        <div class="card-title"><span class="step">EXIT</span> 인터뷰 종료 결과</div>
+        <div class="exit-title-text" id="exitTitleText">종료 처리 중...</div>
+    </div>
+
+    <div class="card log-card">
+        <div class="card-title"><span class="step">LOG</span> 시스템 로그</div>
+        <div class="log-area" id="logArea">시스템 로그가 여기에 표시됩니다...<br></div>
+    </div>
+
+</div>
+
+<audio id="ttsAudio" style="display:none;"></audio>
+
+<!-- STT 에러 토스트 -->
+<div class="error-toast" id="sttErrorToast">❌ STT 처리 중 오류가 발생했습니다. 다시 녹음해주세요.</div>
+
+<!-- 인터뷰 종료 완료 모달 -->
+<div class="modal-overlay" id="saveCompleteModal">
+    <div class="modal-box">
+        <div class="modal-icon">✅</div>
+        <div class="modal-title">인터뷰가 저장되었습니다</div>
+        <div class="modal-desc">모든 답변이 정상적으로 저장되었습니다.<br>WebSocket 연결이 종료되었습니다.</div>
+    </div>
+</div>
+
+<script>
+    let stompClient = null;
+    let globalStream = null;
+    let chunkRecorder = null;
+    let fullRecorder = null;
+    let chunkIntervalId = null;
+    let chunkIndex = 0;
+    let fullAudioChunks = [];
+    let currentInterviewId = null;
+    let currentQuestionId = null;
+    // 종료 모드 여부 플래그 (stopRecording에서 분기처리용)
+    let isExitMode = false;
+
+    const audioEl = document.getElementById('ttsAudio');
+    const playBtn = document.getElementById('playBtn');
+    const progressBar = document.getElementById('progressBar');
+    const audioTime = document.getElementById('audioTime');
+
+    audioEl.addEventListener('timeupdate', () => {
+        if (!audioEl.duration) return;
+        progressBar.style.width = (audioEl.currentTime / audioEl.duration * 100) + '%';
+        audioTime.textContent = `${fmt(audioEl.currentTime)} / ${fmt(audioEl.duration)}`;
+    });
+    audioEl.addEventListener('ended', () => { playBtn.textContent = '▶'; });
+
+    function fmt(sec) {
+        return `${Math.floor(sec / 60)}:${Math.floor(sec % 60).toString().padStart(2, '0')}`;
+    }
+
+    function togglePlay() {
+        if (audioEl.paused) { audioEl.play(); playBtn.textContent = '⏸'; }
+        else { audioEl.pause(); playBtn.textContent = '▶'; }
+    }
+
+    function seekAudio(e) {
+        if (!audioEl.duration) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        audioEl.currentTime = ((e.clientX - rect.left) / rect.width) * audioEl.duration;
+    }
+
+    function addLog(msg, type = 'info') {
+        const area = document.getElementById('logArea');
+        area.innerHTML += `<span class="log-time">[${new Date().toLocaleTimeString()}]</span> <span class="log-${type}">${msg}</span><br>`;
+        area.scrollTop = area.scrollHeight;
+    }
+
+    function blobToBase64(blob) {
+        return new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result.split(',')[1]);
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    function addMetaChip(container, label, value) {
+        if (value === null || value === undefined) return;
+        const chip = document.createElement('div');
+        chip.className = 'meta-chip';
+        chip.innerHTML = `${label}: <span>${value}</span>`;
+        container.appendChild(chip);
+    }
+
+    function renderResponse(data) {
+        document.getElementById('responseEmpty').style.display = 'none';
+        document.getElementById('responseContent').style.display = 'block';
+
+        document.getElementById('questionText').textContent = data.followUpQuestion || '(질문 없음)';
+
+        const meta = document.getElementById('responseMeta');
+        meta.innerHTML = '';
+        addMetaChip(meta, 'Interview ID', data.interviewId);
+        addMetaChip(meta, 'Question ID', data.questionId);
+        if (data.sttResult) {
+            addMetaChip(meta, 'STT', data.sttResult.length > 50 ? data.sttResult.slice(0, 50) + '...' : data.sttResult);
+        }
+
+        if (data.ttsAudioBase64) {
+            audioEl.src = `data:audio/mpeg;base64,${data.ttsAudioBase64}`;
+            audioEl.load();
+            playBtn.disabled = false;
+            progressBar.style.width = '0%';
+            audioTime.textContent = '0:00 / 0:00';
+            playBtn.textContent = '▶';
+
+            audioEl.play()
+                .then(() => { playBtn.textContent = '⏸'; addLog('TTS 자동 재생 시작', 'success'); })
+                .catch(() => addLog('자동 재생 차단됨 — 재생 버튼을 눌러주세요', 'warn'));
+        } else {
+            addLog('TTS 오디오 데이터 없음', 'warn');
+            playBtn.disabled = true;
+        }
+    }
+
+    // Step 1: 방 생성
+    async function initRecordSession() {
+        const token = document.getElementById('token').value;
+        document.getElementById('roomStatus').textContent = '생성 중...';
+        addLog('인터뷰 방 생성 요청 중...', 'info');
+
+        try {
+            const res = await fetch('http://localhost:8080/api/v1/interview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ isPrevAffected: false })
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+            const rawData = await res.json();
+            const payload = rawData.result || rawData.data || rawData;
+
+            currentInterviewId = payload.interviewId;
+            currentQuestionId = payload.questionId;
+
+            const statusEl = document.getElementById('roomStatus');
+            statusEl.textContent = '✅ 연결됨';
+            statusEl.className = 'badge badge-ok';
+
+            const infoEl = document.getElementById('roomInfo');
+            infoEl.style.display = 'block';
+            updateRoomInfo();
+            
+            // 방 생성 성공 후 첫 질문 TTS 렌더링
+renderResponse({
+    followUpQuestion: payload.interviewTitle,
+    interviewId: payload.interviewId,
+    questionId: payload.questionId,
+    ttsAudioBase64: payload.ttsAudioBase64
+});
+addLog(`첫 질문: ${payload.interviewTitle}`, 'success');
+            addLog(`방 생성 성공 — interviewId: ${currentInterviewId}, questionId: ${currentQuestionId}`, 'success');
+
+            connectWebSocket(token);
+
+        } catch (e) {
+            document.getElementById('roomStatus').textContent = '❌ 실패';
+            addLog(`방 생성 실패: ${e.message}`, 'error');
+        }
+    }
+
+    function updateRoomInfo() {
+        document.getElementById('roomInfo').textContent =
+            `Interview: ${currentInterviewId}  |  Question: ${currentQuestionId}`;
+    }
+
+    // Step 2: WebSocket 연결
+    function connectWebSocket(token) {
+        const socket = new SockJS('http://localhost:8080/api/ws-connect');
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+
+        stompClient.connect(token ? { 'Authorization': 'Bearer ' + token } : {}, () => {
+            addLog('STOMP 웹소켓 연결 완료', 'success');
+            document.getElementById('recordBtn').disabled = false;
+            document.getElementById('initBtn').disabled = true;
+
+            stompClient.subscribe(`/topic/interview/tmp/${currentInterviewId}`, (message) => {
+                addLog('AI 파사드 응답 도착!', 'success');
+
+                try {
+                    const data = JSON.parse(message.body);
+
+                    // DB 저장 완료 신호 수신 시 WebSocket 종료 및 모달 표시
+                    if (data.type === 'SAVE_COMPLETE') {
+                        addLog('✅ SAVE_COMPLETE 수신 — 저장 완료. WebSocket 연결 종료', 'success');
+                        stompClient.disconnect();
+                        document.getElementById('saveCompleteModal').classList.add('active');
+                        return;
+                    }
+
+                    // STT 파이프라인 에러 수신 — 상태 초기화 후 재시도 가능 상태로 복구
+                    if (data.type === 'STT_ERROR') {
+                        addLog(`❌ STT_ERROR 수신 — ${data.message}`, 'error');
+                        // 클라이언트 상태 초기화
+                        chunkIndex = 0;
+                        fullAudioChunks = [];
+                        isExitMode = false;
+                        // UI 상태 복구 (녹음 재시작 가능 상태)
+                        document.getElementById('recordBtn').disabled = false;
+                        document.getElementById('stopBtn').disabled = true;
+                        document.getElementById('exitBtn').disabled = true;
+                        document.getElementById('recIndicator').classList.remove('active');
+                        // 에러 토스트 표시 후 3초 뒤 자동 제거
+                        const toast = document.getElementById('sttErrorToast');
+                        toast.classList.add('active');
+                        setTimeout(() => toast.classList.remove('active'), 3000);
+                        return;
+                    }
+
+                    if (data.questionId && data.questionId !== currentQuestionId) {
+                        const prevId = currentQuestionId;
+                        currentQuestionId = data.questionId;
+                        updateRoomInfo();
+                        addLog(`questionId 갱신: ${prevId} → ${currentQuestionId}`, 'warn');
+                    }
+
+                    addLog(`꼬리질문: ${data.followUpQuestion}`, 'success');
+                    renderResponse(data);
+
+                } catch (e) {
+                    addLog(`응답(텍스트): ${message.body}`, 'success');
+                    document.getElementById('responseEmpty').style.display = 'none';
+                    document.getElementById('responseContent').style.display = 'block';
+                    document.getElementById('questionText').textContent = message.body;
+                }
+
+                document.getElementById('recordBtn').disabled = false;
+            });
+
+            addLog(`구독 완료: /topic/interview/tmp/${currentInterviewId}`, 'info');
+        }, (error) => {
+            addLog(`웹소켓 연결 에러: ${error}`, 'error');
+        });
+    }
+
+    // Step 3: 녹음 시작
+    async function startRecording() {
+        document.getElementById('recordBtn').disabled = true;
+        document.getElementById('stopBtn').disabled = false;
+        document.getElementById('exitBtn').disabled = false; // 종료 버튼 활성화
+        document.getElementById('recIndicator').classList.add('active');
+        chunkIndex = 0;
+        fullAudioChunks = [];
+        isExitMode = false;
+
+        globalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        fullRecorder = new MediaRecorder(globalStream, { mimeType: 'audio/webm' });
+        fullRecorder.ondataavailable = e => fullAudioChunks.push(e.data);
+        fullRecorder.start();
+
+        const interval = parseInt(document.getElementById('chunkMs').value) || 3000;
+        addLog(`녹음 시작 — 청크: ${interval}ms | questionId: ${currentQuestionId}`, 'info');
+        startChunkCycle(interval);
+    }
+
+    function startChunkCycle(interval) {
+        chunkRecorder = new MediaRecorder(globalStream, { mimeType: 'audio/webm' });
+        chunkRecorder.ondataavailable = async (e) => {
+            if (e.data.size > 0) sendChunkToServer(await blobToBase64(e.data));
+        };
+        chunkRecorder.start();
+        chunkIntervalId = setInterval(() => {
+            if (chunkRecorder.state === 'recording') { chunkRecorder.stop(); chunkRecorder.start(); }
+        }, interval);
+    }
+
+    function sendChunkToServer(base64Audio) {
+        const idx = ++chunkIndex;
+        stompClient.send('/app/interview/audio/chunk', {}, JSON.stringify({
+            interviewId: currentInterviewId,
+            questionId: currentQuestionId,
+            chunkIndex: idx,
+            audioData: base64Audio
+        }));
+        addLog(`청크 ${idx} 전송 (questionId: ${currentQuestionId})`, 'info');
+        document.getElementById('recLabel').textContent = `녹음 중... (청크 ${idx}개 전송됨)`;
+    }
+
+    // Step 4: 다음 질문 (기존 /next 흐름)
+    async function stopRecording() {
+        document.getElementById('recordBtn').disabled = true;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('exitBtn').disabled = true;
+        document.getElementById('recIndicator').classList.remove('active');
+
+        clearInterval(chunkIntervalId);
+        if (chunkRecorder && chunkRecorder.state === 'recording') chunkRecorder.stop();
+
+        addLog('통짜 오디오 파일 생성 중...', 'warn');
+
+        fullRecorder.onstop = async () => {
+            const fullBase64 = await blobToBase64(new Blob(fullAudioChunks, { type: 'audio/webm' }));
+            stompClient.send('/app/next', {}, JSON.stringify({
+                interviewId: currentInterviewId,
+                questionId: currentQuestionId,
+                totalChunk: String(chunkIndex),
+                answerAudio: fullBase64
+            }));
+            addLog(`/next 전송 완료 (총 청크: ${chunkIndex}, questionId: ${currentQuestionId})`, 'warn');
+            addLog('백엔드 처리 대기 중...', 'info');
+        };
+
+        fullRecorder.stop();
+        globalStream.getTracks().forEach(t => t.stop());
+    }
+
+    // =============================================
+    // 추가된 종료 기능
+    // =============================================
+
+    // 인터뷰 종료 버튼 클릭 시 호출
+    async function exitInterview() {
+        document.getElementById('recordBtn').disabled = true;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('exitBtn').disabled = true;
+        document.getElementById('recIndicator').classList.remove('active');
+        isExitMode = true;
+
+        addLog('인터뷰 종료 요청 — 마지막 청크 및 통짜 파일 준비 중...', 'warn');
+
+        // 청크 사이클 중단
+        clearInterval(chunkIntervalId);
+        if (chunkRecorder && chunkRecorder.state === 'recording') chunkRecorder.stop();
+
+        // 통짜 파일 생성 후 /exitV2 호출
+        fullRecorder.onstop = async () => {
+            const fullBase64 = await blobToBase64(new Blob(fullAudioChunks, { type: 'audio/webm' }));
+            await sendExitRequest(fullBase64);
+        };
+
+        fullRecorder.stop();
+        globalStream.getTracks().forEach(t => t.stop());
+    }
+
+    // /exitV2 HTTP POST 호출
+    async function sendExitRequest(fullBase64) {
+        const token = document.getElementById('token').value;
+        addLog(`/exitV2 전송 — interviewId: ${currentInterviewId}, questionId: ${currentQuestionId}, 총 청크: ${chunkIndex}`, 'warn');
+
+        try {
+            const res = await fetch('http://localhost:8080/api/v1/interview/exitV2', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({
+                    interviewId: currentInterviewId,
+                    questionId: currentQuestionId,
+                    totalChunk: String(chunkIndex),
+                    answerAudio: fullBase64
+                })
+            });
+
+            if (res.status === 409) {
+                addLog('❌ 409 Conflict — 현재 저장 중인 답변이 있습니다. 잠시 후 다시 시도하세요.', 'error');
+                document.getElementById('exitBtn').disabled = false;
+                return;
+            }
+
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+            addLog('✅ /exitV2 응답 수신 — 백그라운드에서 AI 파이프라인 처리 중...', 'success');
+
+            // 종료 카드 표시
+            document.getElementById('exitCard').style.display = 'block';
+            document.getElementById('exitTitleText').textContent = '⏳ AI가 인터뷰 제목 및 다음 질문을 생성 중입니다...';
+
+            addLog('AI 파이프라인 완료 후 인터뷰 목록에서 제목을 확인할 수 있습니다.', 'info');
+
+        } catch (e) {
+            addLog(`/exitV2 호출 실패: ${e.message}`, 'error');
+        }
+    }
+</script>
+</body>
+</html>

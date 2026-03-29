@@ -1,0 +1,108 @@
+.section {
+  position: relative;
+  background: var(--deep);
+  padding: 128px 0;
+  overflow: hidden;
+}
+
+.orb {
+  position: absolute;
+  top: -80px;
+  right: 0;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #e8d5f5 0%, #f5c6d0 45%, transparent 70%);
+  filter: blur(100px);
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 0 var(--px);
+}
+
+/* ─── 헤더 ─── */
+.headerLabel {
+  font-family: var(--font-caveat);
+  font-size: 20px;
+  color: var(--sage);
+  display: block;
+  margin-bottom: 20px;
+}
+
+.h2 {
+  font-family: var(--font-gaegu);
+  font-size: 72px;
+  color: #faf9f6;
+  line-height: 1.15;
+  display: inline-block;
+  rotate: -1deg;
+  margin-bottom: 80px;
+}
+
+/* ─── 카드 그리드 ─── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 48px;
+}
+
+.card {
+  border-top: 1px solid;
+  padding-top: 32px;
+}
+
+.symbol {
+  font-size: 28px;
+  display: inline-block;
+  margin-bottom: 24px;
+  transition: transform 0.3s, rotate 0.3s;
+}
+.card:hover .symbol {
+  transform: scale(1.2);
+  rotate: 12deg;
+}
+
+.cardTitle {
+  font-size: 22px;
+  font-weight: 900;
+  color: #faf9f6;
+  margin-bottom: 16px;
+}
+
+.cardDesc {
+  font-size: 15px;
+  line-height: 1.95;
+  color: #6a6a6a;
+}
+
+/* ─── 데코 텍스트 ─── */
+.deco {
+  margin-top: 112px;
+  overflow: hidden;
+}
+
+.decoText {
+  font-family: var(--font-playfair);
+  font-style: italic;
+  font-weight: 900;
+  white-space: nowrap;
+  color: #faf9f6;
+  opacity: 0.04;
+  font-size: 120px;
+  letter-spacing: 0.06em;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 1024px) {
+  .section { padding: 96px 0; }
+  .inner { padding: 0 var(--px-mobile); }
+  .grid { grid-template-columns: 1fr; gap: 32px; }
+  .h2 { font-size: 52px; }
+  .decoText { font-size: 64px; }
+}

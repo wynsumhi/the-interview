@@ -1,0 +1,80 @@
+[
+  {
+    "model_key": "wav2vec2_xlsr_ko_v1",
+    "display_name": "jungjongho/wav2vec2-xlsr-korean-speech-emotion-recognition",
+    "mode": "audio",
+    "raw_labels": {
+      "기쁨": 0.000267,
+      "당황": 0.000997,
+      "분노": 0.998269,
+      "불안": 0.000448,
+      "슬픔": 1.8e-05
+    },
+    "normalized_labels": {
+      "anger": 0.998269,
+      "surprise": 0.000997,
+      "anxiety": 0.000448,
+      "joy": 0.000267,
+      "sadness": 1.8e-05
+    },
+    "top_label": "anger",
+    "top_score": 0.998269
+  },
+  {
+    "model_key": "wav2vec2_xlsr_ko_v3",
+    "display_name": "jungjongho/wav2vec2-xlsr-korean-speech-emotion-recognition3",
+    "mode": "audio",
+    "raw_labels": {
+      "기쁨": 0.000209,
+      "당황": 6e-06,
+      "분노": 0.999234,
+      "불안": 1e-06,
+      "슬픔": 0.000547,
+      "중립": 2e-06
+    },
+    "normalized_labels": {
+      "anger": 0.999234,
+      "sadness": 0.000547,
+      "joy": 0.000209,
+      "surprise": 6e-06,
+      "neutral": 2e-06,
+      "anxiety": 1e-06
+    },
+    "top_label": "anger",
+    "top_score": 0.999234
+  },
+  {
+    "model_key": "audio_text_fusion",
+    "display_name": "Wav2Vec2 XLSR Korean v3 + KcELECTRA Emotion Fusion",
+    "mode": "multimodal",
+    "raw_labels": {
+      "audio": {
+        "기쁨": 0.00020942260744050145,
+        "당황": 5.926997346250573e-06,
+        "분노": 0.9992343187332153,
+        "불안": 8.172445404852624e-07,
+        "슬픔": 0.0005471878102980554,
+        "중립": 2.218579311374924e-06
+      },
+      "text": {
+        "기쁨": 0.9312130212783813,
+        "당황": 0.010926330462098122,
+        "분노": 0.008215473033487797,
+        "불안": 0.03710796684026718,
+        "상처": 0.00733559112995863,
+        "슬픔": 0.005201713647693396
+      }
+    },
+    "normalized_labels": {
+      "anger": 0.652377,
+      "joy": 0.32606,
+      "anxiety": 0.012988,
+      "surprise": 0.003828,
+      "hurt": 0.002568,
+      "sadness": 0.002176,
+      "neutral": 1e-06
+    },
+    "top_label": "anger",
+    "top_score": 0.652377
+  }
+]

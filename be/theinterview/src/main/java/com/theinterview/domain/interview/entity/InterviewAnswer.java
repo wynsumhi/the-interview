@@ -1,0 +1,120 @@
+package com.theinterview.domain.interview.entity;
+
+
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerEmotionResponse.FusedScores;
+import com.theinterview.domain.interview.dto.FastApiResponse.LastAnswerEmotionResponse.InterviewStateDb;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+@Entity
+@Table(name = "interview_answer")
+@EntityListeners(AuditingEntityListener.class)
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class InterviewAnswer {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "qna_id", nullable = false)
+    private Integer id;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "question_id", nullable = false)
+    private InterviewQuestion interviewQuestion;
+
+    @Column(name = "answer_text", nullable = false, length = 300)
+    private String answerText;
+
+    @Column(name = "answer_audio_url", nullable = false, length = 500)
+    private String answerAudioUrl;
+
+    @Column(name = "share_range", nullable = false)
+    private Boolean shareRange = false;
+
+    @Column(name = "answer_keyword", length = 300)
+    private String answerKeyword;
+
+    @Column(name = "calm_score", precision = 4, scale = 3)
+    private BigDecimal calmScore;
+
+    @Column(name = "tense_score", precision = 4, scale = 3)
+    private BigDecimal tenseScore;
+
+    @Column(name = "anxious_score", precision = 4, scale = 3)
+    private BigDecimal anxiousScore;
+
+    @Column(name = "low_score", precision = 4, scale = 3)
+    private BigDecimal lowScore;
+
+    @Column(name = "engaged_score", precision = 4, scale = 3)
+    private BigDecimal engagedScore;
+
+    @Column(name = "created_at", nullable = false)
+    @CreatedDate
+    private LocalDateTime createdAt;
+
+    @Builder
+    public InterviewAnswer(InterviewQuestion interviewQuestion, String answerText,
+            String answerAudioUrl, Boolean shareRange,
+            BigDecimal calmScore, BigDecimal tenseScore, BigDecimal anxiousScore,
+            BigDecimal lowScore, BigDecimal engagedScore) {
+        this.interviewQuestion = interviewQuestion;
+        this.answerText = answerText;
+        this.answerAudioUrl = answerAudioUrl;
+        this.shareRange = (shareRange != null) ? shareRange : false;
+        this.calmScore = calmScore;
+        this.tenseScore = tenseScore;
+        this.anxiousScore = anxiousScore;
+        this.lowScore = lowScore;
+        this.engagedScore = engagedScore;
+    }
+
+    public void updateShareRange(Boolean shareRange) {
+        this.shareRange = shareRange;
+    }
+
+    // 키워드 설정 메서드
+    public void updateKeyword(String keyword) {
+        this.answerKeyword = keyword;
+    }
+
+    /**
+     * AI 서버가 정제한 답변 텍스트만 늦게 도착했을 때 answerText만 안전하게 교체하기 위한 메서드다.
+     *
+     * <p>이번 변경 이후에는 꼬리질문 응답 저장과 정제 텍스트 저장이 서로 다른 시점에 일어난다.
+     * 따라서 이미 저장된 InterviewAnswer 행에 대해 오디오 경로나 감정 점수를 건드리지 않고,
+     * 텍스트 컬럼만 독립적으로 갱신할 수 있어야 해서 별도 메서드를 추가한다.
+     */
+    public void updateAnswerText(String answerText) {
+        this.answerText = answerText;
+    }
+
+    // 감정 상태, 정제 텍스트 저장
+    public void updateTextEmotion(String text, InterviewStateDb interviewStateDb) {
+
+        this.answerText = text;
+
+        FusedScores fusedScores = interviewStateDb.toFusedScores();
+        this.calmScore = BigDecimal.valueOf(fusedScores.getCalm());
+        this.tenseScore = BigDecimal.valueOf(fusedScores.getTense());
+        this.anxiousScore = BigDecimal.valueOf(fusedScores.getAnxious());
+        this.lowScore = BigDecimal.valueOf(fusedScores.getLow());
+        this.engagedScore = BigDecimal.valueOf(fusedScores.getEngaged());
+    }
+}

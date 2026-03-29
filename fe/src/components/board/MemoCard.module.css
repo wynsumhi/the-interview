@@ -1,0 +1,265 @@
+/* ── 카드: 수직 메모 비율 고정 (260 × 340) ── */
+.card {
+  width: 260px;
+  height: 340px;
+  padding: 10px;
+  box-sizing: border-box;
+  display: flex;
+  overflow: hidden;
+  cursor: default;
+}
+
+/* ── 이중 라인 내부 컨테이너 ── */
+.inner {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  padding: 14px 16px 12px;
+  box-sizing: border-box;
+  position: relative; /* slot의 absolute 기준점 */
+  overflow: hidden;
+}
+
+/* ── 카테고리 레이블 ── */
+.category {
+  font-family: var(--font-batang);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(0, 0, 0, 0.38);
+  margin-bottom: 6px;
+}
+
+/* ── 카테고리 아래 구분선 ── */
+.divider {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.14);
+  margin: 0;
+}
+
+/* ── 콘텐츠 슬롯: title ↔ Q&A 절대 중앙 정렬 ── */
+.slot {
+  position: absolute;
+  /* category(~18px) + margin(6px) + hr(1px) + gap(8px) = ~33px → 여유 포함 42px */
+  top: 42px;
+  left: 16px;
+  right: 16px;
+  bottom: 32px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── 메인 타이틀: 경기청년바탕, 절대 중앙 ── */
+.title {
+  font-family: var(--font-batang);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.82);
+  width: 100%;
+  margin: 0;
+  word-break: keep-all;
+}
+
+/* ── 타이틀 AlexBrush 변형 (My Q&A Memo용) ── */
+.titleCursive {
+  font-family: var(--font-alex-brush);
+  font-size: 2.4rem;
+  font-weight: normal;
+  line-height: 1.15;
+}
+
+/* ── 큐레이션 Q&A 래퍼 ── */
+.qaWrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+  overflow: hidden;
+}
+
+/* ── 질문 블록: label 위, text 아래 ── */
+.question {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* ── 답변 블록: label 위, text 아래 ── */
+.answer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: rgba(0, 0, 0, 0.8);
+}
+
+/* ── Q. / A. 레이블: Montserrat ── */
+.entryLabel {
+  font-family: var(--font-montserrat);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.6; /* 클립 방지: 1 이상으로 충분한 공간 확보 */
+  padding-top: 2px; /* ascender 상단 잘림 방지 */
+  display: block;
+}
+
+/* ── 질문·답변 한국어 본문: 경기청년바탕 ── */
+.entryText {
+  font-family: var(--font-batang);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.7;
+  word-break: keep-all;
+  display: block;
+}
+
+/* ── 답변 한국어 본문: bold로 강조 ── */
+.answer .entryText {
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+/* ── 인터뷰 시작 등 액션 버튼 ── */
+.actionBtn {
+  position: absolute;
+  bottom: 12px;
+  left: 16px;
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.07);
+  border: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.actionBtn:hover {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+/* ── 삭제 아이콘 버튼 (카드 우상단, 편집 아이콘 왼쪽) ── */
+.deleteIcon {
+  position: absolute;
+  top: 6px;
+  right: 32px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.32);
+  font-size: 0.65rem;
+  padding: 2px 4px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.deleteIcon:hover {
+  background: rgba(180, 0, 0, 0.08);
+  color: rgba(180, 0, 0, 0.7);
+}
+
+/* ── 편집 아이콘 버튼 (카드 우상단) ── */
+.editIcon {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.32);
+  font-size: 0.65rem;
+  padding: 2px 4px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.editIcon:hover {
+  background: rgba(0, 0, 0, 0.07);
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* ── 편집 모드 텍스트에어리어 ── */
+.editTextarea {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: var(--font-batang);
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: rgba(0, 0, 0, 0.8);
+}
+
+/* ── 편집 모드 저장/취소 버튼 묶음 ── */
+.editActions {
+  position: absolute;
+  bottom: 10px;
+  left: 16px;
+  display: flex;
+  gap: 6px;
+}
+
+.editSaveBtn {
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.12);
+  border: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.editSaveBtn:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.editSaveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editCancelBtn {
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.4);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.editCancelBtn:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+/* ── 날짜 푸터 ── */
+.footer {
+  position: absolute;
+  bottom: 14px;
+  right: 16px;
+  font-family: serif;
+  font-size: 0.65rem;
+  font-style: italic;
+  color: rgba(0, 0, 0, 0.32);
+  letter-spacing: 0.04em;
+}

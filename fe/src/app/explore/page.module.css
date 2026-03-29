@@ -1,0 +1,140 @@
+/* src/app/explore/page.module.css */
+.container {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 160px var(--px) 100px;
+}
+
+.header {
+  margin-bottom: 80px;
+  text-align: center;
+}
+
+.title {
+  font-family: var(--font-playfair);
+  font-style: italic;
+  font-size: 56px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+}
+
+.subtitle {
+  font-size: 16px;
+  color: var(--muted);
+  letter-spacing: -0.01em;
+}
+
+/* 그리드 레이아웃 */
+.magazineGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 64px 40px;
+}
+
+.magazineCard {
+  transition: transform 0.3s ease;
+}
+
+.magazineCard:hover {
+  transform: translateY(-10px);
+}
+
+/* 매거진 커버 */
+.cover {
+  /* height: 240px; */
+  margin-bottom: 24px;
+  padding: 24px;
+  display: flex;
+  align-items: flex-end;
+  position: relative;
+  overflow: hidden;
+}
+
+.vol {
+  font-family: var(--font-playfair);
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.8);
+  position: relative; /* EmotionVisual(absolute) 위에 렌더링 */
+  z-index: 1;
+}
+
+/* 감정별 커버 색상 */
+.joy {
+  background: var(--blush);
+}
+.serenity {
+  background: var(--sage);
+}
+.sadness {
+  background: var(--lavender);
+}
+.insight {
+  background: var(--charcoal);
+}
+.anger {
+  background: #e53935;
+  opacity: 0.8;
+}
+
+/* 컨텐츠 영역 */
+.content {
+  padding: 0 4px;
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.magazineTitle {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.35;
+  margin-bottom: 16px;
+  word-break: keep-all;
+}
+
+.preview {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--charcoal);
+  margin-bottom: 24px;
+  opacity: 0.8;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.qCount {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sage);
+  text-transform: uppercase;
+}
+
+.readMore {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 120px var(--px-mobile);
+  }
+  .magazineGrid {
+    grid-template-columns: 1fr;
+  }
+}
