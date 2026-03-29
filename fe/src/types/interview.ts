@@ -39,6 +39,7 @@ export interface FusedScores {
 /** Explore 목록의 단일 인터뷰 항목 */
 export interface ExploreInterviewItem {
   interviewId: number;
+  shareUuid: string; // 공개 상세 조회용 UUID — GET /api/v1/interview/share/{shareUuid}
   interviewTitle: string;
   interviewDate: string; // "2026-03-15" 형식
   fusedEmotion: EmotionType; // 대표 감정 (커버 단색 fallback)
