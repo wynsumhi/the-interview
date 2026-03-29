@@ -31,7 +31,7 @@
 }
 
 .headerLabel {
-  font-family: var(--font-alex-brush);
+  font-family: var(--font-playfair);
   font-size: 20px;
   color: var(--sage);
   display: block;

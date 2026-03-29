@@ -39,9 +39,6 @@ export default function IntroSection() {
               <Link href="/signup" className={styles.ctaPrimary}>
                 인터뷰 시작하기
               </Link>
-              <Link href="#why" className={styles.ctaSecondary}>
-                서비스 소개 <span className={styles.ctaArrow}>↓</span>
-              </Link>
             </div>
           </div>
 
