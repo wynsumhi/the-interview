@@ -1,8 +1,11 @@
 import Link from "next/link";
 import styles from "./IntroSection.module.css";
 
-const WAVE_HEIGHTS = [28, 46, 70, 108, 58, 130, 76, 94, 52, 118, 70, 88, 40, 112, 58, 76, 34, 94, 52, 70];
-const WAVE_COLORS = ["#9b91d4", "#c9a99a", "#8a9e8c"];
+const WAVE_HEIGHTS = [
+  28, 46, 70, 108, 58, 130, 76, 94, 52, 118, 70, 88, 40, 112, 58, 76, 34, 94,
+  52, 70,
+];
+const WAVE_COLORS = ["#9b91d4", "#c9a99a", "#b0b0b0"];
 
 export default function IntroSection() {
   return (
@@ -12,21 +15,19 @@ export default function IntroSection() {
 
       <div className={styles.container}>
         <div className={styles.grid}>
-
           {/* 텍스트 */}
           <div>
             <div className={styles.eyebrow}>
               <span className={styles.eyebrowLine} />
-              <span className={styles.eyebrowText}>Vol.01 — 나를 발견하는 인터뷰</span>
+              <span className={styles.eyebrowText}>Vol.01</span>
             </div>
 
-            <h1 className={styles.h1}>방구석</h1>
+            <h1 className={styles.h1}>The</h1>
             <div className={styles.h1Row}>
-              <h1 className={styles.h1}>인터뷰</h1>
-              <span className={styles.h1Accent}>Interview.</span>
+              <h1 className={styles.h1}>interview</h1>
             </div>
 
-            <p className={styles.handwriting}>집에서 나를 인터뷰하는 공간 ✦</p>
+            <p className={styles.handwriting}>나를 발견하는 공간 ✦</p>
 
             <p className={styles.body}>
               AI 인터뷰어가 당신에게 진심어린 질문을 건넵니다.
@@ -37,9 +38,6 @@ export default function IntroSection() {
             <div className={styles.cta}>
               <Link href="/signup" className={styles.ctaPrimary}>
                 인터뷰 시작하기
-              </Link>
-              <Link href="#why" className={styles.ctaSecondary}>
-                서비스 소개 <span className={styles.ctaArrow}>↓</span>
               </Link>
             </div>
           </div>

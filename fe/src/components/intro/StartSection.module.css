@@ -31,7 +31,7 @@
 }
 
 .eyebrow {
-  font-family: var(--font-caveat);
+  font-family: var(--font-alex-brush);
   font-size: 22px;
   color: rgba(28, 28, 28, 0.55);
   display: block;
@@ -48,7 +48,7 @@
 }
 
 .h2Handwriting {
-  font-family: var(--font-gaegu);
+  font-family: var(--font-batang);
   font-size: 80px;
   color: var(--fg);
   line-height: 1.15;

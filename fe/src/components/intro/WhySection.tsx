@@ -10,7 +10,7 @@ export default function WhySection() {
         <div className={styles.header}>
           <span className={styles.sectionNum}>01</span>
           <div className={styles.headerMeta}>
-            <span className={styles.headerLabel}>방구석 인터뷰란?</span>
+            <span className={styles.headerLabel}>the interview란?</span>
             <div className={styles.headerLine} />
           </div>
         </div>
@@ -24,7 +24,7 @@ export default function WhySection() {
               나만의 인터뷰
             </h2>
             <p className={styles.body}>
-              방구석 인터뷰는 AI가 당신과 1:1 인터뷰를 진행하는 서비스입니다.
+              the interview는 AI가 당신과 1:1 인터뷰를 진행하는 서비스입니다.
               매 세션마다 새로운 질문으로 당신의 생각, 감정, 경험을 탐색합니다.
             </p>
             <p className={styles.body}>

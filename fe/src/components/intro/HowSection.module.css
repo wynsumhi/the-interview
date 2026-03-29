@@ -29,7 +29,7 @@
 .headerMeta { margin-bottom: 12px; }
 
 .headerLabel {
-  font-family: var(--font-caveat);
+  font-family: var(--font-alex-brush);
   font-size: 20px;
   color: var(--sage);
   display: block;
@@ -98,7 +98,7 @@
 }
 
 .dividerText {
-  font-family: var(--font-gaegu);
+  font-family: var(--font-batang);
   font-size: 20px;
   color: var(--lavender);
   flex-shrink: 0;

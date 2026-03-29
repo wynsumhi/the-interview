@@ -71,13 +71,14 @@
 }
 
 .eyebrowText {
-  font-family: var(--font-caveat);
+  font-family: var(--font-alex-brush);
   font-size: 20px;
   color: var(--sage);
   letter-spacing: 0.04em;
 }
 
 .h1 {
+  font-family: var(--font-playfair);
   font-size: 96px;
   font-weight: 900;
   line-height: 0.87;
@@ -101,7 +102,7 @@
 }
 
 .handwriting {
-  font-family: var(--font-gaegu);
+  font-family: var(--font-batang);
   font-size: 26px;
   color: var(--lavender);
   display: inline-block;
@@ -259,7 +260,7 @@
 }
 
 .recordingText {
-  font-family: var(--font-gaegu);
+  font-family: var(--font-batang);
   color: var(--sage);
   font-size: 18px;
 }
