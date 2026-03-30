@@ -73,11 +73,9 @@ export default function LoginPage() {
     <main className={styles.container}>
       <div className={styles.authBox}>
         {/* 로고 (메인페이지 바로가기) */}
-        <Link href="/" className={styles.logo}>
-          The interview
+        <Link href="/" className={styles.title}>
+          Welcome Back
         </Link>
-
-        <h2 className={styles.title}>Welcome Back</h2>
 
         {/* onSubmit: 폼 제출 이벤트를 handleSubmit 함수에 연결 */}
         <form className={styles.form} onSubmit={handleSubmit}>
@@ -116,23 +114,6 @@ export default function LoginPage() {
             {isLoading ? "로그인 중..." : "로그인"}
           </button>
         </form>
-
-        <div className={styles.divider}>
-          <span>또는</span>
-        </div>
-
-        {/* 소셜 로그인 영역 */}
-        <div className={styles.socialGroup}>
-          <button className={`${styles.socialBtn} ${styles.kakao}`}>
-            카카오 로그인
-          </button>
-          <button className={`${styles.socialBtn} ${styles.naver}`}>
-            네이버 로그인
-          </button>
-          <button className={`${styles.socialBtn} ${styles.google}`}>
-            구글 로그인
-          </button>
-        </div>
 
         <p className={styles.switchAuth}>
           아직 계정이 없으신가요? <Link href="/signup">회원가입</Link>
