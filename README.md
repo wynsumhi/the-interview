@@ -100,16 +100,16 @@ The Interview는 이 문제를 **AI 인터뷰 구조**로 해결합니다.
 
 ### 기술 스택
 
-| **Category**   | **Stack**                                                                    |
-|----------------|------------------------------------------------------------------------------|
-| **FrontEnd**   | React, Next.js, Typescript, pnpm, Zustand                                    |
-| **BackEnd**    | Java, Spring Boot, Spring Security, JPA, JWT, WebSocket(STOMP)               |
-| **AI**         | Python, FastAPI, OpenAI Whisper(STT), Claude, Gemini, Qdrant, Supertonic TTS |
-| **Database**   | PostgreSQL, Redis                                                            |
-| **CI / CD**    | Jenkins, GitLab Webhook                                                      |
-| **Docs**       | Swagger                                                                      |
-| **Infra**      | AWS EC2, Docker, Docker Compose, Nginx, Let’s Encrypt(SSL)                   |
-| **Monitoring** | Grafana, Prometheus, Loki, Promtail, cAdvisor, Node Exporter                 |
+| **Category**   | **Stack**                                                                                 |
+|----------------|-------------------------------------------------------------------------------------------|
+| **FrontEnd**   | React, Next.js, Typescript, pnpm, Zustand                                                 |
+| **BackEnd**    | Java, Spring Boot, Spring Security, JPA, JWT, WebSocket(STOMP), Spring WebFlux(WebClient) |
+| **AI**         | Python, FastAPI, OpenAI Whisper(STT), Claude, Gemini, Qdrant, Supertonic TTS              |
+| **Database**   | PostgreSQL, Redis                                                                         |
+| **CI / CD**    | Jenkins, GitLab Webhook                                                                   |
+| **Docs**       | Swagger                                                                                   |
+| **Infra**      | AWS EC2, Docker, Docker Compose, Nginx, Let’s Encrypt(SSL)                                |
+| **Monitoring** | Grafana, Prometheus, Loki, Promtail, cAdvisor, Node Exporter                              |
 
 ### 프로젝트 구조
 
@@ -391,7 +391,6 @@ cp .env.template .env.local
 #   NEXT_PUBLIC_JWT_SECRET=<your-jwt-secret>
 
 # 2. 의존성 설치 및 실행
-corepack enable
 pnpm install
 pnpm dev
 ```
